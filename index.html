@@ -1,15 +1,55 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Adlai</title>
-  <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #f7f4ee; color: #1f2937; }
-    h1 { font-size: clamp(2rem, 8vw, 5rem); text-align: center; padding: 1rem; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adlai's Tetris</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: radial-gradient(circle at top, #26325f, #101424 55%); font: 16px system-ui, sans-serif; color: #f7f7fb; }
+  main { display: grid; grid-template-columns: auto minmax(150px, 210px); gap: 24px; padding: 24px; align-items: start; }
+  h1 { margin: 0 0 8px; font-size: 1.5rem; } p { margin: 0 0 18px; color: #c5cbe7; }
+  canvas { display: block; background: #0a0d1a; border: 3px solid #6474bd; box-shadow: 0 16px 45px #0008; }
+  .panel { padding-top: 4px; } .score { font-size: 2rem; font-weight: 800; margin: 4px 0 20px; }
+  button { border: 0; border-radius: 8px; background: #6c7cff; color: white; cursor: pointer; padding: 10px 16px; font: inherit; font-weight: 700; }
+  button:hover { background: #8491ff; } .help { margin-top: 20px; line-height: 1.6; font-size: .9rem; }
+  kbd { background: #252c4a; border-radius: 4px; padding: 2px 5px; }
+  @media (max-width: 600px) { main { grid-template-columns: 1fr; justify-items: center; padding: 16px; } .panel { text-align: center; } }
+</style>
 </head>
 <body>
-  <h1>Hello world, this is Adlai</h1>
+<main>
+  <canvas id="game" width="300" height="600" aria-label="Tetris game"></canvas>
+  <section class="panel">
+    <h1>Adlai's Tetris</h1>
+    <p>Clear lines. Chase a high score.</p>
+    <div>Score</div><div id="score" class="score">0</div>
+    <button id="restart">New game</button>
+    <p class="help"><kbd>←</kbd> <kbd>→</kbd> move<br><kbd>↓</kbd> drop<br><kbd>↑</kbd> rotate<br><kbd>Space</kbd> hard drop</p>
+  </section>
+</main>
+<script>
+const canvas = document.querySelector('#game'), ctx = canvas.getContext('2d');
+const scale = 30, cols = 10, rows = 20;
+ctx.scale(scale, scale);
+const colors = [null, '#46d9ff', '#5876f2', '#ff9d3d', '#ffe45c', '#63df7b', '#ba71f4', '#ff5e7c'];
+const shapes = [null, [[1,1,1,1]], [[2,0,0],[2,2,2]], [[0,0,3],[3,3,3]], [[4,4],[4,4]], [[0,5,5],[5,5,0]], [[0,6,0],[6,6,6]], [[7,7,0],[0,7,7]]];
+let board, piece, score, last = 0, fall = 0, over = false;
+function emptyBoard() { return Array.from({length: rows}, () => Array(cols).fill(0)); }
+function drawMatrix(matrix, offset) { matrix.forEach((row,y) => row.forEach((v,x) => { if (v) { ctx.fillStyle=colors[v]; ctx.fillRect(x+offset.x,y+offset.y,.96,.96); } })); }
+function draw() { ctx.fillStyle='#0a0d1a'; ctx.fillRect(0,0,cols,rows); drawMatrix(board,{x:0,y:0}); drawMatrix(piece.matrix,piece.pos); if(over){ctx.fillStyle='#000b';ctx.fillRect(0,8,10,4);ctx.fillStyle='white';ctx.font='1px system-ui';ctx.textAlign='center';ctx.fillText('GAME OVER',5,10);ctx.font='.5px system-ui';ctx.fillText('Press New game',5,11.1);} }
+function collide() { for(let y=0;y<piece.matrix.length;y++) for(let x=0;x<piece.matrix[y].length;x++) if(piece.matrix[y][x] && (board[y+piece.pos.y] && board[y+piece.pos.y][x+piece.pos.x]) !== 0) return true; return false; }
+function merge() { piece.matrix.forEach((row,y)=>row.forEach((v,x)=>{if(v)board[y+piece.pos.y][x+piece.pos.x]=v;})); }
+function sweep() { let bonus=0; outer: for(let y=rows-1;y>=0;y--){for(let x=0;x<cols;x++)if(!board[y][x])continue outer; board.splice(y,1);board.unshift(Array(cols).fill(0));y++;bonus=bonus?bonus*2:100;}score+=bonus;document.querySelector('#score').textContent=score; }
+function spawn() { const n=1+Math.floor(Math.random()*7); piece={matrix:shapes[n].map(r=>r.slice()),pos:{x:Math.floor((cols-shapes[n][0].length)/2),y:0}};if(collide())over=true; }
+function drop(){piece.pos.y++;if(collide()){piece.pos.y--;merge();sweep();spawn();}fall=0;}
+function move(dx){piece.pos.x+=dx;if(collide())piece.pos.x-=dx;}
+function rotate(){const m=piece.matrix;for(let y=0;y<m.length;y++)for(let x=0;x<y;x++) [m[x][y],m[y][x]]=[m[y][x],m[x][y]];m.forEach(row=>row.reverse());if(collide()){m.forEach(row=>row.reverse());for(let y=0;y<m.length;y++)for(let x=0;x<y;x++) [m[x][y],m[y][x]]=[m[y][x],m[x][y]];}}
+function update(t=0){const dt=t-last;last=t;fall+=dt;if(!over&&fall>700)drop();draw();requestAnimationFrame(update);}
+document.addEventListener('keydown',e=>{if(over)return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft')move(-1);if(e.key==='ArrowRight')move(1);if(e.key==='ArrowDown')drop();if(e.key==='ArrowUp')rotate();if(e.key===' '){while(!collide()){piece.pos.y++;}piece.pos.y--;drop();}});
+document.querySelector('#restart').onclick=()=>{board=emptyBoard();score=0;over=false;document.querySelector('#score').textContent=0;spawn();};
+board=emptyBoard();spawn();update();
+</script>
 </body>
 </html>
