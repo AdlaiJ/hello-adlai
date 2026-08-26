@@ -26,7 +26,7 @@
     <p>Clear lines. Chase a high score.</p>
     <div>Score</div><div id="score" class="score">0</div>
     <button id="restart">New game</button>
-    <p class="help"><kbd>A</kbd> <kbd>D</kbd> move<br><kbd>S</kbd> drop<br><kbd>W</kbd> rotate<br><kbd>Space</kbd> hard drop</p>
+    <p class="help"><kbd>A</kbd> <kbd>D</kbd> move<br><kbd>S</kbd> drop<br><kbd>W</kbd> / <kbd>R</kbd> rotate<br><kbd>Space</kbd> hard drop</p>
   </section>
 </main>
 <script>
@@ -35,19 +35,21 @@ const scale = 30, cols = 10, rows = 20;
 ctx.scale(scale, scale);
 const colors = [null, '#46d9ff', '#5876f2', '#ff9d3d', '#ffe45c', '#63df7b', '#ba71f4', '#ff5e7c'];
 const shapes = [null, [[1,1,1,1]], [[2,0,0],[2,2,2]], [[0,0,3],[3,3,3]], [[4,4],[4,4]], [[0,5,5],[5,5,0]], [[0,6,0],[6,6,6]], [[7,7,0],[0,7,7]]];
-let board, piece, score, last = 0, fall = 0, over = false;
+let board, piece, score, last = 0, fall = 0, over = false, forcedPiece = null, enterTimes = [];
 function emptyBoard() { return Array.from({length: rows}, () => Array(cols).fill(0)); }
 function drawMatrix(matrix, offset) { matrix.forEach((row,y) => row.forEach((v,x) => { if (v) { ctx.fillStyle=colors[v]; ctx.fillRect(x+offset.x,y+offset.y,.96,.96); } })); }
 function draw() { ctx.fillStyle='#0a0d1a'; ctx.fillRect(0,0,cols,rows); drawMatrix(board,{x:0,y:0}); drawMatrix(piece.matrix,piece.pos); if(over){ctx.fillStyle='#000b';ctx.fillRect(0,8,10,4);ctx.fillStyle='white';ctx.font='1px system-ui';ctx.textAlign='center';ctx.fillText('GAME OVER',5,10);ctx.font='.5px system-ui';ctx.fillText('Press New game',5,11.1);} }
 function collide() { for(let y=0;y<piece.matrix.length;y++) for(let x=0;x<piece.matrix[y].length;x++) if(piece.matrix[y][x] && (board[y+piece.pos.y] && board[y+piece.pos.y][x+piece.pos.x]) !== 0) return true; return false; }
 function merge() { piece.matrix.forEach((row,y)=>row.forEach((v,x)=>{if(v)board[y+piece.pos.y][x+piece.pos.x]=v;})); }
 function sweep() { let bonus=0; outer: for(let y=rows-1;y>=0;y--){for(let x=0;x<cols;x++)if(!board[y][x])continue outer; board.splice(y,1);board.unshift(Array(cols).fill(0));y++;bonus=bonus?bonus*2:100;}score+=bonus;document.querySelector('#score').textContent=score; }
-function spawn() { const n=1+Math.floor(Math.random()*7); piece={matrix:shapes[n].map(r=>r.slice()),pos:{x:Math.floor((cols-shapes[n][0].length)/2),y:0}};if(collide())over=true; }
+function spawn() { const n=forcedPiece || 1+Math.floor(Math.random()*7); forcedPiece=null; piece={matrix:shapes[n].map(r=>r.slice()),pos:{x:Math.floor((cols-shapes[n][0].length)/2),y:0}};if(collide())over=true; }
 function drop(){piece.pos.y++;if(collide()){piece.pos.y--;merge();sweep();spawn();}fall=0;}
 function move(dx){piece.pos.x+=dx;if(collide())piece.pos.x-=dx;}
-function rotate(){const old=piece.matrix;piece.matrix=old[0].map((_,x)=>old.map(row=>row[x]).reverse());if(collide())piece.matrix=old;}
+function rotateMatrix(m){return m[0].map((_,x)=>m.map(row=>row[x]).reverse());}
+function rotate(){const old=piece.matrix;piece.matrix=rotateMatrix(old);if(collide())piece.matrix=old;}
+function bestPiece(){let best=1,bestValue=-Infinity;for(let n=1;n<=7;n++){let m=shapes[n].map(r=>r.slice()),seen=new Set();for(let turn=0;turn<4;turn++){const key=m.map(r=>r.join('')).join('/');if(!seen.has(key)){seen.add(key);for(let x=0;x<=cols-m[0].length;x++){let y=0;const fits=(yy)=>m.every((row,dy)=>row.every((v,dx)=>!v||(yy+dy>=0&&yy+dy<rows&&!board[yy+dy][x+dx])));while(fits(y+1))y++;if(!fits(y))continue;const trial=board.map(row=>row.slice());m.forEach((row,dy)=>row.forEach((v,dx)=>{if(v)trial[y+dy][x+dx]=v;}));let lines=0,holes=0,height=0;for(let yy=0;yy<rows;yy++)if(trial[yy].every(Boolean))lines++;for(let xx=0;xx<cols;xx++){let solid=false;for(let yy=0;yy<rows;yy++){if(trial[yy][xx])solid=true;else if(solid)holes++;}for(let yy=0;yy<rows;yy++)if(trial[yy][xx]){height+=rows-yy;break;}}const value=lines*1000-holes*35-height*2;if(value>bestValue){bestValue=value;best=n;}}}m=rotateMatrix(m);}}return best;}
 function update(t=0){const dt=t-last;last=t;fall+=dt;if(!over&&fall>700)drop();draw();requestAnimationFrame(update);}
-document.addEventListener('keydown',e=>{if(over)return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','a','A','d','D','s','S','w','W',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')move(-1);if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')move(1);if(e.key==='ArrowDown'||e.key==='s'||e.key==='S')drop();if(e.key==='ArrowUp'||e.key==='w'||e.key==='W')rotate();if(e.key===' '){while(!collide()){piece.pos.y++;}piece.pos.y--;drop();}});
+document.addEventListener('keydown',e=>{if(over)return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','a','A','d','D','s','S','w','W','r','R','Enter',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')move(-1);if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')move(1);if(e.key==='ArrowDown'||e.key==='s'||e.key==='S')drop();if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key==='r'||e.key==='R')rotate();if(e.key==='Enter'){const now=Date.now();enterTimes=enterTimes.filter(t=>now-t<650);enterTimes.push(now);if(enterTimes.length>=3){forcedPiece=bestPiece();enterTimes=[];}}if(e.key===' '){while(!collide()){piece.pos.y++;}piece.pos.y--;drop();}});
 document.querySelector('#restart').onclick=()=>{board=emptyBoard();score=0;over=false;document.querySelector('#score').textContent=0;spawn();};
 board=emptyBoard();spawn();update();
 </script>
