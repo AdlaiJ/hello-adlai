@@ -20,7 +20,7 @@
 </head>
 <body>
 <main>
-  <canvas id="game" width="300" height="600" aria-label="Tetris game"></canvas>
+  <canvas id="game" width="300" height="600" tabindex="0" aria-label="Tetris game"></canvas>
   <section class="panel">
     <h1>Adlai's Tetris</h1>
     <p>Clear lines. Chase a high score.</p>
@@ -33,25 +33,27 @@
 const canvas = document.querySelector('#game'), ctx = canvas.getContext('2d');
 const scale = 30, cols = 10, rows = 20;
 ctx.scale(scale, scale);
-const colors = [null, '#46d9ff', '#5876f2', '#ff9d3d', '#ffe45c', '#63df7b', '#ba71f4', '#ff5e7c'];
+const colors = [null, '#46d9ff', '#5876f2', '#ff9d3d', '#ffe45c', '#63df7b', '#ba71f4', '#ff5e7c', '#ffd84d'];
 const shapes = [null, [[1,1,1,1]], [[2,0,0],[2,2,2]], [[0,0,3],[3,3,3]], [[4,4],[4,4]], [[0,5,5],[5,5,0]], [[0,6,0],[6,6,6]], [[7,7,0],[0,7,7]]];
-let board, piece, score, last = 0, fall = 0, over = false, enterTimes = [];
+let board, piece, score, last = 0, fall = 0, over = false, enterTimes = [], particles = [];
 function emptyBoard() { return Array.from({length: rows}, () => Array(cols).fill(0)); }
 function drawMatrix(matrix, offset) { matrix.forEach((row,y) => row.forEach((v,x) => { if (v) { ctx.fillStyle=colors[v]; ctx.fillRect(x+offset.x,y+offset.y,.96,.96); } })); }
-function draw() { ctx.fillStyle='#0a0d1a'; ctx.fillRect(0,0,cols,rows); drawMatrix(board,{x:0,y:0}); drawMatrix(piece.matrix,piece.pos); if(over){ctx.fillStyle='#000b';ctx.fillRect(0,8,10,4);ctx.fillStyle='white';ctx.font='1px system-ui';ctx.textAlign='center';ctx.fillText('GAME OVER',5,10);ctx.font='.5px system-ui';ctx.fillText('Press New game',5,11.1);} }
+function drawParticles(){for(const p of particles){ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,.14,.14);}ctx.globalAlpha=1;}
+function draw() { ctx.fillStyle='#0a0d1a'; ctx.fillRect(0,0,cols,rows); drawMatrix(board,{x:0,y:0}); drawMatrix(piece.matrix,piece.pos); drawParticles(); if(over){ctx.fillStyle='#000b';ctx.fillRect(0,8,10,4);ctx.fillStyle='white';ctx.font='1px system-ui';ctx.textAlign='center';ctx.fillText('GAME OVER',5,10);ctx.font='.5px system-ui';ctx.fillText('Press New game',5,11.1);} }
 function collide() { for(let y=0;y<piece.matrix.length;y++) for(let x=0;x<piece.matrix[y].length;x++) if(piece.matrix[y][x] && (board[y+piece.pos.y] && board[y+piece.pos.y][x+piece.pos.x]) !== 0) return true; return false; }
 function merge() { piece.matrix.forEach((row,y)=>row.forEach((v,x)=>{if(v)board[y+piece.pos.y][x+piece.pos.x]=v;})); }
-function sweep() { let bonus=0; outer: for(let y=rows-1;y>=0;y--){for(let x=0;x<cols;x++)if(!board[y][x])continue outer; board.splice(y,1);board.unshift(Array(cols).fill(0));y++;bonus=bonus?bonus*2:100;}score+=bonus;document.querySelector('#score').textContent=score; }
+function shatter(y){for(let x=0;x<cols;x++)for(let i=0;i<8;i++)particles.push({x:x+.5,y:y+.5,vx:(Math.random()-.5)*.22,vy:-Math.random()*.28,life:1,color:colors[board[y][x]]||'#fff'});}
+function sweep() { let bonus=0; outer: for(let y=rows-1;y>=0;y--){for(let x=0;x<cols;x++)if(!board[y][x])continue outer; shatter(y);board.splice(y,1);board.unshift(Array(cols).fill(0));y++;bonus=bonus?bonus*2:100;}score+=bonus;document.querySelector('#score').textContent=score; }
 function spawn() { const n=1+Math.floor(Math.random()*7); piece={matrix:shapes[n].map(r=>r.slice()),pos:{x:Math.floor((cols-shapes[n][0].length)/2),y:0}};if(collide())over=true; }
 function drop(){piece.pos.y++;if(collide()){piece.pos.y--;merge();sweep();spawn();}fall=0;}
 function move(dx){piece.pos.x+=dx;if(collide())piece.pos.x-=dx;}
 function rotateMatrix(m){return m[0].map((_,x)=>m.map(row=>row[x]).reverse());}
 function rotate(){const old=piece.matrix;piece.matrix=rotateMatrix(old);if(collide())piece.matrix=old;}
-function createPerfectPiece(){for(let y=rows-1;y>0;y--){const gaps=board[y].map(v=>v?0:8);if(!gaps.some(Boolean))continue;if(y<rows-1&&gaps.some((v,x)=>v&&!board[y+1][x]))continue;piece={matrix:[gaps],pos:{x:0,y:y-1}};if(collide())piece.pos.y=y;return;}const gaps=board[rows-1].map(v=>v?0:8);if(gaps.some(Boolean))piece={matrix:[gaps],pos:{x:0,y:rows-1}};}
-function update(t=0){const dt=t-last;last=t;fall+=dt;if(!over&&fall>700)drop();draw();requestAnimationFrame(update);}
-document.addEventListener('keydown',e=>{if(over)return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','a','A','d','D','s','S','w','W','r','R','Enter',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')move(-1);if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')move(1);if(e.key==='ArrowDown'||e.key==='s'||e.key==='S')drop();if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key==='r'||e.key==='R')rotate();if(e.key==='Enter'){const now=Date.now();enterTimes=enterTimes.filter(t=>now-t<650);enterTimes.push(now);if(enterTimes.length>=3){createPerfectPiece();enterTimes=[];}}if(e.key===' '){while(!collide()){piece.pos.y++;}piece.pos.y--;drop();}});
+function createPerfectPiece(){for(let y=rows-1;y>0;y--){const gaps=board[y].map(v=>v?0:8);if(!gaps.some(Boolean))continue;if(y<rows-1&&gaps.some((v,x)=>v&&!board[y+1][x]))continue;piece={matrix:[gaps],pos:{x:0,y:0}};return;}const gaps=board[rows-1].map(v=>v?0:8);if(gaps.some(Boolean))piece={matrix:[gaps],pos:{x:0,y:0}};}
+function update(t=0){const dt=t-last;last=t;fall+=dt;particles=particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.014;p.life-=.025;return p.life>0;});if(!over&&fall>700)drop();draw();requestAnimationFrame(update);}
+window.addEventListener('keydown',e=>{if(over)return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','a','A','d','D','s','S','w','W','r','R','Enter',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')move(-1);if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')move(1);if(e.key==='ArrowDown'||e.key==='s'||e.key==='S')drop();if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key==='r'||e.key==='R')rotate();if(e.key==='Enter'){const now=Date.now();enterTimes=enterTimes.filter(t=>now-t<650);enterTimes.push(now);if(enterTimes.length>=3){createPerfectPiece();enterTimes=[];}}if(e.key===' '){while(!collide()){piece.pos.y++;}piece.pos.y--;drop();}});
 document.querySelector('#restart').onclick=()=>{board=emptyBoard();score=0;over=false;document.querySelector('#score').textContent=0;spawn();};
-board=emptyBoard();spawn();update();
+board=emptyBoard();spawn();requestAnimationFrame(()=>canvas.focus());window.addEventListener('focus',()=>canvas.focus());update();
 </script>
 </body>
 </html>
