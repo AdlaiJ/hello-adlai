@@ -13,7 +13,7 @@
   canvas { display: block; background: #0a0d1a; border: 3px solid #6474bd; box-shadow: 0 16px 45px #0008; }
   .panel { padding-top: 4px; } .score { font-size: 2rem; font-weight: 800; margin: 4px 0 20px; }
   button { border: 0; border-radius: 8px; background: #6c7cff; color: white; cursor: pointer; padding: 10px 16px; font: inherit; font-weight: 700; }
-  button:hover { background: #8491ff; } .menu { margin-top: 10px; display: grid; gap: 6px; } .menu[hidden] { display: none; } .skin-choice { background: #252c4a; padding: 7px 10px; font-size: .9rem; } .help { margin-top: 20px; line-height: 1.6; font-size: .9rem; }
+  button:hover { background: #8491ff; } .page-link { display:block; border-radius:8px; background:#252c4a; color:white; padding:7px 10px; text-decoration:none; font-weight:700; font-size:.9rem; } .page-link:hover { background:#35406c; } .menu { margin-top: 10px; display: grid; gap: 6px; } .menu[hidden] { display: none; } .skin-choice { background: #252c4a; padding: 7px 10px; font-size: .9rem; } .help { margin-top: 20px; line-height: 1.6; font-size: .9rem; }
   kbd { background: #252c4a; border-radius: 4px; padding: 2px 5px; }
   @media (max-width: 600px) { main { grid-template-columns: 1fr; justify-items: center; padding: 16px; } .panel { text-align: center; } }
 </style>
@@ -25,7 +25,7 @@
     <h1>Adlai's Tetris</h1>
     <p>Clear lines. Chase a high score.</p>
     <div>Score</div><div id="score" class="score">0</div>
-    <button id="restart">New game</button><button id="skins">Choose skin</button><div id="skin-menu" class="menu" hidden><button class="skin-choice" data-skin="regular">Regular blocks</button><button class="skin-choice" data-skin="sandwich">Sandwiches</button><button class="skin-choice" data-skin="retro">Retro sandwiches</button><button class="skin-choice" data-skin="dogs">Dogs</button></div>
+    <button id="restart">New game</button><button id="skins">Choose skin</button><button id="pages">Pages</button><div id="page-menu" class="menu" hidden><a class="page-link" href="./">Tetris</a><a class="page-link" href="hello.html">Hello world</a></div><div id="skin-menu" class="menu" hidden><button class="skin-choice" data-skin="regular">Regular blocks</button><button class="skin-choice" data-skin="sandwich">Sandwiches</button><button class="skin-choice" data-skin="retro">Retro sandwiches</button><button class="skin-choice" data-skin="dogs">Dogs</button></div>
     <p class="help"><kbd>A</kbd> <kbd>D</kbd> move<br><kbd>S</kbd> drop<br><kbd>W</kbd> / <kbd>R</kbd> rotate<br><kbd>Space</kbd> hard drop</p>
   </section>
 </main>
@@ -35,7 +35,7 @@ const scale = 30, cols = 10, rows = 20;
 ctx.scale(scale, scale);
 const colors = [null, '#46d9ff', '#5876f2', '#ff9d3d', '#ffe45c', '#63df7b', '#ba71f4', '#ff5e7c', '#ffd84d'];
 const shapes = [null, [[1,1,1,1]], [[2,0,0],[2,2,2]], [[0,0,3],[3,3,3]], [[4,4],[4,4]], [[0,5,5],[5,5,0]], [[0,6,0],[6,6,6]], [[7,7,0],[0,7,7]]];
-let board, piece, score, last = 0, fall = 0, over = false, enterTimes = [], particles = [], munches = [], skin = 'regular';
+let board, piece, score = 0, last = 0, fall = 0, over = false, enterTimes = [], particles = [], munches = [], skin = 'regular';
 function emptyBoard() { return Array.from({length: rows}, () => Array(cols).fill(0)); }
 function drawSandwich(x,y,width){ctx.fillStyle='#a95a28';ctx.fillRect(x,y+.12,width,.18);ctx.fillStyle='#f0b76b';ctx.fillRect(x,y+.08,width,.17);ctx.fillStyle='#62a842';ctx.fillRect(x,y+.29,width,.09);ctx.fillStyle='#e94b34';for(let px=x+.12;px<x+width;px+=.7)ctx.fillRect(px,y+.39,.35,.1);ctx.fillStyle='#6b321d';ctx.fillRect(x,y+.49,width,.16);ctx.fillStyle='#e7a65b';ctx.fillRect(x,y+.65,width,.2);ctx.fillStyle='#ffd78d';for(let px=x+.25;px<x+width;px+=.55)ctx.fillRect(px,y+.12,.06,.04);}
 function drawMatrix(matrix, offset) {if(skin==='sandwich'){matrix.forEach((row,y)=>{let x=0;while(x<row.length){if(!row[x]){x++;continue;}const start=x;while(x<row.length&&row[x])x++;drawSandwich(start+offset.x,y+offset.y,x-start);}});return;}matrix.forEach((row,y)=>row.forEach((v,x)=>{if(v){const px=x+offset.x,py=y+offset.y;if(skin==='regular'){ctx.fillStyle=colors[v];ctx.fillRect(px,py,.96,.96);}else if(skin==='retro'){ctx.fillStyle='#d7a94e';ctx.fillRect(px,py,.96,.96);ctx.font='.8px sans-serif';ctx.textAlign='center';ctx.fillText('🥪',px+.48,py+.72);}else{ctx.fillStyle='#795033';ctx.fillRect(px,py,.96,.96);ctx.font='.8px sans-serif';ctx.textAlign='center';ctx.fillText('🐶',px+.48,py+.72);}}}));}
@@ -56,6 +56,7 @@ function update(t=0){const dt=t-last;last=t;fall+=dt;particles=particles.filter(
 window.addEventListener('keydown',e=>{if(over)return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','a','A','d','D','s','S','w','W','r','R','Enter',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')move(-1);if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')move(1);if(e.key==='ArrowDown'||e.key==='s'||e.key==='S')drop();if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key==='r'||e.key==='R')rotate();if(e.key==='Enter'){const now=Date.now();enterTimes=enterTimes.filter(t=>now-t<650);enterTimes.push(now);if(enterTimes.length>=3){createPerfectPiece();enterTimes=[];}}if(e.key===' '){while(!collide()){piece.pos.y++;}piece.pos.y--;drop();}});
 document.querySelector('#restart').onclick=()=>{board=emptyBoard();score=0;over=false;particles=[];munches=[];document.querySelector('#score').textContent=0;spawn();canvas.focus();};
 document.querySelector('#skins').onclick=()=>document.querySelector('#skin-menu').toggleAttribute('hidden');
+document.querySelector('#pages').onclick=()=>document.querySelector('#page-menu').toggleAttribute('hidden');
 document.querySelectorAll('[data-skin]').forEach(button=>button.onclick=()=>{skin=button.dataset.skin;document.querySelector('#skin-menu').setAttribute('hidden','');canvas.focus();});
 board=emptyBoard();spawn();requestAnimationFrame(()=>canvas.focus());window.addEventListener('focus',()=>canvas.focus());update();
 </script>
