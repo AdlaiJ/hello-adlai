@@ -5,11 +5,18 @@ const StatblockDetection = (() => {
   const armor = /^(?:armor\s*class|AC)\b/i;
   const hp = /^(?:hit\s*points|HP)\b/i;
   const heading = /^(?:actions|bonus actions|reactions|legendary actions|lair actions|traits|spellcasting|multiattack)\b/i;
+  function cleanName(value) {
+    let name=String(value).normalize('NFKC').replace(/[\u00ad\u200b-\u200d\ufeff]/g,'').replace(/\s+/g,' ').replace(/\s+([,;:!?)])/g,'$1').replace(/([(])\s+/g,'$1').trim();
+    const letters=name.match(/\p{L}/gu)||[],capitals=letters.filter(c=>c===c.toUpperCase()&&c!==c.toLowerCase()).length;
+    // Small-caps fonts often extract as ALL CAPS or a mixture of large/small capitals.
+    if(letters.length&&capitals/letters.length>.6)name=name.toLowerCase().replace(/(^|[\s\-–(])\p{L}/gu,m=>m.toUpperCase()).replace(/\b(The|Of|And|Or|In|A|An)\b/g,(m,offset)=>offset===0?m:m.toLowerCase());
+    return name;
+  }
   function lines(items) {
     const result=[];
     for(const item of [...items].filter(i=>i.text.trim()).sort((a,b)=>a.y-b.y||a.x-b.x)) {
       let line=result.findLast(l=>Math.abs(l.y-item.y)<Math.max(2,Math.min(l.h,item.h)*.35)&&item.x>=l.x-2&&item.x-l.right<24);
-      if(line){line.text+=' '+item.text;line.right=Math.max(line.right,item.x+item.w);line.h=Math.max(line.h,item.h)}
+      if(line){const gap=item.x-line.right,explicitSpace=/\s$/.test(line.text)||/^\s/.test(item.text),wordGap=gap>Math.min(line.h,item.h)*.18;line.text+=(explicitSpace||wordGap?' ':'')+item.text;line.right=Math.max(line.right,item.x+item.w);line.h=Math.max(line.h,item.h)}
       else result.push({text:item.text,x:item.x,y:item.y,right:item.x+item.w,h:item.h});
     }
     return result.sort((a,b)=>a.y-b.y||a.x-b.x);
@@ -32,13 +39,13 @@ const StatblockDetection = (() => {
           if(title<0||ls[i].y-ls[title].y>65||ls[title].text.length>95||/[.!?]$/.test(ls[title].text)){title=i;}
           // Large-font wrapped creature names belong to the same header.
           if(title>0&&ls[title-1].h>=ls[title].h*.95&&ls[title].h>ls[i].h*1.15&&ls[title].y-ls[title-1].y<ls[title].h*1.8&&ls[title-1].text.length<60)title--;
-          starts.push({index:title,name:title===i?'Unnamed creature':ls.slice(title,i).map(l=>l.text).join(' ')});
+          starts.push({index:title,name:title===i?'Unnamed creature':cleanName(ls.slice(title,i).map(l=>l.text).join(' '))});
         }
         // Alternative compact blocks omit a size/type line. Require AC + HP + stats.
         for(let i=1;i<ls.length;i++)if(armor.test(ls[i].text)&&!starts.some(s=>Math.abs(s.index-i)<8)){
           const look=ls.slice(i,i+14).map(l=>l.text).join(' ');
           if(/(?:hit\s*points|\bHP\b)/i.test(look)&&/\b(?:STR|Strength)\b/i.test(look)&&/\b(?:DEX|Dexterity)\b/i.test(look)&&ls[i-1].text.length<85&&ls[i].y-ls[i-1].y<60)
-            starts.push({index:i-1,name:ls[i-1].text});
+            starts.push({index:i-1,name:cleanName(ls[i-1].text)});
         }
         starts.sort((a,b)=>a.index-b.index);
         const segment=(from,to)=>{
@@ -63,7 +70,7 @@ const StatblockDetection = (() => {
     }
     return blocks;
   }
-  return {lines,detect};
+  return {lines,detect,cleanName};
 })();
 
 (() => {
@@ -85,6 +92,28 @@ const StatblockDetection = (() => {
   }
   async function readDocument(file){const lib=await pdfLibrary();return lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise}
   function status(message){$('#importStatus').textContent=message}
+  const repairNames=document.createElement('button');repairNames.className='btn small';repairNames.textContent='Clean up saved names';repairNames.style.marginBottom='12px';$('#librarySearch').before(repairNames);
+  repairNames.onclick=async()=>{
+    if(scanJob){status('Finish the current import before cleaning saved names.');return}
+    repairNames.disabled=true;let count=0,failed=0;const updates=[];
+    const sameWords=s=>String(s).normalize('NFKC').replace(/[\s\u00ad\u200b-\u200d\ufeff]/g,'').toLowerCase();
+    try{
+      const candidates=pdfs.filter(p=>p.kind==='statblock');
+      for(let i=0;i<candidates.length;i++){
+        const p=candidates[i];status(`Cleaning creature names ${i+1} of ${candidates.length}…`);
+        try{await enqueue(async()=>{
+          const region=p.segments[0];if(!region)return;
+          const doc=await sourceDocument(p.sourceId),lib=await pdfLibrary(),page=await doc.getPage(region.page),vp=page.getViewport({scale:1}),content=await page.getTextContent();
+          const items=content.items.filter(i=>i.str?.trim()).map(i=>{const t=lib.Util.transform(vp.transform,i.transform);return{text:i.str,x:t[4],y:t[5],w:i.width,h:Math.hypot(t[2],t[3])||i.height||10}}).filter(i=>i.x>=region.x*vp.width-2&&i.x<(region.x+region.w)*vp.width&&i.y>=region.y*vp.height&&i.y<=(region.y+region.h)*vp.height);
+          const found=StatblockDetection.detect([{number:region.page,width:vp.width,height:vp.height,lines:StatblockDetection.lines(items)}],'1')[0];page.cleanup();
+          // Only repair names with the same letters. Keep deliberate custom names unchanged.
+          if(found&&sameWords(p.name)===sameWords(found.name)&&p.name!==found.name){updates.push({...p,name:found.name});count++}
+        })}catch{failed++}
+      }
+      if(updates.length){await dbPutMany(updates);for(const updated of updates){const p=pdfs.find(p=>p.id===updated.id);if(p)p.name=updated.name}renderPdfs()}
+      status(`Cleaned ${count} saved name${count===1?'':'s'}. Custom names were kept.${failed?' '+failed+' names could not be checked; their originals were kept.':''}`);
+    }catch(e){status('Could not save cleaned names: '+e.message)}finally{repairNames.disabled=false}
+  };
   function enqueue(fn){const task=renderQueue.then(fn);renderQueue=task.catch(()=>{});return task}
   async function sourceDocument(id){
     if(docs.has(id)){const doc=docs.get(id);docs.delete(id);docs.set(id,doc);return doc}
