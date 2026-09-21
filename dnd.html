@@ -38,6 +38,9 @@
         <div class="dropzone" id="dropzone">Drop any number of PDF statblocks here</div>
         <div class="view-picks" aria-label="PDF columns"><button class="btn small" data-cols="1">1</button><button class="btn small on" data-cols="2">2</button><button class="btn small" data-cols="3">3</button></div>
       </div>
+      <p id="importStatus" role="status" aria-live="polite">Books are scanned for individual statblocks. Review the detected boundaries before saving.</p>
+      <button class="btn small" id="cancelImport" hidden>Cancel scan</button>
+      <input class="resource-input" id="librarySearch" type="search" aria-label="Search statblocks" placeholder="Search creatures or PDF names" style="margin-bottom:12px">
       <div class="pdf-library" id="pdfLibrary"></div>
       <div class="pdf-grid" id="pdfGrid"></div>
     </section>
@@ -63,16 +66,19 @@ $('#nextTurn').onclick=()=>{if(!state.combatants.length)return;state.turn++;if(s
 $('#resetEncounter').onclick=()=>{if(!confirm('Clear initiative, HP, spell slots, and ability uses? Imported PDFs will stay in your library.'))return;state={...state,round:1,turn:0,combatants:[]};save();renderEncounter();notice('New encounter ready')};
 function openDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open('dnd-pdf-library',1);req.onupgradeneeded=()=>req.result.createObjectStore('pdfs',{keyPath:'id'});req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 async function dbAll(){const db=await openDb();return new Promise((resolve,reject)=>{const req=db.transaction('pdfs').objectStore('pdfs').getAll();req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
-async function dbPut(item){const db=await openDb();return new Promise((resolve,reject)=>{const req=db.transaction('pdfs','readwrite').objectStore('pdfs').put(item);req.onsuccess=()=>resolve();req.onerror=()=>reject(req.error)})}
+async function dbPut(item){return dbPutMany([item])}
+async function dbPutMany(items){const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction('pdfs','readwrite');tx.oncomplete=()=>{db.close();resolve()};tx.onerror=tx.onabort=()=>{db.close();reject(tx.error||new Error('Storage was interrupted'))};for(const item of items)tx.objectStore('pdfs').put(item)})}
 async function dbDelete(id){const db=await openDb();return new Promise((resolve,reject)=>{const req=db.transaction('pdfs','readwrite').objectStore('pdfs').delete(id);req.onsuccess=()=>resolve();req.onerror=()=>reject(req.error)})}
 function pdfUrl(p){if(!urls.has(p.id))urls.set(p.id,URL.createObjectURL(p.file));return urls.get(p.id)}
 function renderPdfs(){document.documentElement.style.setProperty('--cols',state.columns);$('#pdfBadge').textContent=pdfs.length+' '+(pdfs.length===1?'PDF':'PDFS');document.querySelectorAll('[data-cols]').forEach(b=>b.classList.toggle('on',+b.dataset.cols===state.columns));$('#pdfLibrary').innerHTML=pdfs.map(p=>`<div class="pdf-chip ${p.open?'open':''}" data-pdf="${p.id}"><span>${esc(p.name)}</span><button data-action="toggle" title="${p.open?'Close':'Open'}">${p.open?'◉':'○'}</button><button data-action="delete" title="Delete">×</button></div>`).join('');$('#pdfGrid').innerHTML=pdfs.filter(p=>p.open).map(p=>`<article class="pdf-card" data-pdf="${p.id}"><div class="pdf-card-head"><strong>${esc(p.name)}</strong><button class="btn small" data-action="full">Expand</button><button class="btn small" data-action="toggle">Close</button></div><object class="pdf-frame" data="${pdfUrl(p)}#view=FitH" type="application/pdf"><p>PDF preview unavailable. <a href="${pdfUrl(p)}" target="_blank">Open ${esc(p.name)}</a></p></object></article>`).join('')||'<div class="empty">Import a PDF, then open as many statblocks as you need.</div>'}
-async function importPdfs(files){const valid=[...files].filter(f=>f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf'));for(const file of valid){const item={id:uid(),name:file.name,file,open:true,created:Date.now()};await dbPut(item);pdfs.push(item)}renderPdfs();notice(valid.length+' PDF'+(valid.length===1?'':'s')+' imported')}
+async function importPdfs(files){return window.statblockImporter.importFiles(files)}
 $('#pdfInput').onchange=e=>{importPdfs(e.target.files);e.target.value=''};const drop=$('#dropzone');['dragenter','dragover'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',e=>importPdfs(e.dataTransfer.files));
 document.querySelector('.view-picks').onclick=e=>{const b=e.target.closest('[data-cols]');if(!b)return;state.columns=+b.dataset.cols;save();renderPdfs()};
 async function pdfAction(e){const el=e.target.closest('[data-action]'),holder=e.target.closest('[data-pdf]');if(!el||!holder)return;const p=pdfs.find(x=>x.id===holder.dataset.pdf);if(!p)return;if(el.dataset.action==='toggle'){p.open=!p.open;renderPdfs()}else if(el.dataset.action==='full'){$('#fullTitle').textContent=p.name;$('#fullPdf').data=pdfUrl(p)+'#view=FitH';$('#fullscreen').hidden=false}else if(el.dataset.action==='delete'){if(!confirm(`Remove ${p.name} from this device?`))return;URL.revokeObjectURL(urls.get(p.id));urls.delete(p.id);await dbDelete(p.id);pdfs=pdfs.filter(x=>x.id!==p.id);renderPdfs()}}
 $('#pdfLibrary').onclick=pdfAction;$('#pdfGrid').onclick=pdfAction;$('#closeFull').onclick=()=>{$('#fullscreen').hidden=true;$('#fullPdf').removeAttribute('data')};addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#fullscreen').hidden)$('#closeFull').click()});
-async function init(){load();renderEncounter();try{pdfs=(await dbAll()).sort((a,b)=>a.created-b.created);renderPdfs()}catch{$('#pdfGrid').innerHTML='<div class="empty">PDF storage is unavailable in this browser.</div>'}}init();
+async function init(){load();renderEncounter();try{const records=await dbAll();window.statblockImporter.setSources(records.filter(p=>p.kind==='source'));pdfs=records.filter(p=>p.kind!=='source').sort((a,b)=>a.created-b.created);renderPdfs()}catch{$('#pdfGrid').innerHTML='<div class="empty">PDF storage is unavailable in this browser.</div>'}}
 </script>
+<script src="dnd-importer.js"></script>
+<script>init();</script>
 </body>
 </html>
