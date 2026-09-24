@@ -17,36 +17,40 @@
     <a class="back" href="./">← ALL GAMES</a>
     <div class="brand-mark">D20</div>
     <div class="brand"><h1>DND</h1><p>Encounter board & statblock library</p></div>
-    <div class="top-actions"><span class="save-state">Saved on this device</span><button class="btn small" id="resetEncounter">New encounter</button></div>
+    <div class="top-actions"><span class="save-state">Saved on this device</span><button class="btn small" id="resetEncounter">Clear encounter</button></div>
   </header>
+  <details class="quick-guide" open><summary>How to use this board</summary><div class="guide-steps"><p><b>1. Add your creatures</b>Enter each name, initiative roll, and maximum HP on the left. The list is sorted from highest initiative to lowest.</p><p><b>2. Run the encounter</b>Choose a creature to change its HP. Use Next turn to move through the initiative order.</p><p><b>3. Keep stats beside you</b>Import a PDF on the right, review the creatures found, then click Open beside any name.</p></div><p class="guide-note">Everything saves in this browser on this device—not to an online account. PDFs are reference sheets; they do not automatically add creatures or fill in HP.</p></details>
   <main class="workspace">
     <section class="encounter" aria-labelledby="initiativeTitle">
-      <div class="section-head"><h2 id="initiativeTitle">Initiative Order</h2><span class="badge" id="countBadge">0 CREATURES</span></div>
+      <div class="section-head"><h2 id="initiativeTitle">Run encounter</h2><span class="badge" id="countBadge">0 CREATURES</span></div>
+      <p class="section-help">Add a player or monster. We sort the initiative order for you.</p>
       <form class="add-form panel" id="addCombatant">
         <div class="field"><label for="newName">Name</label><input id="newName" required maxlength="50" placeholder="Goblin captain"></div>
         <div class="field"><label for="newInit">Initiative</label><input id="newInit" required type="number" value="10"></div>
         <div class="field"><label for="newHp">Max HP</label><input id="newHp" required type="number" min="1" value="20"></div>
-        <button class="btn primary" type="submit">Add</button>
+        <button class="btn primary" type="submit">Add creature</button>
       </form>
-      <div class="turnbar"><button class="btn small" id="prevTurn">← Previous</button><div class="round" id="roundLabel">ROUND 1</div><button class="btn small" id="nextTurn">Next →</button></div>
+      <div id="turnSummary" aria-live="polite"></div>
+      <div class="turnbar"><button class="btn small" id="prevTurn">Previous turn</button><div class="round" id="roundLabel">ROUND 1</div><button class="btn primary" id="nextTurn">Next turn →</button></div>
+      <label class="follow-turn"><input type="checkbox" id="followTurn" checked> Show the current creature when I change turns</label>
       <div class="panel creature-picker">
-        <label for="creatureSearch">Find a creature to edit</label>
+        <label for="creatureSearch">Choose a creature</label>
         <input class="resource-input" id="creatureSearch" type="search" placeholder="Search encounter creatures">
         <select class="resource-input" id="creatureSelect" aria-label="Creature to edit"></select>
-        <button class="btn small" id="editCurrent">Edit current turn</button>
-        <div id="turnSummary" aria-live="polite"></div>
-        <details><summary>Initiative order</summary><div id="initiativeList"></div></details>
+        <button class="btn small" id="editCurrent">Select current-turn creature</button>
+        <details open><summary>Turn order · click a name to select</summary><div id="initiativeList"></div></details>
       </div>
       <div class="combatants" id="combatants"></div>
     </section>
     <section class="statblocks" aria-labelledby="statblockTitle">
       <div class="section-head"><h2 id="statblockTitle">Statblock Library</h2><span class="badge" id="pdfBadge">0 PDFS</span></div>
+      <p class="section-help">Reference sheets for your monsters. Open several side by side.</p>
       <div class="pdf-toolbar panel">
         <label class="btn primary upload">Import PDFs<input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple></label>
         <div class="dropzone" id="dropzone">Drop any number of PDF statblocks here</div>
-        <div class="view-picks" aria-label="PDF columns"><button class="btn small" data-cols="1">1</button><button class="btn small on" data-cols="2">2</button><button class="btn small" data-cols="3">3</button></div>
+        <div class="view-picks" aria-label="PDF columns"><span>Layout</span><button class="btn small" data-cols="1">1 column</button><button class="btn small on" data-cols="2">2 columns</button><button class="btn small" data-cols="3">3 columns</button></div>
       </div>
-      <p id="importStatus" role="status" aria-live="polite">Books are scanned for individual statblocks. Review the detected boundaries before saving.</p>
+      <p id="importStatus" role="status" aria-live="polite">A whole book is welcome. After scanning, review the creatures found and save the ones you want.</p>
       <button class="btn small" id="cancelImport" hidden>Cancel scan</button>
       <input class="resource-input" id="librarySearch" type="search" aria-label="Search statblocks" placeholder="Search creatures or PDF names" style="margin-bottom:12px">
       <div class="pdf-library" id="pdfLibrary"></div>
@@ -86,12 +90,19 @@ async function pdfAction(e){const el=e.target.closest('[data-action]'),holder=e.
 $('#pdfLibrary').onclick=pdfAction;$('#pdfGrid').onclick=pdfAction;$('#closeFull').onclick=()=>{$('#fullscreen').hidden=true;$('#fullPdf').removeAttribute('data')};addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#fullscreen').hidden)$('#closeFull').click()});
 async function init(){load();renderEncounter();try{const records=await dbAll();window.statblockImporter.setSources(records.filter(p=>p.kind==='source'));pdfs=records.filter(p=>p.kind!=='source').sort((a,b)=>a.created-b.created);renderPdfs()}catch{$('#pdfGrid').innerHTML='<div class="empty">PDF storage is unavailable in this browser.</div>'}}
 </script>
-<script src="dnd-importer.js?v=clean-names-1"></script>
+<script src="dnd-importer.js?v=simple-board-1"></script>
 <style>
 .creature-picker{padding:12px;margin-bottom:12px;display:grid;gap:9px}.creature-picker>label{font-size:13px;font-weight:800;color:var(--gold)}.creature-picker select{width:100%}#turnSummary{font-size:13px;color:var(--gold);overflow-wrap:anywhere}#initiativeList{max-height:160px;overflow:auto;display:grid;gap:4px;margin-top:8px}#initiativeList button{text-align:left;white-space:normal}.creature-edit{padding:14px}.creature-edit h3{margin:0 0 10px;font-family:Georgia,serif;overflow-wrap:anywhere}.edit-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px}.edit-fields .name-field{grid-column:1/-1}.edit-fields label{font-size:12px;color:var(--muted)}.edit-fields input{margin-top:4px}.edit-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.quick-hp{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line)}.quick-hp input{width:75px}.quick-hp label{font-size:13px}.creature-edit details{margin-top:14px}.creature-edit summary{cursor:pointer;color:var(--gold);font-weight:700}.editor-help{color:var(--muted);font-size:12px}.selected-marker{border-color:var(--gold)!important}
 </style>
 <script>
 // Editing selection is an ID, independent of the initiative turn and sorting.
+renderResources=function(c){
+  const configured=c.slots.map((s,i)=>({s,i})).filter(({s})=>s.max>0);
+  const slots=configured.map(({s,i})=>`<div class="slot-row"><label>Level ${i+1} · ${s.max-s.used} of ${s.max} left</label><div class="slot-pips">${Array.from({length:s.max},(_,p)=>`<button class="pip ${p<s.used?'used':''}" data-action="slot" data-level="${i}" data-pip="${p}" aria-label="Level ${i+1} slot ${p+1}: ${p<s.used?'used; restore':'available; use'}"></button>`).join('')}</div></div>`).join('');
+  const config=c.slots.map((s,i)=>`<label class="slot-row">Level ${i+1}<input class="resource-input" data-action="slotmax" data-level="${i}" type="number" min="0" max="20" value="${s.max}" aria-label="Level ${i+1} maximum slots"></label>`).join('');
+  const abilities=c.abilities.map(a=>`<div class="ability" data-ability="${a.id}"><span>${esc(a.name)}</span><b>${a.current}/${a.max} left</b><button class="btn small" data-action="abilitydown" ${a.current===0?'disabled':''}>Use</button><button class="btn small" data-action="abilityup" ${a.current===a.max?'disabled':''}>Restore</button></div>`).join('');
+  return `<h3>Spell slots</h3><p class="editor-help">Filled squares are available. Click a square to use or restore a slot.</p>${slots?`<div class="slots">${slots}</div>`:'<p class="editor-help">No spell slots set. Not a spellcaster? Leave this empty.</p>'}<details data-slot-settings ${c.slotSettingsOpen?'open':''}><summary>Set maximum spell slots</summary><p class="editor-help">Enter how many slots this creature has at each level. Use 0 for unused levels.</p><div class="slots">${config}</div></details><h3>Ability uses</h3>${abilities||'<p class="editor-help">Track limited abilities such as Rage or Legendary Resistance.</p>'}<form class="ability-add"><input class="resource-input" name="abilityName" aria-label="Ability name" required maxlength="40" placeholder="Ability name"><input class="resource-input" name="abilityMax" aria-label="Maximum ability uses" title="Maximum uses" type="number" min="1" max="99" value="3"><button class="btn small">Add ability</button></form>`;
+};
 function selectedCreature(){return state.combatants.find(c=>c.id===state.selectedId)}
 function renderCreaturePicker(){
   const query=$('#creatureSearch').value.trim().toLowerCase(),chosen=selectedCreature();
@@ -100,12 +111,13 @@ function renderCreaturePicker(){
   $('#creatureSelect').innerHTML=entries.map(c=>`<option value="${c.id}" ${c.id===state.selectedId?'selected':''}>${esc(c.name)} · ${c.hp}/${c.maxHp} HP · Init ${c.initiative}${query&&!matches.includes(c)?' (editing)':''}</option>`).join('')||'<option value="">No matching creatures</option>';
   $('#creatureSelect').disabled=!entries.length;
   const active=state.combatants[state.turn];$('#editCurrent').disabled=!active;
+  $('#prevTurn').disabled=$('#nextTurn').disabled=!active;
   $('#turnSummary').textContent=active?'Current turn: '+active.name+' · Round '+state.round:'No active turn';
   $('#initiativeList').innerHTML=state.combatants.map((c,i)=>`<button class="btn small ${c.id===state.selectedId?'selected-marker':''}" data-select="${c.id}">${i===state.turn?'▶ ':''}${c.initiative} · ${esc(c.name)} · ${c.hp}/${c.maxHp} HP</button>`).join('');
 }
 function flushCreatureEdits(){
   const form=$('#creatureEditForm'),c=selectedCreature();if(!form||!c)return true;
-  if(!form.reportValidity())return false;
+  if(!form.checkValidity()){form.closest('details').open=true;form.reportValidity();return false}
   const name=$('#editName').value.trim();if(!name){$('#editName').setCustomValidity('Enter a name.');$('#editName').reportValidity();return false}
   c.name=name;c.initiative=Number($('#editInitiative').value);c.maxHp=Number($('#editMaxHp').value);c.hp=Math.min(c.maxHp,Number($('#editHp').value));
   $('#editHp').value=c.hp;sortCombatants();save();renderCreaturePicker();return true;
@@ -114,15 +126,15 @@ function chooseCreature(id){if(!flushCreatureEdits()){renderCreaturePicker();ret
 renderEncounter=function(){
   sortCombatants();if(!selectedCreature())state.selectedId=state.combatants[state.turn]?.id||null;
   $('#roundLabel').textContent='ROUND '+state.round;$('#countBadge').textContent=state.combatants.length+' CREATURES';renderCreaturePicker();
-  const c=selectedCreature();if(!c){$('#combatants').innerHTML='<div class="empty">Add a creature, then choose it above to edit.</div>';return}
-  $('#combatants').innerHTML=`<article class="combatant creature-edit" data-id="${c.id}"><h3>Editing: ${esc(c.name)}</h3><form id="creatureEditForm"><div class="edit-fields"><label class="name-field">Name<input class="resource-input" id="editName" aria-label="Edit creature name" required maxlength="50" value="${esc(c.name)}"></label><label>Current HP<input class="resource-input" id="editHp" aria-label="Current HP" type="number" required min="0" step="1" value="${c.hp}"></label><label>Maximum HP<input class="resource-input" id="editMaxHp" aria-label="Maximum HP" type="number" required min="1" step="1" value="${c.maxHp}"></label><label>Initiative<input class="resource-input" id="editInitiative" aria-label="Edit initiative" type="number" required step="1" value="${c.initiative}"></label></div><div class="edit-actions"><button class="btn primary" type="submit">Save changes</button></div></form><p class="editor-help">Changes also save when you switch creatures or use a control below. Selecting a creature does not change whose turn it is.</p><div class="quick-hp"><label for="hpAdjust">Amount</label><input class="resource-input" id="hpAdjust" aria-label="HP amount" type="number" min="0" step="1" value="${c.hpAmount??1}"><button class="btn danger" data-action="damage">Damage</button><button class="btn" data-action="heal">Heal</button><button class="btn small" data-action="fullheal">Full heal</button></div><details ${c.resourcesOpen?'open':''}><summary>Spell slots & ability uses</summary><div class="resources">${renderResources(c)}</div></details><div class="edit-actions"><button class="btn small danger" data-action="remove">Remove creature</button></div></article>`;
+  const c=selectedCreature();if(!c){$('#combatants').innerHTML='<div class="empty">No creatures yet. Enter a name, initiative, and HP above, then click Add creature.</div>';return}
+  $('#combatants').innerHTML=`<article class="combatant creature-edit" data-id="${c.id}"><h3>${esc(c.name)}</h3><p class="editor-help">Selected creature${state.combatants[state.turn]?.id===c.id?' · current turn':''}. Choosing someone here does not change the turn.</p><div class="hp-readout" aria-live="polite"><strong>${c.hp}</strong> / ${c.maxHp} HP${c.hp===0?' · 0 HP':''}</div><div class="hpbar"><i style="width:${Math.max(0,Math.min(100,c.hp/c.maxHp*100))}%"></i></div><div class="quick-hp"><label for="hpAdjust">HP amount</label><input class="resource-input" id="hpAdjust" aria-label="HP amount" type="number" min="0" step="1" value="${c.hpAmount??1}"><button class="btn danger" data-action="damage">Deal damage</button><button class="btn" data-action="heal">Heal</button></div><details data-edit-settings ${c.editSettingsOpen?'open':''}><summary>Edit name, initiative, or HP</summary><form id="creatureEditForm"><div class="edit-fields"><label class="name-field">Name<input class="resource-input" id="editName" aria-label="Edit creature name" required maxlength="50" value="${esc(c.name)}"></label><label>Current HP<input class="resource-input" id="editHp" aria-label="Current HP" type="number" required min="0" step="1" value="${c.hp}"></label><label>Maximum HP<input class="resource-input" id="editMaxHp" aria-label="Maximum HP" type="number" required min="1" step="1" value="${c.maxHp}"></label><label>Initiative<input class="resource-input" id="editInitiative" aria-label="Edit initiative" type="number" required step="1" value="${c.initiative}"></label></div><div class="edit-actions"><button class="btn primary" type="submit">Save changes</button><button class="btn" type="button" data-action="fullheal">Restore full HP</button></div></form><p class="editor-help">Edits also save when you select another creature or change turns.</p></details><details data-resource-panel ${c.resourcesOpen?'open':''}><summary>Spell slots & ability uses</summary><div class="resources">${renderResources(c)}</div></details><details><summary>Remove from encounter</summary><p class="editor-help">This only removes the selected creature, not its PDF.</p><button class="btn small danger" data-action="remove">Remove creature</button></details></article>`;
 }
 $('#creatureSearch').oninput=renderCreaturePicker;
 $('#creatureSelect').onchange=e=>chooseCreature(e.target.value);
 $('#initiativeList').onclick=e=>{const b=e.target.closest('[data-select]');if(b)chooseCreature(b.dataset.select)};
 $('#editCurrent').onclick=()=>chooseCreature(state.combatants[state.turn]?.id);
 $('#combatants').oninput=e=>{if(e.target.id==='editName')e.target.setCustomValidity('')};
-$('#combatants').addEventListener('toggle',e=>{if(e.target.tagName==='DETAILS'){const c=selectedCreature();if(c){c.resourcesOpen=e.target.open;save()}}},true);
+$('#combatants').addEventListener('toggle',e=>{if(e.target.tagName==='DETAILS'&&e.target.isConnected){const c=selectedCreature();if(c){if(e.target.hasAttribute('data-resource-panel'))c.resourcesOpen=e.target.open;if(e.target.hasAttribute('data-edit-settings'))c.editSettingsOpen=e.target.open;if(e.target.hasAttribute('data-slot-settings'))c.slotSettingsOpen=e.target.open;save()}}},true);
 $('#combatants').onsubmit=e=>{
   e.preventDefault();if(!flushCreatureEdits())return;const c=selectedCreature();
   if(e.target.matches('.ability-add')){const data=new FormData(e.target);c.abilities.push({id:uid(),name:String(data.get('abilityName')).trim(),max:Math.max(1,Math.min(99,+data.get('abilityMax')||1)),current:Math.max(1,Math.min(99,+data.get('abilityMax')||1))})}
@@ -152,9 +164,12 @@ $('#addCombatant').onsubmit=e=>{
   state.combatants.push(c);sortCombatants();state.selectedId=c.id;$('#creatureSearch').value='';save();renderEncounter();e.target.reset();$('#newInit').value=10;$('#newHp').value=20;
 };
 for(const [selector,step] of [['#nextTurn',1],['#prevTurn',-1]])$(selector).onclick=()=>{
-  if(!flushCreatureEdits()||!state.combatants.length)return;state.turn+=step;if(state.turn>=state.combatants.length){state.turn=0;state.round++}if(state.turn<0){state.turn=state.combatants.length-1;state.round=Math.max(1,state.round-1)}save();renderEncounter();
+  if(!flushCreatureEdits()||!state.combatants.length)return;state.turn+=step;if(state.turn>=state.combatants.length){state.turn=0;state.round++}if(state.turn<0){state.turn=state.combatants.length-1;state.round=Math.max(1,state.round-1)}if($('#followTurn').checked){state.selectedId=state.combatants[state.turn].id;$('#creatureSearch').value=''}save();renderEncounter();
 };
 </script>
+<style>
+.quick-guide{margin:20px 24px 0;padding:16px 20px;border:1px solid var(--line);border-radius:12px;background:#191513}.quick-guide summary{font-weight:800;cursor:pointer;color:var(--gold)}.guide-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}.guide-steps p,.guide-note,.section-help{font-size:13px;color:var(--muted)}.guide-steps b{display:block;color:var(--ink);margin-bottom:5px}.guide-note{margin-bottom:0}.section-help{margin:-4px 0 14px}.workspace{grid-template-columns:minmax(380px,480px) minmax(0,1fr)}.add-form{grid-template-columns:1fr 1fr;border-radius:10px}.add-form .field:first-child{grid-column:1/-1}.add-form>.btn{grid-column:1/-1}.btn,.resource-input,.field input,.combatant,.panel{border-radius:8px}button:disabled{opacity:.45;cursor:default}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}.creature-picker{box-shadow:none}.follow-turn{display:block;font-size:12px;color:var(--muted);margin:0 0 16px}#turnSummary{font-size:17px;font-weight:800;padding:10px 0}.hp-readout{font-size:18px;color:var(--muted);margin:12px 0}.hp-readout strong{font-size:36px;color:var(--ink)}.quick-hp{border-top:0;padding:14px 0}.creature-edit details{border-top:1px solid var(--line);padding-top:12px}.creature-edit summary{font-size:14px;margin-bottom:10px}.resources{border:0;padding:8px 0;background:none}.resources h3{margin-top:14px}.pip{transform:none;border-radius:4px;background:var(--gold);width:24px;height:24px}.view-picks{align-items:center;flex-wrap:wrap}.view-picks>span{font-size:12px;color:var(--muted)}.pdf-chip{border-radius:8px;max-width:none;justify-content:space-between}.pdf-chip .open-statblock{display:flex;gap:12px;align-items:center;justify-content:space-between;flex:1;min-width:0;text-align:left;padding:6px;color:var(--ink)}.pdf-chip .open-statblock b{color:var(--gold);font-size:12px;flex-shrink:0}.pdf-chip .library-options{flex-shrink:0;font-size:12px}.pdf-chip .library-options summary{cursor:pointer;color:var(--muted)}.pdf-library{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));max-height:280px!important}.pdf-toolbar{box-shadow:none}.library-tools{margin:12px 0;font-size:13px}.library-tools summary{cursor:pointer;color:var(--muted)}.library-tools button{margin:10px 0 0!important}.ability{grid-template-columns:minmax(0,1fr) auto auto auto;font-size:13px}.ability-add{grid-template-columns:minmax(0,1fr) 65px}.ability-add button{grid-column:1/-1}#importStatus{font-size:13px;color:var(--muted)}@media(max-width:900px){.workspace{grid-template-columns:1fr}.encounter{border-right:0;border-bottom:1px solid var(--line)}.guide-steps{grid-template-columns:1fr;gap:0}.quick-guide{margin:12px}.topbar{position:static}.pdf-grid{grid-template-columns:1fr}.quick-hp{gap:6px}.quick-hp .btn{padding:9px}.top-actions{gap:5px}}
+</style>
 <script>init();</script>
 </body>
 </html>
