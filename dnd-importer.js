@@ -7,9 +7,20 @@ const StatblockDetection = (() => {
   const heading = /^(?:actions|bonus actions|reactions|legendary actions|lair actions|traits|spellcasting|multiattack)\b/i;
   function cleanName(value) {
     let name=String(value).normalize('NFKC').replace(/[\u00ad\u200b-\u200d\ufeff]/g,'').replace(/\s+/g,' ').replace(/\s+([,;:!?)])/g,'$1').replace(/([(])\s+/g,'$1').trim();
-    const letters=name.match(/\p{L}/gu)||[],capitals=letters.filter(c=>c===c.toUpperCase()&&c!==c.toLowerCase()).length;
-    // Small-caps fonts often extract as ALL CAPS or a mixture of large/small capitals.
-    if(letters.length&&capitals/letters.length>.6)name=name.toLowerCase().replace(/(^|[\s\-–(])\p{L}/gu,m=>m.toUpperCase()).replace(/\b(The|Of|And|Or|In|A|An)\b/g,(m,offset)=>offset===0?m:m.toLowerCase());
+    // Repair each word, not the whole heading: one stray capital used to escape
+    // the old 60%-uppercase threshold. Preserve conventional proper-name casing.
+    name=name.replace(/\p{L}+(?:['’]\p{L}+)*/gu,(word,offset)=>{
+      if(/^[IVXLCDM]+$/.test(word)&&/^(?=.)M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(word))return word;
+      if(/^(?:Mc|Mac)\p{Lu}\p{Ll}+$/u.test(word))return word;
+      return word.split(/(['’])/).map((part,i)=>{
+        if(i%2)return part;
+        if(i>0&&/^s$/i.test(part))return 's';
+        if(!/\p{Lu}/u.test(part.slice(1)))return part;
+        const lower=part.toLowerCase();
+        if((offset>0&&i===0&&/^(the|of|and|or|in|a|an)$/.test(lower))||(i>0&&lower==='s'))return lower;
+        return lower.replace(/^\p{L}/u,c=>c.toUpperCase());
+      }).join('');
+    });
     return name;
   }
   function lines(items) {
