@@ -51,21 +51,28 @@
  }
  let loading;
  function library(){if(window.Peer)return Promise.resolve();if(!loading)loading=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js';s.onload=resolve;s.onerror=()=>{s.remove();loading=null;reject(Error('load'))};document.head.append(s)});return loading}
- async function connect(isHost,joinCode=''){
+ function makeRoomCode(){
+  const alphabet='abcdefghijklmnopqrstuvwxyz0123456789';let value='';
+  while(value.length<6)for(const byte of crypto.getRandomValues(new Uint8Array(12))){if(byte<252)value+=alphabet[byte%36];if(value.length===6)break}
+  return value;
+ }
+ async function connect(isHost,joinCode='',retry=0){
   enable();cleanup();host=isHost;round=1;state={board:Array(9).fill(''),turn:'X',round};totals={wins:0,draws:0,losses:0};const token=epoch;say('Connecting…');draw();
   timeout=setTimeout(()=>{if(token===epoch)disconnect('Connection timed out. Check the code and try again; your network may block online play.')},25000);
   try{await library();if(token!==epoch)return;
-   code=isHost?Array.from(crypto.getRandomValues(new Uint8Array(8)),v=>v.toString(16).padStart(2,'0')).join(''):joinCode;
+   code=isHost?makeRoomCode():joinCode;
    peer=new Peer(isHost?'adlai-ttt-'+code:undefined,{secure:true,debug:0});
    peer.on('open',()=>{if(token!==epoch)return;if(isHost){clearTimeout(timeout);el('roomCode').value=code;el('copyInvite').disabled=false;say('Room ready! Share the invite or code. Waiting for your friend…')}else attach(peer.connect('adlai-ttt-'+code,{reliable:true,serialization:'json'}),token)});
    peer.on('connection',c=>{if(token!==epoch||!host||conn){c.on('open',()=>c.close());return}attach(c,token);timeout=setTimeout(()=>{if(token===epoch&&!connected)disconnect('Your friend could not connect. Create a new room and retry.')},25000)});
-   peer.on('error',e=>{if(token===epoch)disconnect(e.type==='peer-unavailable'?'Room not found. Ask your friend to keep their room open and check the code.':'Online service unavailable. Try again or use a different network.')});
+   peer.on('error',e=>{if(token!==epoch)return;if(isHost&&e.type==='unavailable-id'&&retry<4){connect(true,'',retry+1);return}disconnect(e.type==='peer-unavailable'?'Room not found. Ask your friend to keep their room open and check the code.':'Online service unavailable. Try again or use a different network.')});
    peer.on('disconnected',()=>{if(token===epoch&&!connected)disconnect('Room service disconnected. Please create or join again.')});
   }catch{if(token===epoch)disconnect('Online play could not load. Check your internet connection and try again.')}
  }
  el('onlineToggle').onclick=enable;
  el('createRoom').onclick=()=>connect(true);
- el('joinRoom').onclick=()=>{let v=el('roomCode').value.trim();try{if(v.includes('://'))v=new URL(v).searchParams.get('room')||''}catch{}v=v.toLowerCase();if(!/^[a-f0-9]{16}$/.test(v)){say('Paste the invite link or the 16-character room code.');return}connect(false,v)};
+ el('roomCode').setAttribute('autocapitalize','none');
+ el('roomCode').setAttribute('placeholder','6 lowercase letters or numbers');
+ el('joinRoom').onclick=()=>{let v=el('roomCode').value.trim();try{if(v.includes('://'))v=new URL(v).searchParams.get('room')||''}catch{}v=v.toLowerCase();if(!/^[a-z0-9]{6}$/.test(v)){say('Enter a 6-character code (lowercase letters or numbers), or paste an invite link.');return}el('roomCode').value=v;connect(false,v)};
  el('copyInvite').onclick=async()=>{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',code);try{await navigator.clipboard.writeText(u.href);say('Invite copied! Send it to your friend.')}catch{el('roomCode').value=u.href;el('roomCode').select();say('Copy the selected invite link and send it to your friend.')}};
  el('leaveRoom').onclick=()=>{cleanup();active=false;el('onlineLobby').hidden=true;el('onlineToggle').hidden=false;document.querySelector('.settings').hidden=false;el('resetScore').hidden=false;el('resetScore').onclick=oldReset;el('newRound').disabled=false;el('newRound').textContent='New round';el('newRound').onclick=oldNew;cells.forEach((c,i)=>c.onclick=oldClicks[i]);document.querySelector('.scores div:last-child span').textContent='Bot';document.querySelector('main > .note').hidden=false;const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u);start()};
  window.addEventListener('pagehide',cleanup);
