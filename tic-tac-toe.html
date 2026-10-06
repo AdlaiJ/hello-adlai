@@ -27,4 +27,4 @@ function move(i){board[i]=turn;const r=TicTacToe.result(board);if(r){finished=tr
 function scheduleBot(){if(finished||turn!==bot)return;timer=setTimeout(()=>{timer=null;if(finished||turn!==bot)return;const i=TicTacToe.choose(board,bot,$('#difficulty').value);if(i!==null)move(i)},400)}
 function start(){clearTimeout(timer);timer=null;board=Array(9).fill('');turn='X';human=$('#side').value;bot=TicTacToe.other(human);finished=false;$('#hint').textContent=hints[$('#difficulty').value];render();scheduleBot()}
 $('#newRound').onclick=start;$('#difficulty').onchange=start;$('#side').onchange=start;$('#resetScore').onclick=()=>{scores={wins:0,draws:0,losses:0};render()};start();
-</script></body></html>
+</script><script src="tic-tac-toe-online.js"></script></body></html>
