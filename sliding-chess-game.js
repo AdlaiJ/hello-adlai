@@ -1,4 +1,4 @@
-import { Match } from './sliding-chess-match.js';
+import { Match } from './sliding-chess-match.js?v=random-gap';
 const $=id=>document.getElementById(id);
 const words='acorn amber apple arrow atlas badge bamboo banana basket beach beacon berry birch bloom breeze bridge brook bubble cactus candle canyon castle cedar cherry cloud clover cobalt comet coral cosmic cotton crane creek crown daisy dawn delta desert dragon dream drift eagle earth ember falcon fern field flame flight flower forest fossil frost galaxy garden gentle glade globe golden grape grove harbor hazel honey island ivory jacket jasper jewel jungle kitten lagoon lemon lilac lotus lunar mango maple marble meadow melon meteor mint moon moss nectar night noble ocean olive opal orbit orchid otter panda peach pearl pebble pepper petal pigeon planet plume pocket pollen pond prism purple quartz rabbit raven reef ribbon ripple river robin rocket rose ruby saddle safari sage satin seal shadow shell silver snow solar spark spice spirit spring spruce square star stone storm stream stripe sugar summit sunset swift temple tiger timber torch trail tulip turtle valley velvet violet walnut water whale willow winter wonder yellow zebra'.split(' ');
 const names={p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'},symbols={p:'♟',n:'♞',b:'♝',r:'♜',q:'♛',k:'♚'};
@@ -61,7 +61,7 @@ function select(square){
 function send(data){if(!connection?.open)return false;try{connection.send(data);return true}catch{return false}}
 function stopConnection(){slideMode=false;generation++;clearTimeout(deadline);clearTimeout(replyTimer);const old=peer;peer=null;connection=null;ready=false;pending=false;if(old)old.destroy();$('copy').disabled=true;clearSelection();}
 function lost(text){stopConnection();message(text+' Leave this game to create or join a new room.');draw();}
-function sendState(){if(!send({type:'state',version:3139,state:match.snapshot()}))lost('Connection lost.');}
+function sendState(){if(!send({type:'state',version:3140,state:match.snapshot()}))lost('Connection lost.');}
 function act(action){
  const request={...action,round:match.round,ply:match.chess.history().length};
  if(!active()||pending)return;
@@ -71,7 +71,7 @@ function act(action){
   if(action.type==='rematch'){match.apply(request,'host');match.apply(request,'guest');}
   else match.apply(request,actor);
  }else if(role==='host'){if(match.apply(request,'host'))sendState();}
- else{pending=true;if(!send({type:'action',version:3139,action:request})){lost('Connection lost.');return}replyTimer=setTimeout(()=>lost('Your friend stopped responding.'),12000);}
+ else{pending=true;if(!send({type:'action',version:3140,action:request})){lost('Connection lost.');return}replyTimer=setTimeout(()=>lost('Your friend stopped responding.'),12000);}
  if(mode==='online')flipped=me()==='b';draw();
 }
 function acceptState(s){
@@ -84,12 +84,12 @@ function acceptState(s){
 }
 function attach(c,token){
  connection=c;
- c.on('open',()=>{if(token!==generation)return;lastPeerSeen=Date.now();if(!send({type:'hello',version:3139}))lost('Connection lost.')});
+ c.on('open',()=>{if(token!==generation)return;lastPeerSeen=Date.now();if(!send({type:'hello',version:3140}))lost('Connection lost.')});
  c.on('data',data=>{
   if(token!==generation||!data||typeof data!=='object')return;
-  if(data.version!==3139){lost('Your friend has an older game version. Both refresh.');return}
+  if(data.version!==3140){lost('Your friend has an older game version. Both refresh.');return}
   lastPeerSeen=Date.now();
-  if(data.type==='ping'){send({type:'pong',version:3139});return}
+  if(data.type==='ping'){send({type:'pong',version:3140});return}
   if(data.type==='pong')return;
   if(data.type==='hello'){if(role==='host'&&!ready){ready=true;clearTimeout(deadline);message(`Connected · Room: ${room}. You start as White.`);sendState();draw()}return}
   if(role==='guest'&&data.type==='state')acceptState(data.state);
@@ -137,6 +137,6 @@ $('cancelPromotion').onclick=()=>{promotion=null;$('promotion').close()};
 $('promotion').addEventListener('cancel',()=>{promotion=null});
 document.querySelectorAll('[data-piece]').forEach(button=>button.onclick=()=>{if(promotion)act({type:'move',...promotion,promotion:button.dataset.piece})});
 window.addEventListener('pagehide',stopConnection);
-setInterval(()=>{if(mode!=='online'||!ready)return;const now=Date.now();if(now-lastPeerSeen>90000){lost('Your friend stopped responding.');return}if(now-lastBeat>10000){lastBeat=now;send({type:'ping',version:3139})}},5000);
+setInterval(()=>{if(mode!=='online'||!ready)return;const now=Date.now();if(now-lastPeerSeen>90000){lost('Your friend stopped responding.');return}if(now-lastBeat>10000){lastBeat=now;send({type:'ping',version:3140})}},5000);
 $('loadingError').hidden=true;draw();
 const invite=new URL(location.href).searchParams.get('room');if(invite){$('roomCode').value=invite;message('Your friend invited you. Press Join room to play.');}

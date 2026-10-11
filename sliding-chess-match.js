@@ -5,8 +5,10 @@ const xy=s=>[s.charCodeAt(0)-97,Number(s[1])-1];
 const square=(x,y)=>String.fromCharCode(97+x)+(y+1);
 const tileAt=s=>{const [x,y]=xy(s);return Math.floor(y/2)*4+Math.floor(x/2)};
 const opposite=c=>c==='w'?'b':'w';
+const randomHole=()=>4+crypto.getRandomValues(new Uint32Array(1))[0]%8;
+const validHole=h=>Number.isInteger(h)&&h>=4&&h<=11;
 class Board extends Chess2 {
- constructor(){super();this.setup('classic','classic');this.tiles=Array.from({length:16},(_,i)=>i===6?null:i);this.result=null;}
+ constructor(hole){super();this.setup('classic','classic');this.tiles=Array.from({length:16},(_,i)=>i===hole?null:i);this.result=null;}
  exists(s){return this.tiles[tileAt(s)]!==null;}
  clearPath(from,to){const [x,y]=xy(from),[tx,ty]=xy(to),dx=Math.sign(tx-x),dy=Math.sign(ty-y);if(dx&&dy&&Math.abs(tx-x)!==Math.abs(ty-y))return true;for(let a=x+dx,b=y+dy;a!==tx||b!==ty;a+=dx,b+=dy)if(!this.exists(square(a,b)))return false;return this.exists(to);}
  pseudo(from,threat=false){return super.pseudo(from,threat).filter(m=>this.exists(m.to)&&(!(this.board[from].t==='p'&&m.double&&this.board[from].moved))&&(this.board[from].t==='n'||this.clearPath(from,m.to)));}
@@ -16,8 +18,8 @@ class Board extends Chess2 {
  legalSlides(){if(this.result)return [];return this.adjacent().filter(tile=>{const oldBoard=this.board,oldTiles=this.tiles,next=this.shifted(tile);this.board=next.board;this.tiles=next.tiles;const safe=!this.checked(this.turn);this.board=oldBoard;this.tiles=oldTiles;return safe;});}
 }
 export class SlidingChess {
- constructor(){this.reset();}
- reset(){this.g=new Board();this.entries=[];this.repeats={};this.half=0;this.reason=null;this.record();}
+ constructor(hole=randomHole()){this.reset(hole);}
+ reset(hole=randomHole()){if(!validHole(hole))throw Error('Invalid starting gap');this.initialHole=hole;this.g=new Board(hole);this.entries=[];this.repeats={};this.half=0;this.reason=null;this.record();}
  turn(){return this.g.turn;}
  get(s){const p=this.g.board[s];return p?{type:p.t,color:p.c}:undefined;}
  exists(s){return this.g.exists(s);}
@@ -41,12 +43,12 @@ export class SlidingChess {
  slide(tile){if(!Number.isInteger(tile)||!this.slides().includes(tile))throw Error('Illegal tile slide');const hole=this.g.tiles.indexOf(null);const contents=Object.entries(this.g.board).filter(([s])=>tileAt(s)===tile);for(const [s,p] of contents)this.g.revoke(s,p);const next=this.g.shifted(tile);this.g.board=next.board;this.g.tiles=next.tiles;this.g.ep=null;const label=i=>String.fromCharCode(65+i%4)+(Math.floor(i/4)+1);this.finish({type:'slide',tile,fromTile:tile,toTile:hole,san:'Tile '+label(tile)+' → '+label(hole)},contents.some(([,p])=>p.t==='p'));}
 }
 export class Match {
- constructor(){this.round=1;this.revision=0;this.chess=new SlidingChess();this.resigned=null;this.votes=[];}
+ constructor(hole=randomHole()){this.round=1;this.revision=0;this.chess=new SlidingChess(hole);this.resigned=null;this.votes=[];}
  color(player){return (player==='host')===(this.round%2===1)?'w':'b';}
  ended(){return !!this.resigned||this.chess.isGameOver();}
  apply(m,player){if(!m||!['host','guest'].includes(player)||m.round!==this.round)return false;
   if(m.type==='rematch'){if(!this.ended()||this.votes.includes(player))return false;this.votes.push(player);if(this.votes.length===2){this.round++;this.chess.reset();this.resigned=null;this.votes=[];}}
   else{if(this.ended()||m.ply!==this.chess.history().length)return false;if(m.type==='resign')this.resigned=this.color(player);else{if(this.chess.turn()!==this.color(player))return false;try{if(m.type==='move'&&/^[a-h][1-8]$/.test(m.from)&&/^[a-h][1-8]$/.test(m.to))this.chess.move(m);else if(m.type==='slide')this.chess.slide(m.tile);else return false;}catch{return false;}}}this.revision++;return true;}
- snapshot(){return {round:this.round,revision:this.revision,moves:this.chess.history({verbose:true}),resigned:this.resigned,votes:[...this.votes]};}
- static restore(s){if(!s||!Number.isSafeInteger(s.round)||s.round<1||!Number.isSafeInteger(s.revision)||s.revision<0||!Array.isArray(s.moves)||s.moves.length>2000||![null,'w','b'].includes(s.resigned)||!Array.isArray(s.votes)||s.votes.length>1||s.votes.some(v=>!['host','guest'].includes(v)))throw Error('Invalid snapshot');const m=new Match();m.round=s.round;m.revision=s.revision;for(const entry of s.moves){if(entry.type==='slide')m.chess.slide(entry.tile);else if(entry.type==='move')m.chess.move(entry);else throw Error('Invalid action');}m.resigned=s.resigned;m.votes=[...s.votes];if(m.votes.length&&!m.ended())throw Error('Premature rematch');return m;}
+ snapshot(){return {initialHole:this.chess.initialHole,round:this.round,revision:this.revision,moves:this.chess.history({verbose:true}),resigned:this.resigned,votes:[...this.votes]};}
+ static restore(s){if(!s||!validHole(s.initialHole)||!Number.isSafeInteger(s.round)||s.round<1||!Number.isSafeInteger(s.revision)||s.revision<0||!Array.isArray(s.moves)||s.moves.length>2000||![null,'w','b'].includes(s.resigned)||!Array.isArray(s.votes)||s.votes.length>1||s.votes.some(v=>!['host','guest'].includes(v)))throw Error('Invalid snapshot');const m=new Match(s.initialHole);m.round=s.round;m.revision=s.revision;for(const entry of s.moves){if(entry.type==='slide')m.chess.slide(entry.tile);else if(entry.type==='move')m.chess.move(entry);else throw Error('Invalid action');}m.resigned=s.resigned;m.votes=[...s.votes];if(m.votes.length&&!m.ended())throw Error('Premature rematch');return m;}
 }
