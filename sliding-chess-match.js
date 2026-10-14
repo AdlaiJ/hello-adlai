@@ -8,7 +8,7 @@ const opposite=c=>c==='w'?'b':'w';
 const randomHole=()=>4+crypto.getRandomValues(new Uint32Array(1))[0]%8;
 const validHole=h=>Number.isInteger(h)&&h>=4&&h<=11;
 class Board extends Chess2 {
- constructor(hole){super();this.setup('classic','classic');this.tiles=Array.from({length:16},(_,i)=>i===hole?null:i);this.result=null;}
+ constructor(hole){super();this.classicSwapEnabled=false;this.setup('classic','classic');this.tiles=Array.from({length:16},(_,i)=>i===hole?null:i);this.result=null;}
  exists(s){return this.tiles[tileAt(s)]!==null;}
  clearPath(from,to){const [x,y]=xy(from),[tx,ty]=xy(to),dx=Math.sign(tx-x),dy=Math.sign(ty-y);if(dx&&dy&&Math.abs(tx-x)!==Math.abs(ty-y))return true;for(let a=x+dx,b=y+dy;a!==tx||b!==ty;a+=dx,b+=dy)if(!this.exists(square(a,b)))return false;return this.exists(to);}
  pseudo(from,threat=false){return super.pseudo(from,threat).filter(m=>this.exists(m.to)&&(!(this.board[from].t==='p'&&m.double&&this.board[from].moved))&&(this.board[from].t==='n'||this.clearPath(from,m.to)));}
