@@ -170,6 +170,47 @@ for(const [selector,step] of [['#nextTurn',1],['#prevTurn',-1]])$(selector).oncl
 <style>
 .quick-guide{margin:20px 24px 0;padding:16px 20px;border:1px solid var(--line);border-radius:12px;background:#191513}.quick-guide summary{font-weight:800;cursor:pointer;color:var(--gold)}.guide-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}.guide-steps p,.guide-note,.section-help{font-size:13px;color:var(--muted)}.guide-steps b{display:block;color:var(--ink);margin-bottom:5px}.guide-note{margin-bottom:0}.section-help{margin:-4px 0 14px}.workspace{grid-template-columns:minmax(380px,480px) minmax(0,1fr)}.add-form{grid-template-columns:1fr 1fr;border-radius:10px}.add-form .field:first-child{grid-column:1/-1}.add-form>.btn{grid-column:1/-1}.btn,.resource-input,.field input,.combatant,.panel{border-radius:8px}button:disabled{opacity:.45;cursor:default}button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}.creature-picker{box-shadow:none}.follow-turn{display:block;font-size:12px;color:var(--muted);margin:0 0 16px}#turnSummary{font-size:17px;font-weight:800;padding:10px 0}.hp-readout{font-size:18px;color:var(--muted);margin:12px 0}.hp-readout strong{font-size:36px;color:var(--ink)}.quick-hp{border-top:0;padding:14px 0}.creature-edit details{border-top:1px solid var(--line);padding-top:12px}.creature-edit summary{font-size:14px;margin-bottom:10px}.resources{border:0;padding:8px 0;background:none}.resources h3{margin-top:14px}.pip{transform:none;border-radius:4px;background:var(--gold);width:24px;height:24px}.view-picks{align-items:center;flex-wrap:wrap}.view-picks>span{font-size:12px;color:var(--muted)}.pdf-chip{border-radius:8px;max-width:none;justify-content:space-between}.pdf-chip .open-statblock{display:flex;gap:12px;align-items:center;justify-content:space-between;flex:1;min-width:0;text-align:left;padding:6px;color:var(--ink)}.pdf-chip .open-statblock b{color:var(--gold);font-size:12px;flex-shrink:0}.pdf-chip .library-options{flex-shrink:0;font-size:12px}.pdf-chip .library-options summary{cursor:pointer;color:var(--muted)}.pdf-library{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));max-height:280px!important}.pdf-toolbar{box-shadow:none}.library-tools{margin:12px 0;font-size:13px}.library-tools summary{cursor:pointer;color:var(--muted)}.library-tools button{margin:10px 0 0!important}.ability{grid-template-columns:minmax(0,1fr) auto auto auto;font-size:13px}.ability-add{grid-template-columns:minmax(0,1fr) 65px}.ability-add button{grid-column:1/-1}#importStatus{font-size:13px;color:var(--muted)}@media(max-width:900px){.workspace{grid-template-columns:1fr}.encounter{border-right:0;border-bottom:1px solid var(--line)}.guide-steps{grid-template-columns:1fr;gap:0}.quick-guide{margin:12px}.topbar{position:static}.pdf-grid{grid-template-columns:1fr}.quick-hp{gap:6px}.quick-hp .btn{padding:9px}.top-actions{gap:5px}}
 </style>
-<script>init();</script>
+<style>
+/* Keep encounter controls prominent and setup controls out of the way. */
+body:before{background:none}.panel,.pdf-card{box-shadow:none}.quick-guide{margin:12px 24px 0;padding:10px 14px;background:none}.workspace{grid-template-columns:minmax(340px,420px) minmax(0,1fr)}.setup-panel{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;background:#171313}.setup-panel>summary,.selection-options>summary,.layout-options>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--gold)}.setup-panel .add-form,.setup-panel .pdf-toolbar{border:0;background:none;margin:0;padding:12px 0 0}.creature-picker{border:0;background:none;padding:0}.selection-options select{margin-top:10px}.selection-options button{margin:8px 0}.follow-turn{margin:6px 0}.layout-options{margin:12px 0}.layout-options .view-picks{margin-top:8px}#initiativeList{max-height:210px;margin-top:0}#initiativeList button{min-height:40px;background:transparent}#initiativeList button[hidden]{display:none}#initiativeList .selected-marker{background:#332719}.creature-edit{padding:18px;background:#191515}.hp-readout strong{font-size:40px}.pdf-library{max-height:210px!important;overflow:auto}.top-actions #resetEncounter{font-weight:500;color:var(--muted)}#importStatus:empty{display:none}@media(max-width:900px){.workspace{grid-template-columns:1fr}.quick-guide{margin:12px}.topbar{height:auto;flex-wrap:wrap}.brand p{display:none}}
+</style>
+<script>
+// Move existing elements so their event handlers and stored data stay intact.
+function foldControls(first,items,label,className){
+  const panel=document.createElement('details');panel.className=className;
+  const summary=document.createElement('summary');summary.textContent=label;
+  first.before(panel);panel.append(summary,...items);return panel;
+}
+$('.quick-guide').open=false;
+$('.quick-guide summary').textContent='Help · how to use the board';
+const addPanel=foldControls($('#addCombatant'),[$('#addCombatant')],'＋ Add creature','setup-panel');
+foldControls($('.pdf-toolbar'),[$('.pdf-toolbar')],'＋ Import PDFs','setup-panel');
+foldControls($('#creatureSelect'),[$('#creatureSelect'),$('#editCurrent'),$('.follow-turn')],'Selection options','selection-options');
+const order=$('#initiativeList'),orderDisclosure=order.parentElement;
+orderDisclosure.before(order);orderDisclosure.remove();
+$('#creatureSearch').after(order);
+const noCreatureMatches=document.createElement('p');noCreatureMatches.className='editor-help';noCreatureMatches.textContent='No matching creatures. Try another name.';noCreatureMatches.hidden=true;order.after(noCreatureMatches);
+foldControls($('#pdfGrid'),[$('.view-picks')],'Reading layout','layout-options');
+document.querySelectorAll('.section-help').forEach(p=>p.hidden=true);
+$('#importStatus').textContent='';
+const originalPicker=renderCreaturePicker;
+renderCreaturePicker=function(){
+  originalPicker();
+  const query=$('#creatureSearch').value.trim().toLowerCase();let visible=0;
+  for(const button of $('#initiativeList').querySelectorAll('[data-select]')){
+    const creature=state.combatants.find(c=>c.id===button.dataset.select);
+    button.hidden=!!query&&!creature.name.toLowerCase().includes(query);
+    if(!button.hidden)visible++;
+    button.setAttribute('aria-pressed',String(creature.id===state.selectedId));
+  }
+  noCreatureMatches.hidden=!query||visible>0;
+  if(!state.combatants.length)addPanel.open=true;
+};
+$('#creatureSearch').oninput=renderCreaturePicker;
+const originalAdd=$('#addCombatant').onsubmit;
+$('#addCombatant').onsubmit=e=>{const count=state.combatants.length;originalAdd(e);if(state.combatants.length>count){addPanel.open=false;$('#creatureSearch').focus()}};
+init();
+addPanel.open=state.combatants.length===0;
+</script>
 </body>
 </html>
