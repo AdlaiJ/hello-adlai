@@ -101,5 +101,8 @@ document.querySelector('#pages').onclick=()=>document.querySelector('#page-menu'
 document.querySelectorAll('[data-skin]').forEach(button=>button.onclick=()=>{skin=button.dataset.skin;document.querySelector('#skin-menu').setAttribute('hidden','');canvas.focus();});
 board=emptyBoard();spawn();requestAnimationFrame(()=>canvas.focus());window.addEventListener('focus',()=>canvas.focus());update();
 </script>
+<script>
+const arenaLink=document.createElement('a');arenaLink.className='page-link';arenaLink.href='volt-arena.html';arenaLink.textContent='Volt Arena · Movement Lab';document.getElementById('page-menu').append(arenaLink);
+</script>
 </body>
 </html>
