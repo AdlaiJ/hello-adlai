@@ -11,17 +11,17 @@ export function inFireCone(origin,direction,target){const v=target.map((x,i)=>x-
 export function bounceVelocity(v,n){const dot=v.reduce((sum,x,i)=>sum+x*n[i],0);return v.map((x,i)=>(x-2*dot*n[i])*.92)}
 export function bubbleSpeed(point,fields){let slow=false,fast=false;for(const f of fields){if(f.age>=.6&&f.age<15.6&&Math.hypot(...point.map((v,i)=>v-f.to[i]))<4){slow ||= f.kind==='slow';fast ||= f.kind==='fast'}}return slow?.55:fast?1.5:1}
 
-export function portalRay(origin,direction,range,pairs){
+export function portalRay(origin,direction,range,pairs,radius=0){
  const dot=(a,b)=>a.reduce((v,x,i)=>v+x*b[i],0),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
  const valid=p=>Array.isArray(p)&&p.length===6&&p.every(Number.isFinite)&&p.slice(0,3).every(v=>Math.abs(v)<200)&&Math.abs(Math.hypot(...p.slice(3))-1)<.01;
  const basis=n=>{const r=Math.abs(n[1])>.5?[1,0,0]:[n[2],0,-n[0]];return [r,cross(n,r)]};let nearest=null;
  for(const pair of pairs){if(!Array.isArray(pair)||pair.length!==2||!pair.every(valid))continue;
  for(let i=0;i<2;i++){const a=pair[i],b=pair[1-i],n=a.slice(3),out=b.slice(3),denom=dot(direction,n);if(denom>=-1e-6)continue;
- const distance=dot(a.slice(0,3).map((v,k)=>v-origin[k]),n)/denom;if(distance<.00001||distance>range||(nearest&&distance>=nearest.distance))continue;
- const point=origin.map((v,k)=>v+direction[k]*distance),rel=point.map((v,k)=>v-a[k]),[right,up]=basis(n),[exitRight,exitUp]=basis(out),x=dot(rel,right),y=dot(rel,up);
- if((x/.65)**2+(y/.9425)**2>=1)continue;
+ const centerDistance=dot(a.slice(0,3).map((v,k)=>v-origin[k]),n)/denom;if(centerDistance<.00001)continue;const distance=Math.max(0,centerDistance-radius/(-denom));if(distance>range||(nearest&&distance>=nearest.distance))continue;
+ const point=origin.map((v,k)=>v+direction[k]*distance-n[k]*radius),rel=point.map((v,k)=>v-a[k]),[right,up]=basis(n),[exitRight,exitUp]=basis(out),x=dot(rel,right),y=dot(rel,up);
+ if((x/(.65-radius))**2+(y/(.9425-radius))**2>=1)continue;
  const transform=v=>{const x=-dot(v,right),y=dot(v,up),z=-dot(v,n);return out.map((_,k)=>exitRight[k]*x+exitUp[k]*y+out[k]*z)};
- nearest={distance,point,origin:out.map((v,k)=>b[k]-exitRight[k]*x+exitUp[k]*y+v*.04),direction:transform(direction)};
+ nearest={distance,point,origin:out.map((v,k)=>b[k]-exitRight[k]*x+exitUp[k]*y+v*(radius+.04)),direction:transform(direction)};
  }}return nearest;
 }
 
@@ -113,9 +113,9 @@ export function setupOnline(api){
  for(const b of [...balls]){let gone=false;
  for(let k=0;k<steps&&!gone;k++){b.age+=h;b.v.y-=8*h;let left=b.v.length()*h;let dir=b.v.clone().normalize();
  for(let hop=0;hop<4&&left>.00001;hop++){
- const from=b.mesh.position.toArray(),wall=new THREE.Raycaster(b.mesh.position,dir,0,left+.2).intersectObjects(solidMeshes,false)[0],gate=portalRay(from,dir.toArray(),left,portalPairs());let distance=wall?Math.max(0,wall.distance-.2):Infinity,victim=-1;
+ const from=b.mesh.position.toArray(),wall=new THREE.Raycaster(b.mesh.position,dir,0,left+.2).intersectObjects(solidMeshes,false)[0],gate=portalRay(from,dir.toArray(),left,portalPairs(),.2);let distance=wall?Math.max(0,wall.distance-.2):Infinity,victim=-1;
  if(host||!connected)for(let id=0;id<4;id++){if(id===b.owner||!state.active[id]||state.hp[id]<=0)continue;const base=baseFor(id);if(!base)continue;const t=raySphere(from,dir.toArray(),[base[0],base[1]+1,base[2]],.8);if(t<distance&&t<=left){distance=t;victim=id}}
- if(gate&&gate.distance<=(victim>=0?distance:(wall?.distance??Infinity))+.0001){b.mesh.position.fromArray(gate.origin);const speed=b.v.length();b.v.fromArray(gate.direction).multiplyScalar(speed);dir.fromArray(gate.direction);left-=gate.distance;continue}
+ if(gate&&gate.distance<=distance+.0001){b.mesh.position.fromArray(gate.origin);const speed=b.v.length();b.v.fromArray(gate.direction).multiplyScalar(speed);dir.fromArray(gate.direction);left-=gate.distance;if(host&&connected)send({type:'ballBounce',id:b.id,p:b.mesh.position.toArray(),v:b.v.toArray()});continue}
  if(distance>left){b.mesh.position.addScaledVector(dir,left);break}
  b.mesh.position.addScaledVector(dir,distance);left-=distance;
  if(victim>=0){damage(victim,WEAPONS.ball.damage,b.owner);gone=true;break}
