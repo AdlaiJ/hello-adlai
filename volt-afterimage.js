@@ -8,5 +8,6 @@ export function createAfterimage(api){let history=[],clock=0,age=0,serial=0,cool
  clock+=dt;const p=api.position();if(!held&&clock>=.4&&(!history.length||Math.hypot(...p.map((v,i)=>v-history.at(-1).p[i]))>.8)&&api.free(p)){clock=0;const h={id:++serial,p:p.slice(),time:age,yaw:api.yaw()};h.mesh=api.make(h.p,h.yaw);history.push(h);api.record(h.id,h.p,h.yaw);if(history.length>16)remove(history.shift())}return false}
  function target(eye,dir){return aimedEcho(history,eye,dir,api.blocked)}
  function jump(eye,dir){if(cooldown>0)return false;const h=target(eye,dir);if(!h||!api.free(h.p))return false;api.move(h.p);consume(history.indexOf(h),false);cooldown=2;clock=0;return true}
- return {step,jump,clear,target,get count(){return history.length},get cooldown(){return cooldown},get rewinding(){return rewinding}};
+ function retreat(){const h=history.at(-1);if(!h||!api.free(h.p))return false;api.move(h.p);consume(history.length-1,false);clock=0;return true}
+ return {step,jump,clear,target,retreat,get count(){return history.length},get cooldown(){return cooldown},get rewinding(){return rewinding}};
 }
