@@ -22,6 +22,29 @@ box(-14,1,12,6,2,6,'#536e84');box(-22,2,22,6,4,6,'#657b8d');box(-10,3,25,8,1,5,'
 for(const x of [-4,4])box(x,1.6,8,1,3.2,9,'#a8764c');box(0,1.55,8,7,1,9,'#d69350');
 for(const [x,z] of [[-28,-25],[28,-25],[-28,28],[28,28]]){box(x,4,z,2,8,2,'#4e627a');box(x,8.1,z,2.2,.3,2.2,'#75f5dd',false)}
 for(const z of [-37,37])box(0,.06,z,74,.08,.15,'#79f4db',false);
+// Floating routes: each step rises within the base jump's reach.
+function floatingDeck(x,y,z,w=5,d=5,color='#607f96'){
+ box(x,y-.4,z,w,.8,d,color);
+ box(x,y+.025,z-d/2+.12,w-.3,.05,.16,'#79f4db',false);
+ box(x,y-.9,z,w*.5,.18,d*.5,'#354d69',false);
+}
+for(const [x,y,z] of [[-14,4,5],[-20,6,0],[-25,8,-6],[-25,10,-14],[-18,12,-21],[-10,14,-25],[0,16,-27],[10,14,-25],[18,12,-21],[25,10,-16],[27,8,-8],[29,6,0],[28,4,10]])floatingDeck(x,y,z);
+// Broad sky decks, a narrow bridge, and overhead grapple beams.
+floatingDeck(0,18,-16,12,9,'#738398');
+floatingDeck(-14,12,-5,8,7);floatingDeck(14,12,-5,8,7);
+box(0,11.6,-5,20,.8,2,'#b48455');
+for(const x of [-16,16]){box(x,12,-30,2,24,2,'#405a73');box(x,24.2,-30,3,.4,3,'#79f4db',false)}
+box(0,23,-30,34,1.2,2,'#5a7891');
+box(-31,12,12,2,24,2,'#405a73');box(-31,23,3,2,1,20,'#5a7891');
+// Wall-running and portal surfaces, with open ground routes between them.
+box(34,7,-14,1,14,18,'#58728a');box(-34,8,-13,1,16,16,'#58728a');
+for(const x of [-33,33]){box(x,4,22,1,8,10,'#60778e');box(x,8.1,22,1.4,.2,10,'#f2ad64',false)}
+// Southern stepping islands and a tall launch platform for gliding.
+for(const [x,y,z] of [[9,2,29],[15,4,29],[21,6,31],[26,8,30],[26,10,23],[21,12,18]])floatingDeck(x,y,z,4,4,'#977b64');
+floatingDeck(13,14,14,9,7,'#977b64');
+// Ground-level slalom and vault lane; the central slide tunnel stays open.
+for(let i=0;i<5;i++)box(-20+i*5,.65,34+(i%2?-1.5:1.5),2,1.3,2,'#aa8058');
+for(const x of [-12,12])box(x,.035,32,1,.07,10,'#79f4db',false);
 // Original articulated robot: small bevel-like accent blocks and glowing visor.
 const robot=new THREE.Group(),body=new THREE.Group();scene.add(robot);robot.add(body);
 function part(parent,x,y,z,w,h,d,color){return box(x,y,z,w,h,d,color,false,parent)}
@@ -65,19 +88,20 @@ function tryVault(){
 }
 const pos=new THREE.Vector3(0,0,23),vel=new THREE.Vector3(),keys=new Set();let yaw=0,pitch=0,grounded=true,jumps=0,slide=0,dashTime=0,dashCooldown=0,third=true,walk=0,active=false,last=performance.now(),height=1.85;
 const radius=.34,eye=new THREE.Vector3(),offset=new THREE.Vector3(),ray=new THREE.Raycaster();const solidMeshes=scene.children.filter(o=>o.isMesh);
-const abilityHelp={wall:'E near a wall: change gravity and attach. W/S run up/down, A/D across. Space leaps off; E releases.',grapple:'Aim at a surface and press E to hook (up to 45m). WASD steers your swing. Press E again to release.',glider:'Jump, then E to open/close your glider. WASD steers; looking up slows your descent.',portal:'Aim at a broad wall and press E to place alternating blue/orange portals. Walk into either to travel. R clears them.',skate:'WASD accelerates and carves. Release to coast. Hold E to brake. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
+const abilityHelp={wall:'E near a wall: change gravity and attach. W/S run up/down, A/D across. Space leaps off; E releases.',grapple:'Aim at a surface and press E to hook (up to 45m). WASD steers your swing. E fires a new rope, replacing the old one. F releases.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall and press E to place alternating blue/orange portals. Walk into either to travel. R clears them.',skate:'WASD accelerates and carves. Release to coast. Hold E to brake. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
+let glideSpeed=12;
 let ability='wall',hook=null,gliding=false,wall=null,portalNext=0,portalCooldown=0;
 const portals=[null,null],portalMeshes=[];
 const rope=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:0x79f4db}));scene.add(rope);rope.visible=false;
 const wing=new THREE.Group();part(wing,0,2.1,0,4,.12,1.2,'#79f4db');part(wing,0,1.85,0,.12,.5,.12,'#dce8f2');robot.add(wing);wing.visible=false;
 const skates=new THREE.Group();for(const x of [-.22,.22]){part(skates,x,.12,0,.19,.12,.65,'#79f4db');for(const z of [-.2,.2])part(skates,x,.06,z,.22,.12,.12,'#172232')}robot.add(skates);
-function updateAbilityHelp(){ $('abilityHelp').textContent=abilityHelp[ability];$('hint').textContent='WASD move · Space jump/vault · C slide · Q dash · E ability · V camera · Esc change ability'; }
+function updateAbilityHelp(){ $('abilityHelp').textContent=abilityHelp[ability];$('hint').textContent='WASD move · Space jump/vault · C slide · Q dash · E ability · F release grapple · V camera · Esc change ability'; }
 function clearAbility(){hook=null;gliding=false;wall=null;portalCooldown=0;portals.fill(null);portalNext=0;for(const m of portalMeshes){scene.remove(m);m.geometry.dispose();m.material.dispose()}portalMeshes.length=0;}
 $('ability').onchange=()=>{ability=$('ability').value;clearAbility();reset();updateAbilityHelp()};updateAbilityHelp();
 function aimHit(range){const r=new THREE.Raycaster();r.set(pos.clone().add(new THREE.Vector3(0,1.5,0)),new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ')));r.far=range;return r.intersectObjects(solidMeshes,false)[0]}
 function useAbility(){
- if(ability==='glider'){if(!grounded)gliding=!gliding;return}
- if(ability==='grapple'){if(hook){hook=null;return}const hit=aimHit(45);if(hit){hook=hit.point.clone();grounded=false;vel.y=Math.max(vel.y,5)}return}
+ if(ability==='glider'){if(!grounded){gliding=!gliding;if(gliding)glideSpeed=Math.max(10,vel.length())}return}
+ if(ability==='grapple'){hook=null;const hit=aimHit(45);if(hit){hook=hit.point.clone();grounded=false;vel.y=Math.max(vel.y,5)}return}
  if(ability==='wall'){
   if(wall){wall=null;return}const hit=aimHit(2.5);if(!hit||Math.abs(hit.face.normal.y)>.1)return;
   const normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld),b=solids.find(b=>hit.point.x>=b.x-.01&&hit.point.x<=b.X+.01&&hit.point.y>=b.y-.01&&hit.point.y<=b.Y+.01&&hit.point.z>=b.z-.01&&hit.point.z<=b.Z+.01);
@@ -122,7 +146,7 @@ function moveAxis(axis,amount){
   }
  }
 }
-addEventListener('keydown',e=>{if(!active)return;if(['Space','KeyC','Tab'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='KeyR'){reset();return}if(e.code==='KeyV')third=!third;if(vault)return;if(e.code==='KeyE')useAbility();if(e.code==='Space'){if(wall){vel.copy(wall.normal).multiplyScalar(9);vel.y=11.5;wall=null;jumps=1;return}if(tryVault())return;if(grounded||(ability==='triple'&&jumps<3)){jumps=grounded?1:jumps+1;vel.y=jumps===1?12:10.5;grounded=false;gliding=false;slide=0}}if(e.code==='KeyQ'&&dashCooldown<=0){const d=direction();if(!d.lengthSq())d.set(-Math.sin(yaw),0,-Math.cos(yaw));vel.x=d.x*24;vel.z=d.z*24;dashTime=.16;dashCooldown=1.1}if(e.code==='KeyC'&&grounded&&slide<=0&&Math.hypot(vel.x,vel.z)>4){slide=.9;const s=Math.hypot(vel.x,vel.z);slideHeading=Math.atan2(-vel.x,-vel.z);vel.x=vel.x/s* Math.min(17,s+4);vel.z=vel.z/s*Math.min(17,s+4)}});
+addEventListener('keydown',e=>{if(!active)return;if(['Space','KeyC','Tab'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='KeyR'){reset();return}if(e.code==='KeyV')third=!third;if(vault)return;if(e.code==='KeyF'&&ability==='grapple')hook=null;if(e.code==='KeyE')useAbility();if(e.code==='Space'){if(wall){vel.copy(wall.normal).multiplyScalar(9);vel.y=11.5;wall=null;jumps=1;return}if(tryVault())return;if(grounded||(ability==='triple'&&jumps<3)){jumps=grounded?1:jumps+1;vel.y=jumps===1?12:10.5;grounded=false;gliding=false;slide=0}}if(e.code==='KeyQ'&&dashCooldown<=0){const d=direction();if(!d.lengthSq())d.set(-Math.sin(yaw),0,-Math.cos(yaw));vel.x=d.x*24;vel.z=d.z*24;dashTime=.16;dashCooldown=1.1}if(e.code==='KeyC'&&grounded&&slide<=0&&Math.hypot(vel.x,vel.z)>4){slide=.9;const s=Math.hypot(vel.x,vel.z);slideHeading=Math.atan2(-vel.x,-vel.z);vel.x=vel.x/s* Math.min(17,s+4);vel.z=vel.z/s*Math.min(17,s+4)}});
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{clear();if(document.pointerLockElement)document.exitPointerLock()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clear();document.exitPointerLock()}});
 let dragging=false;const fallback=document.createElement('button');fallback.textContent='Play with drag-to-look';fallback.style.marginTop='12px';$('play').after(fallback);fallback.onclick=()=>{active=true;$('overlay').hidden=true;clear();last=performance.now();updateAbilityHelp()};
 renderer.domElement.addEventListener('mousedown',e=>{if(e.button===0)dragging=true});addEventListener('mouseup',()=>dragging=false);
@@ -131,13 +155,24 @@ addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>
 document.addEventListener('mousemove',e=>{if(!active||(!document.pointerLockElement&&!dragging))return;const sensitivity=Number($('sensitivity').value)*.002;yaw-=e.movementX*sensitivity;pitch=THREE.MathUtils.clamp(pitch-e.movementY*sensitivity,-1.25,1.25)});
 $('play').disabled=false;$('play').textContent='Enter arena';$('play').onclick=()=>{try{const request=renderer.domElement.requestPointerLock();request?.catch(()=>{$('error').textContent='Mouse capture was blocked. Click Enter arena to retry.'})}catch{$('error').textContent='Mouse capture is unavailable in this browser.'}};
 document.addEventListener('pointerlockchange',()=>{active=document.pointerLockElement===renderer.domElement;$('overlay').hidden=active;$('play').textContent='Resume arena';clear();last=performance.now()});
+function glideStep(dt){
+ const angle=THREE.MathUtils.clamp(pitch-.18,-1,.85);
+ // Pulling up trades speed for height; diving rebuilds speed.
+ glideSpeed=THREE.MathUtils.clamp(glideSpeed+(-9*Math.sin(angle)-.025*glideSpeed*glideSpeed)*dt,4,28);
+ const stall=THREE.MathUtils.clamp((9-glideSpeed)/5,0,1);
+ const heading=yaw+((keys.has('KeyA')?1:0)-(keys.has('KeyD')?1:0))*.45;
+ const horizontal=Math.cos(angle)*glideSpeed,blend=1-Math.exp(-4*dt);
+ vel.x+=(-Math.sin(heading)*horizontal-vel.x)*blend;
+ vel.z+=(-Math.cos(heading)*horizontal-vel.z)*blend;
+ vel.y+=(Math.sin(angle)*glideSpeed-stall*7-vel.y)*blend;
+}
 function step(dt){
  if(abilityStep(dt))return;dashCooldown=Math.max(0,dashCooldown-dt);dashTime=Math.max(0,dashTime-dt);
  if(vault){height=1.85;vault.t=Math.min(1,vault.t+dt/.48);const t=vault.t;const p=t<.4?vault.start.clone().lerp(vault.lift,t/.4):vault.lift.clone().lerp(vault.end,(t-.4)/.6);if(!freeAt(p)){vault=null;return}pos.copy(p);if(t>=1){vault=null;grounded=false;vel.y=-1}return}
  slide=Math.max(0,slide-dt);height=slide>0?.9:canStand()?1.85:.9;
  const d=direction(),moving=d.lengthSq()>0,sprinting=keys.has('ShiftLeft')||keys.has('ShiftRight');
- if(ability==='skate'&&slide<=0&&dashTime<=0){vel.x+=d.x*24*dt;vel.z+=d.z*24*dt;const drag=keys.has('KeyE')?10:moving?.55:.18;vel.x*=Math.exp(-drag*dt);vel.z*=Math.exp(-drag*dt);const speed=Math.hypot(vel.x,vel.z);if(speed>22){vel.x*=22/speed;vel.z*=22/speed}}else if(dashTime<=0&&!hook){if(slide>0){vel.x*=Math.exp(-.85*dt);vel.z*=Math.exp(-.85*dt)}else{const speed=(height<1?4:sprinting?14:8),blend=1-Math.exp(-(grounded?16:4.5)*dt);if(moving){vel.x+=(d.x*speed-vel.x)*blend;vel.z+=(d.z*speed-vel.z)*blend}else if(grounded){vel.x*=Math.exp(-14*dt);vel.z*=Math.exp(-14*dt)}}}
- if(hook){vel.x+=d.x*12*dt;vel.z+=d.z*12*dt}if(grounded)gliding=false;if(gliding){vel.y=Math.max(-3+Math.max(0,pitch)*1.5,vel.y-5*dt);vel.x+=(-Math.sin(yaw)*12-vel.x)*dt*2;vel.z+=(-Math.cos(yaw)*12-vel.z)*dt*2}const wasGrounded=grounded,fallSpeed=vel.y;if(!gliding)vel.y-=25*dt;grounded=false;moveAxis('x',vel.x*dt);moveAxis('z',vel.z*dt);moveAxis('y',vel.y*dt);if(grounded&&!wasGrounded)landing=Math.min(.18,Math.max(0,-fallSpeed-3)*.018);if(slide>0&&Math.hypot(vel.x,vel.z)<1)slide=0;if(pos.y< -15)reset();
+ if(ability==='skate'&&slide<=0&&dashTime<=0){vel.x+=d.x*24*dt;vel.z+=d.z*24*dt;const drag=keys.has('KeyE')?10:moving?.55:.18;vel.x*=Math.exp(-drag*dt);vel.z*=Math.exp(-drag*dt);const speed=Math.hypot(vel.x,vel.z);if(speed>22){vel.x*=22/speed;vel.z*=22/speed}}else if(dashTime<=0&&!hook&&!gliding){if(slide>0){vel.x*=Math.exp(-.85*dt);vel.z*=Math.exp(-.85*dt)}else{const speed=(height<1?4:sprinting?14:8),blend=1-Math.exp(-(grounded?16:4.5)*dt);if(moving){vel.x+=(d.x*speed-vel.x)*blend;vel.z+=(d.z*speed-vel.z)*blend}else if(grounded){vel.x*=Math.exp(-14*dt);vel.z*=Math.exp(-14*dt)}}}
+ if(hook){vel.x+=d.x*12*dt;vel.z+=d.z*12*dt}if(grounded)gliding=false;if(gliding)glideStep(dt);const wasGrounded=grounded,fallSpeed=vel.y;if(!gliding)vel.y-=25*dt;grounded=false;moveAxis('x',vel.x*dt);moveAxis('z',vel.z*dt);moveAxis('y',vel.y*dt);if(grounded&&!wasGrounded)landing=Math.min(.18,Math.max(0,-fallSpeed-3)*.018);if(slide>0&&Math.hypot(vel.x,vel.z)<1)slide=0;if(pos.y< -15)reset();
 }
 let landing=0,bodyHeading=0,lean=0,cameraEyeHeight=1.6;
 function animateRobot(dt,speed){
@@ -146,7 +181,7 @@ function animateRobot(dt,speed){
  const targetHeading=slide>0?slideHeading:speed>1?Math.atan2(-vel.x,-vel.z):yaw;
  const headingDelta=Math.atan2(Math.sin(targetHeading-bodyHeading),Math.cos(targetHeading-bodyHeading));bodyHeading+=headingDelta*(1-Math.exp(-14*dt));
  lean=THREE.MathUtils.lerp(lean,THREE.MathUtils.clamp(-headingDelta*.3,-.22,.22)*Math.min(speed/8,1),1-Math.exp(-10*dt));
- robot.position.copy(pos);robot.rotation.set(0,bodyHeading,0);if(wall){robot.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),wall.normal);robot.position.y+=.6;robot.position.addScaledVector(wall.normal,-.15)}wing.visible=gliding;skates.visible=ability==='skate';rope.visible=!!hook;if(hook){const a=rope.geometry.attributes.position;a.setXYZ(0,pos.x,pos.y+1.2,pos.z);a.setXYZ(1,hook.x,hook.y,hook.z);a.needsUpdate=true;rope.geometry.computeBoundingSphere()}robot.visible=third;body.rotation.z=lean*(1-pose);
+ robot.position.copy(pos);robot.rotation.set(0,bodyHeading,0);if(wall){robot.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),wall.normal);robot.position.y+=.6;robot.position.addScaledVector(wall.normal,-.15)}wing.visible=gliding;wing.rotation.x=THREE.MathUtils.lerp(wing.rotation.x,gliding?THREE.MathUtils.clamp(pitch-.18,-1,.85):0,1-Math.exp(-8*dt));skates.visible=ability==='skate';rope.visible=!!hook;if(hook){const a=rope.geometry.attributes.position;a.setXYZ(0,pos.x,pos.y+1.2,pos.z);a.setXYZ(1,hook.x,hook.y,hook.z);a.needsUpdate=true;rope.geometry.computeBoundingSphere()}robot.visible=third;body.rotation.z=lean*(1-pose);
  // Low athletic slide: chest over the lead knee, opposite leg trailing behind.
  const sprint=Math.min(1,Math.max(0,(speed-8)/6)),stride=Math.min(speed/8,1);
  hips.position.y=.86-pose*.38-landing*(1-pose);torso.rotation.x=-pose*1.35-(1-pose)*(.30+sprint*.35)*stride;body.position.y=grounded?(1-pose)*Math.abs(Math.sin(walk))*.07*stride:0;
