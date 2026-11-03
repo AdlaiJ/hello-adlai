@@ -89,8 +89,8 @@ function tryVault(){
 }
 const pos=new THREE.Vector3(0,0,23),vel=new THREE.Vector3(),keys=new Set();let yaw=0,pitch=0,grounded=true,jumps=0,slide=0,dashTime=0,dashCooldown=0,third=true,walk=0,active=false,last=performance.now(),height=1.85;
 const radius=.34,eye=new THREE.Vector3(),offset=new THREE.Vector3(),ray=new THREE.Raycaster();const solidMeshes=scene.children.filter(o=>o.isMesh);
-const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Builds snap to platform tops. Green = clear; red = blocked. 60 pieces; R clears builds.',wall:'Hold E as you walk off a platform to catch its side. E near a wall attaches. W/S run up/down, A/D across; corners turn automatically. W climbs over the top; S wraps underneath. WASD moves underneath. Space leaps off; E releases.',grapple:'Aim near an edge or beam and press E to hook (up to 65m, with aim assist). WASD steers; Shift reels in. E chains to a new rope; F releases and keeps your speed.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall, floor, or platform underside and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves with responsive steering. Release to coast. E redirects all your speed straight upward. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
-let ropeLength=8,grapplePreviewTimer=0;
+const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Builds snap to platform tops. Green = clear; red = blocked. 60 pieces; R clears builds.',wall:'Hold E as you walk off a platform to catch its side. Hold E + W into a wall to attach and run up, even when looking upward. W/S run up/down, A/D across; corners turn automatically. W climbs over the top; S wraps underneath. WASD moves underneath. Space jumps and keeps surface gravity; E releases boots.',grapple:'Aim near an edge or beam and press E to hook (up to 65m, with aim assist). WASD steers; Shift reels in. E chains to a new rope; F releases and keeps your speed.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall, floor, or platform underside and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves with responsive steering. Release to coast. E redirects all your speed straight upward. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
+let ropeLength=8,grapplePreviewTimer=0,bootsAttachBlocked=false;
 let glideSpeed=12;
 let ability='wall',hook=null,gliding=false,wall=null,portalNext=0,portalExitLock=null;
 const portals=[null,null],portalMeshes=[];
@@ -138,7 +138,7 @@ function useAbility(){
  if(ability==='glider'){if(!grounded){gliding=!gliding;if(gliding)glideSpeed=Math.max(10,vel.length())}return}
  if(ability==='grapple'){hook=null;const hit=findGrappleTarget();if(hit){hook=hit.point.clone();ropeLength=Math.max(3,hook.clone().sub(pos).length()*.92);if(grounded){vel.y=Math.max(vel.y,9);if(Math.hypot(vel.x,vel.z)<6){vel.x-=Math.sin(yaw)*6;vel.z-=Math.cos(yaw)*6}}grounded=false;slide=0}return}
  if(ability==='wall'){
-  if(wall){wall=null;return}const hit=aimHit(2.5);if(!hit||Math.abs(hit.face.normal.y)>.1)return;
+  if(wall){wall=null;bootsAttachBlocked=true;return}const hit=aimHit(2.5,true);if(!hit||Math.abs(hit.face.normal.y)>.1)return;
   const normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld),b=solids.find(b=>hit.point.x>=b.x-.01&&hit.point.x<=b.X+.01&&hit.point.y>=b.y-.01&&hit.point.y<=b.Y+.01&&hit.point.z>=b.z-.01&&hit.point.z<=b.Z+.01);
   const target=hit.point.clone().addScaledVector(normal,.5);target.y=Math.max(.1,hit.point.y-.5);if(!b||!freeAt(target))return;pos.copy(target);wall={normal,b};vel.set(0,0,0);slide=0;return;
  }
@@ -236,21 +236,58 @@ function renderPortalViews(){
  renderer.setRenderTarget(previousTarget);renderer.clippingPlanes=previousClip;robot.visible=robotVisible;
  for(const m of portalMeshes)m.userData.portal.surface.visible=true;
 }
+function autoAttachWall(){
+ if(ability!=='wall'||wall||vault||bootsAttachBlocked||!keys.has('KeyE')||!keys.has('KeyW'))return false;
+ const r=new THREE.Raycaster(pos.clone().add(new THREE.Vector3(0,.9,0)),new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),0,1.05);
+ const hit=r.intersectObjects(solidMeshes.filter(m=>m.userData.collidable),false)[0];if(!hit)return false;
+ const normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld);if(Math.abs(normal.y)>.1)return false;
+ const b=solids.find(b=>hit.point.x>=b.x-.01&&hit.point.x<=b.X+.01&&hit.point.y>=b.y&&hit.point.y<=b.Y&&hit.point.z>=b.z-.01&&hit.point.z<=b.Z+.01);
+ if(!b||b.Y<pos.y+.7)return false;
+ const target=hit.point.clone().addScaledVector(normal,.5);target.y=Math.max(.1,pos.y);
+ if(!freeAt(target))return false;
+ pos.copy(target);wall={normal,b,facing:0};vel.set(0,0,0);height=1.85;slide=0;grounded=false;jumps=0;return true;
+}
 function catchPlatformEdge(b){
  if(!b||ability!=='wall'||!keys.has('KeyE')||wall||vault||vel.y>0)return false;
  let n;if(pos.x>b.X)n=new THREE.Vector3(1,0,0);else if(pos.x<b.x)n=new THREE.Vector3(-1,0,0);else if(pos.z>b.Z)n=new THREE.Vector3(0,0,1);else if(pos.z<b.z)n=new THREE.Vector3(0,0,-1);else return false;
  const p=pos.clone();p.x=Math.max(b.x,Math.min(b.X,p.x))+n.x*.5;p.z=Math.max(b.z,Math.min(b.Z,p.z))+n.z*.5;p.y=b.Y-.65;
  if(p.y<.05||!freeAt(p))return false;
- pos.copy(p);wall={normal:n,b,facing:Math.PI};height=1.85;slide=0;vel.set(0,0,0);grounded=false;jumps=0;return true;
+ pos.copy(p);wall={normal:n,b,facing:Math.PI,edgeCatch:true};height=1.85;slide=0;vel.set(0,0,0);grounded=false;jumps=0;return true;
 }
 function turnWall(normal,b){
  const before=Math.atan2(wall.normal.x,wall.normal.z),after=Math.atan2(normal.x,normal.z);
  yaw+=Math.atan2(Math.sin(after-before),Math.cos(after-before));
  wall.normal.copy(normal);wall.b=b;
 }
+function jumpFromWall(){
+ if(!wall||wall.airborne)return;
+ const n=wall.normal,tangent=vel.clone().addScaledVector(n,-vel.dot(n));
+ vel.copy(tangent).addScaledVector(n,9);wall.airborne=true;wall.turn=null;wall.edgeCatch=false;grounded=false;jumps=1;slide=0;
+}
+function gravityBootFlight(dt){
+ const n=wall.normal,d=n.y<-.5?direction():new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),n).multiplyScalar(Number(keys.has('KeyD'))-Number(keys.has('KeyA')));
+ if(n.y>=-.5)d.y=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
+ const length=d.length();if(length>1)d.multiplyScalar(1/length);
+ // Only steer along the surface; gravity remains perpendicular to it.
+ const radial=vel.dot(n),tangent=vel.clone().addScaledVector(n,-radial),blend=1-Math.exp(-4*dt);
+ vel.addScaledVector(d,8*blend).addScaledVector(tangent,-blend).addScaledVector(n,-25*dt);
+ grounded=false;moveAxis('x',vel.x*dt);moveAxis('z',vel.z*dt);moveAxis('y',vel.y*dt);
+ if(vel.dot(n)<=.001){for(const b of solids){
+  let distance,inside;
+  if(n.y<-.5){distance=b.y-(pos.y+1.85);inside=pos.x>b.x&&pos.x<b.X&&pos.z>b.z&&pos.z<b.Z}
+  else if(Math.abs(n.x)>Math.abs(n.z)){distance=n.x>0?pos.x-b.X:b.x-pos.x;inside=pos.z>b.z&&pos.z<b.Z&&pos.y>b.y-.15&&pos.y<b.Y-.2}
+  else{distance=n.z>0?pos.z-b.Z:b.z-pos.z;inside=pos.x>b.x&&pos.x<b.X&&pos.y>b.y-.15&&pos.y<b.Y-.2}
+  const clearance=n.y<-.5?.05:.5;
+  if(inside&&distance>=-.01&&distance<=clearance+.015){const p=pos.clone().addScaledVector(n,clearance-distance);if(freeAt(p)){pos.copy(p);wall.b=b;wall.airborne=false;vel.set(0,0,0);jumps=0;break}}
+ }}
+ if(Math.abs(pos.x)>100||Math.abs(pos.z)>100||Math.abs(pos.y)>150)reset();return true;
+}
 function wallStep(dt){
+ if(wall.airborne)return gravityBootFlight(dt);
  const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
- const up=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
+ // Do not interpret the forward key used to leave the ledge as an immediate climb back up.
+ if(wall.edgeCatch&&!keys.has('KeyW'))wall.edgeCatch=false;
+ const up=Number(keys.has('KeyW')&&!wall.edgeCatch)-Number(keys.has('KeyS'));
  const old=pos.clone(),b=wall.b,travel=9*dt;
  if(wall.normal.y<-.5){
   const p=pos.clone().addScaledVector(direction(),travel);p.y=b.y-1.9;
@@ -317,7 +354,7 @@ function abilityStep(dt){
  return false;
 }
 function reset(){clearAbility();pos.set(0,.02,23);vel.set(0,0,0);grounded=false;jumps=0;slide=0;vault=null;dashTime=0;dashCooldown=0;yaw=0;pitch=0}
-function clear(){hook=null;gliding=false;wall=null;keys.clear();slide=0;dashTime=0;vel.set(0,0,0)}
+function clear(){bootsAttachBlocked=false;hook=null;gliding=false;wall=null;keys.clear();slide=0;dashTime=0;vel.set(0,0,0)}
 function overlaps(b,h=height){return pos.x+radius>b.x&&pos.x-radius<b.X&&pos.z+radius>b.z&&pos.z-radius<b.Z&&pos.y+h>b.y+.001&&pos.y<b.Y-.001}
 function canStand(){return !solids.some(b=>overlaps(b,1.85))}
 function direction(){let x=Number(keys.has('KeyD'))-Number(keys.has('KeyA')),z=Number(keys.has('KeyS'))-Number(keys.has('KeyW'));const n=Math.hypot(x,z)||1;x/=n;z/=n;return new THREE.Vector3(x*Math.cos(yaw)+z*Math.sin(yaw),0,-x*Math.sin(yaw)+z*Math.cos(yaw))}
@@ -336,7 +373,7 @@ function moveAxis(axis,amount){
   }
  }
 }
-addEventListener('keydown',e=>{if(!active||!online.canMove())return;if(['Space','KeyC','Tab'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='KeyR'){reset();return}if(e.code==='KeyV')third=!third;if(ability==='builder'){if(['Digit1','Digit2','Digit3','Digit4'].includes(e.code))buildType=['wall','ramp','floor','roof'][Number(e.code.slice(-1))-1];if(e.code==='KeyT')buildRotation=(buildRotation+1)%4;if(e.code==='KeyF')removeBuild();}if(vault)return;if(e.code==='KeyF'&&ability==='grapple')hook=null;if(e.code==='KeyE')useAbility();if(e.code==='Space'){if(wall){vel.copy(wall.normal).multiplyScalar(9);if(wall.normal.y<-.5){vel.y=-6;vel.x=-Math.sin(yaw)*7;vel.z=-Math.cos(yaw)*7}else vel.y=11.5;wall=null;jumps=1;return}if(tryVault())return;if(grounded||(ability==='triple'&&jumps<3)){jumps=grounded?1:jumps+1;vel.y=jumps===1?12:10.5;grounded=false;gliding=false;slide=0}}if(e.code==='KeyQ'&&dashCooldown<=0){const d=direction();if(!d.lengthSq())d.set(-Math.sin(yaw),0,-Math.cos(yaw));vel.x=d.x*24;vel.z=d.z*24;dashTime=.16;dashCooldown=1.1}if(e.code==='KeyC'&&grounded&&slide<=0&&Math.hypot(vel.x,vel.z)>4){slide=.9;const s=Math.hypot(vel.x,vel.z);slideHeading=Math.atan2(-vel.x,-vel.z);vel.x=vel.x/s* Math.min(17,s+4);vel.z=vel.z/s*Math.min(17,s+4)}});
+addEventListener('keydown',e=>{if(!active||!online.canMove())return;if(['Space','KeyC','Tab'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='KeyR'){reset();return}if(e.code==='KeyV')third=!third;if(ability==='builder'){if(['Digit1','Digit2','Digit3','Digit4'].includes(e.code))buildType=['wall','ramp','floor','roof'][Number(e.code.slice(-1))-1];if(e.code==='KeyT')buildRotation=(buildRotation+1)%4;if(e.code==='KeyF')removeBuild();}if(vault)return;if(e.code==='KeyF'&&ability==='grapple')hook=null;if(e.code==='KeyE')useAbility();if(e.code==='Space'){if(wall){jumpFromWall();return}if(tryVault())return;if(grounded||(ability==='triple'&&jumps<3)){jumps=grounded?1:jumps+1;vel.y=jumps===1?12:10.5;grounded=false;gliding=false;slide=0}}if(e.code==='KeyQ'&&dashCooldown<=0){const d=direction();if(!d.lengthSq())d.set(-Math.sin(yaw),0,-Math.cos(yaw));vel.x=d.x*24;vel.z=d.z*24;dashTime=.16;dashCooldown=1.1}if(e.code==='KeyC'&&grounded&&slide<=0&&Math.hypot(vel.x,vel.z)>4){slide=.9;const s=Math.hypot(vel.x,vel.z);slideHeading=Math.atan2(-vel.x,-vel.z);vel.x=vel.x/s* Math.min(17,s+4);vel.z=vel.z/s*Math.min(17,s+4)}});
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{clear();if(document.pointerLockElement)document.exitPointerLock()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clear();document.exitPointerLock()}});
 let dragging=false;const fallback=document.createElement('button');fallback.textContent='Play with drag-to-look';fallback.style.marginTop='12px';$('play').after(fallback);fallback.onclick=()=>{active=true;$('overlay').hidden=true;clear();last=performance.now();updateAbilityHelp()};
 renderer.domElement.addEventListener('mousedown',e=>{if(e.button===0)dragging=true});addEventListener('mouseup',()=>dragging=false);
@@ -357,6 +394,7 @@ function glideStep(dt){
  vel.y+=(Math.sin(angle)*glideSpeed-stall*7-vel.y)*blend;
 }
 function step(dt){
+ if(!keys.has('KeyE'))bootsAttachBlocked=false;autoAttachWall();
  if(abilityStep(dt))return;dashCooldown=Math.max(0,dashCooldown-dt);dashTime=Math.max(0,dashTime-dt);
  if(vault){height=1.85;vault.t=Math.min(1,vault.t+dt/.48);const t=vault.t;const p=t<.4?vault.start.clone().lerp(vault.lift,t/.4):vault.lift.clone().lerp(vault.end,(t-.4)/.6);if(!freeAt(p)){vault=null;return}pos.copy(p);if(t>=1){vault=null;grounded=false;vel.y=-1}return}
  slide=Math.max(0,slide-dt);height=slide>0?.9:canStand()?1.85:.9;
@@ -381,7 +419,7 @@ function animateRobot(dt,speed){
  const targetHeading=slide>0?slideHeading:speed>1?Math.atan2(-vel.x,-vel.z):yaw;
  const headingDelta=Math.atan2(Math.sin(targetHeading-bodyHeading),Math.cos(targetHeading-bodyHeading));bodyHeading+=headingDelta*(1-Math.exp(-14*dt));
  lean=THREE.MathUtils.lerp(lean,THREE.MathUtils.clamp(-headingDelta*.3,-.22,.22)*Math.min(speed/8,1),1-Math.exp(-10*dt));
- robot.position.copy(pos);robot.rotation.set(0,bodyHeading,0);if(wall){const forward=wallForward(dt);wallPoseRight.crossVectors(forward,wall.normal).normalize();wallPoseMatrix.makeBasis(wallPoseRight,wall.normal,forward.multiplyScalar(-1));robot.quaternion.setFromRotationMatrix(wallPoseMatrix);if(wall.normal.y<-.5)robot.position.y=wall.b.y-.05;else{robot.position.y+=.6;robot.position.addScaledVector(wall.normal,-.15)}}wing.visible=gliding;wing.rotation.x=THREE.MathUtils.lerp(wing.rotation.x,gliding?THREE.MathUtils.clamp(pitch-.18,-1,.85):0,1-Math.exp(-8*dt));skates.visible=ability==='skate';rope.visible=!!hook;if(hook){const a=rope.geometry.attributes.position;a.setXYZ(0,pos.x,pos.y+1.2,pos.z);a.setXYZ(1,hook.x,hook.y,hook.z);a.needsUpdate=true;rope.geometry.computeBoundingSphere()}robot.visible=third;body.rotation.z=wall?0:lean*(1-pose);
+ robot.position.copy(pos);robot.rotation.set(0,bodyHeading,0);if(wall){const forward=wallForward(dt);wallPoseRight.crossVectors(forward,wall.normal).normalize();wallPoseMatrix.makeBasis(wallPoseRight,wall.normal,forward.multiplyScalar(-1));robot.quaternion.setFromRotationMatrix(wallPoseMatrix);if(wall.normal.y<-.5)robot.position.y=pos.y+1.85;else{robot.position.y+=.6;robot.position.addScaledVector(wall.normal,-.15)}}wing.visible=gliding;wing.rotation.x=THREE.MathUtils.lerp(wing.rotation.x,gliding?THREE.MathUtils.clamp(pitch-.18,-1,.85):0,1-Math.exp(-8*dt));skates.visible=ability==='skate';rope.visible=!!hook;if(hook){const a=rope.geometry.attributes.position;a.setXYZ(0,pos.x,pos.y+1.2,pos.z);a.setXYZ(1,hook.x,hook.y,hook.z);a.needsUpdate=true;rope.geometry.computeBoundingSphere()}robot.visible=third;body.rotation.z=wall?0:lean*(1-pose);
  // Low athletic slide: chest over the lead knee, opposite leg trailing behind.
  const sprint=Math.min(1,Math.max(0,(speed-8)/6)),stride=Math.min(speed/8,1);
  hips.position.y=.86-pose*.38-landing*(1-pose);torso.rotation.x=-pose*1.35-(1-pose)*(.30+sprint*.35)*stride;body.position.y=grounded?(1-pose)*Math.abs(Math.sin(walk))*.07*stride:0;
@@ -401,7 +439,7 @@ function frame(now){
  if(third){const distance=offset.length();ray.set(eye,offset.clone().normalize());ray.far=distance;const hits=ray.intersectObjects(solidMeshes,false);if(hits.length)offset.setLength(Math.max(.15,hits[0].distance-.2));camera.position.copy(eye).add(offset)}else camera.position.copy(eye);
  camera.fov=THREE.MathUtils.lerp(camera.fov,78+Math.min(speed,24)*.55,1-Math.exp(-5*dt));camera.updateProjectionMatrix();
  $('dash').textContent=dashCooldown>0?'DASH '+dashCooldown.toFixed(1)+'s':'DASH READY';
- $('mode').textContent=(third?'THIRD PERSON':'FIRST PERSON')+' / '+(wall?'WALL GRAVITY':hook?'GRAPPLE':gliding?'GLIDING':vault?'VAULT':slide>0?'SLIDE':height<1?'CROUCH':!grounded?'AIRBORNE':'FREE ROAM');grapplePreviewTimer-=dt;if(grapplePreviewTimer<=0){grapplePreviewTimer=.12;$('cross').style.color=ability==='grapple'&&active&&findGrappleTarget()?'#79f4db':'white'}updateBuildPreview();online.tick(dt);renderPortalViews();renderer.render(scene,camera);
+ $('mode').textContent=(third?'THIRD PERSON':'FIRST PERSON')+' / '+(wall?(wall.airborne?'GRAVITY JUMP':'WALL GRAVITY'):hook?'GRAPPLE':gliding?'GLIDING':vault?'VAULT':slide>0?'SLIDE':height<1?'CROUCH':!grounded?'AIRBORNE':'FREE ROAM');grapplePreviewTimer-=dt;if(grapplePreviewTimer<=0){grapplePreviewTimer=.12;$('cross').style.color=ability==='grapple'&&active&&findGrappleTarget()?'#79f4db':'white'}updateBuildPreview();online.tick(dt);renderPortalViews();renderer.render(scene,camera);
 }
 const online=setupOnline({THREE,scene,camera,robot,pos,solidMeshes,solids,active:()=>active,third:()=>third,ability:()=>ability,hook:()=>hook?.toArray()??null,portals:()=>portals.filter(Boolean).map(p=>[...p.c.toArray(),...p.n.toArray()]),
  setOnline:enabled=>{if(enabled)third=false},
