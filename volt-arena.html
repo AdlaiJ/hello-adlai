@@ -89,7 +89,7 @@ function tryVault(){
 }
 const pos=new THREE.Vector3(0,0,23),vel=new THREE.Vector3(),keys=new Set();let yaw=0,pitch=0,grounded=true,jumps=0,slide=0,dashTime=0,dashCooldown=0,third=true,walk=0,active=false,last=performance.now(),height=1.85;
 const radius=.34,eye=new THREE.Vector3(),offset=new THREE.Vector3(),ray=new THREE.Raycaster();const solidMeshes=scene.children.filter(o=>o.isMesh);
-const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Builds snap to platform tops. Green = clear; red = blocked. 60 pieces; R clears builds.',wall:'Hold E as you walk off a platform to catch its side. Hold E + W into a wall to attach and run up, even when looking upward. W/S run up/down, A/D across; corners turn automatically. W climbs over the top; S wraps underneath. WASD moves underneath. Space jumps and keeps surface gravity; E releases boots.',grapple:'Aim near an edge or beam and press E to hook (up to 65m, with aim assist). The rope gently pulls you in automatically. WASD steers; Shift reels in faster. E chains to a new rope; F releases and keeps your speed.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall, floor, or platform underside and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves with responsive steering. Release to coast. E redirects all your speed straight upward. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
+const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Builds snap to platform tops. Green = clear; red = blocked. 60 pieces; R clears builds.',wall:'Hold E as you walk off a platform to catch its side. Hold E + W into a wall to attach and run up, even when looking upward. W/S run up/down, A/D across; corners turn automatically. W climbs over the top; S wraps underneath. WASD moves underneath. Space jumps with surface gravity for up to 1 second in the air, then normal gravity returns. E releases boots.',grapple:'Aim near an edge or beam and press E to hook (up to 65m, with aim assist). The rope gently pulls you in automatically. WASD steers; Shift reels in faster. E chains to a new rope; F releases and keeps your speed.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall, floor, or platform underside and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves with responsive steering. Release to coast. E redirects all your speed straight upward. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
 let ropeLength=8,grapplePreviewTimer=0,bootsAttachBlocked=false;
 let glideSpeed=12;
 let ability='wall',hook=null,gliding=false,wall=null,portalNext=0,portalExitLock=null;
@@ -262,9 +262,11 @@ function turnWall(normal,b){
 function jumpFromWall(){
  if(!wall||wall.airborne)return;
  const n=wall.normal,tangent=vel.clone().addScaledVector(n,-vel.dot(n));
- vel.copy(tangent).addScaledVector(n,9);wall.airborne=true;wall.turn=null;wall.edgeCatch=false;grounded=false;jumps=1;slide=0;
+ vel.copy(tangent).addScaledVector(n,9);wall.airborne=true;wall.airTime=0;wall.turn=null;wall.edgeCatch=false;grounded=false;jumps=1;slide=0;
 }
 function gravityBootFlight(dt){
+ wall.airTime=(wall.airTime||0)+dt;
+ if(wall.airTime>=1){wall=null;bootsAttachBlocked=true;grounded=false;return false}
  const n=wall.normal,d=n.y<-.5?direction():new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),n).multiplyScalar(Number(keys.has('KeyD'))-Number(keys.has('KeyA')));
  if(n.y>=-.5)d.y=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
  const length=d.length();if(length>1)d.multiplyScalar(1/length);
