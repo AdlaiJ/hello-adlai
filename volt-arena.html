@@ -23,17 +23,55 @@ for(const x of [-4,4])box(x,1.6,8,1,3.2,9,'#a8764c');box(0,1.55,8,7,1,9,'#d69350
 for(const [x,z] of [[-28,-25],[28,-25],[-28,28],[28,28]]){box(x,4,z,2,8,2,'#4e627a');box(x,8.1,z,2.2,.3,2.2,'#75f5dd',false)}
 for(const z of [-37,37])box(0,.06,z,74,.08,.15,'#79f4db',false);
 // Original articulated robot: small bevel-like accent blocks and glowing visor.
-const robot=new THREE.Group();scene.add(robot);box(0,1.02,0,.64,.62,.38,'#ec8b48',false,robot);box(0,.68,0,.45,.18,.3,'#334657',false,robot);box(0,1.54,0,.48,.4,.43,'#e4edf2',false,robot);box(0,1.56,-.225,.36,.10,.03,'#65ffdf',false,robot);
-const limbs=[];for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.18,.64,0);robot.add(leg);box(0,-.26,0,.2,.5,.22,'#879baa',false,leg);box(0,-.56,-.08,.25,.15,.4,'#263a4e',false,leg);limbs.push(leg);const arm=new THREE.Group();arm.position.set(side*.44,1.23,0);robot.add(arm);box(0,-.25,0,.22,.57,.24,'#d6e0e7',false,arm);limbs.push(arm)}
+const robot=new THREE.Group(),body=new THREE.Group();scene.add(robot);robot.add(body);
+function part(parent,x,y,z,w,h,d,color){return box(x,y,z,w,h,d,color,false,parent)}
+function joint(parent,x,y,z){const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);return g}
+// Original voxel robot with stepped armor, exposed joints, hands, and articulated knees.
+const hips=joint(body,0,.86,0),torso=joint(hips,0,.14,0);
+part(hips,0,0,0,.46,.22,.3,'#293d50');
+part(torso,0,.22,0,.52,.48,.34,'#ef773b');part(torso,0,.42,0,.68,.18,.4,'#f6a45f');
+part(torso,0,.20,-.19,.30,.3,.07,'#263a4e');part(torso,0,.26,-.24,.13,.13,.04,'#79ffe4');
+for(const x of [-.25,.25])for(let i=0;i<3;i++)part(torso,x,.12+i*.1,-.2,.08,.06,.06,'#ffd09c');
+part(torso,0,.15,.22,.38,.36,.14,'#485e71');part(torso,0,.55,0,.18,.14,.18,'#253a4f');
+const head=joint(torso,0,.73,0);part(head,0,0,0,.38,.32,.34,'#dce5e9');part(head,0,.18,.015,.3,.06,.29,'#f1f5f5');
+part(head,0,0,-.18,.32,.12,.05,'#142b3a');for(const x of [-.10,.10])part(head,x,.015,-.213,.08,.065,.03,'#70ffe1');part(head,0,-.12,-.17,.18,.07,.06,'#7c96a4');
+const legs=[],arms=[];
+for(const side of [-1,1]){
+ const hip=joint(hips,side*.19,-.08,0);part(hip,0,-.16,0,.22,.32,.25,'#dce5e9');part(hip,side*.025,-.08,0,.26,.16,.3,'#f29a53');
+ const knee=joint(hip,0,-.34,0);part(knee,0,0,-.02,.23,.13,.25,'#293f52');part(knee,0,-.19,0,.18,.3,.2,'#9eafba');part(knee,0,-.18,-.12,.21,.23,.07,'#e9eff1');part(knee,0,-.35,-.11,.26,.14,.43,'#374f63');part(knee,0,-.34,-.29,.23,.10,.08,'#ef8c47');legs.push({hip,knee});
+ const shoulder=joint(torso,side*.43,.38,0);part(shoulder,0,0,0,.27,.23,.32,'#ef8c47');part(shoulder,0,-.19,0,.17,.28,.19,'#e3ebed');
+ const elbow=joint(shoulder,0,-.34,0);part(elbow,0,0,0,.18,.12,.19,'#273e51');part(elbow,0,-.17,0,.2,.26,.23,'#9eafba');part(elbow,0,-.33,-.015,.22,.14,.24,'#e5eced');part(elbow,-side*.13,-.3,-.03,.07,.13,.12,'#9eafba');arms.push({shoulder,elbow});
+}
+// Low walls for vaulting; taller perimeter walls remain solid boundaries.
+box(-7,.75,18,6,1.5,.65,'#657b8d');box(8,1,17,5,2,.7,'#657b8d');
+let vault=null,slideHeading=0,pose=0;
+const speedReadout=$('speed');speedReadout.parentElement.replaceChildren($('dash'));speedReadout.remove();
+$('hint').textContent='WASD move · Shift sprint · Ctrl slide · Space jump / vault nearby walls · Q dash · V camera · R reset';
+document.querySelector('.controls').children[4].textContent='Space · Jump / wall vault';
+function freeAt(p,h=1.85){return !solids.some(b=>p.x+radius>b.x&&p.x-radius<b.X&&p.z+radius>b.z&&p.z-radius<b.Z&&p.y+h>b.y+.001&&p.y<b.Y-.001)}
+function tryVault(){
+ if(vault||slide>0)return false;
+ const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+ const b=solids.find(b=>b.Y-pos.y>.35&&b.Y-pos.y<=2.5&&Array.from({length:8},(_,i)=>pos.clone().addScaledVector(forward,(i+1)*.16)).some(p=>p.x>b.x-radius&&p.x<b.X+radius&&p.z>b.z-radius&&p.z<b.Z+radius));
+ if(!b)return false;
+ const broad=Math.abs(forward.x)*(b.X-b.x)+Math.abs(forward.z)*(b.Z-b.z)>1.2;
+ let end=null;for(let t=.4;t<=3.5;t+=.1){const p=pos.clone().addScaledVector(forward,t);p.y=b.Y+.03;if(broad&&p.x>b.x+radius&&p.x<b.X-radius&&p.z>b.z+radius&&p.z<b.Z-radius){if(freeAt(p)){end=p;break}}else if(t>1.4&&freeAt(p)&&!(p.x+radius>b.x&&p.x-radius<b.X&&p.z+radius>b.z&&p.z-radius<b.Z)){end=p;break}}
+ if(!end)return false;
+ const start=pos.clone(),lift=start.clone();lift.y=b.Y+.18;
+ // Check the entire lift and crossing, not just the landing spot.
+ for(let i=1;i<=20;i++){const p=start.clone().lerp(lift,i/20);if(!freeAt(p))return false}
+ for(let i=1;i<=20;i++){const p=lift.clone().lerp(end,i/20);if(!freeAt(p))return false}
+ vault={start,lift,end,t:0};vel.set(0,0,0);jumps=0;return true;
+}
 const pos=new THREE.Vector3(0,0,23),vel=new THREE.Vector3(),keys=new Set();let yaw=0,pitch=0,grounded=true,jumps=0,slide=0,dashTime=0,dashCooldown=0,third=true,walk=0,active=false,last=performance.now(),height=1.85;
 const radius=.34,eye=new THREE.Vector3(),offset=new THREE.Vector3(),ray=new THREE.Raycaster();const solidMeshes=scene.children.filter(o=>o.isMesh);
-function reset(){pos.set(0,.02,23);vel.set(0,0,0);grounded=false;jumps=0;slide=0;dashTime=0;dashCooldown=0;yaw=0;pitch=0}
+function reset(){pos.set(0,.02,23);vel.set(0,0,0);grounded=false;jumps=0;slide=0;vault=null;dashTime=0;dashCooldown=0;yaw=0;pitch=0}
 function clear(){keys.clear();slide=0;dashTime=0;vel.set(0,0,0)}
 function overlaps(b,h=height){return pos.x+radius>b.x&&pos.x-radius<b.X&&pos.z+radius>b.z&&pos.z-radius<b.Z&&pos.y+h>b.y+.001&&pos.y<b.Y-.001}
 function canStand(){return !solids.some(b=>overlaps(b,1.85))}
 function direction(){let x=Number(keys.has('KeyD'))-Number(keys.has('KeyA')),z=Number(keys.has('KeyS'))-Number(keys.has('KeyW'));const n=Math.hypot(x,z)||1;x/=n;z/=n;return new THREE.Vector3(x*Math.cos(yaw)+z*Math.sin(yaw),0,-x*Math.sin(yaw)+z*Math.cos(yaw))}
 function moveAxis(axis,amount){pos[axis]+=amount;for(const b of solids)if(overlaps(b)){if(axis==='x')pos.x=amount>0?b.x-radius:b.X+radius;if(axis==='z')pos.z=amount>0?b.z-radius:b.Z+radius;if(axis==='y'){pos.y=amount>0?b.y-height:b.Y;if(amount<0){grounded=true;jumps=0}vel.y=0}else vel[axis]=0}}
-addEventListener('keydown',e=>{if(!active)return;if(['Space','ControlLeft','ControlRight','Tab'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='Space'&&jumps<2){jumps++;vel.y=jumps===1?9.8:9;grounded=false;slide=0}if(e.code==='KeyQ'&&dashCooldown<=0){const d=direction();if(!d.lengthSq())d.set(-Math.sin(yaw),0,-Math.cos(yaw));vel.x=d.x*24;vel.z=d.z*24;dashTime=.16;dashCooldown=1.1}if(e.code.startsWith('Control')&&grounded&&Math.hypot(vel.x,vel.z)>4){slide=.7;vel.x*=1.3;vel.z*=1.3}if(e.code==='KeyV')third=!third;if(e.code==='KeyR')reset()});
+addEventListener('keydown',e=>{if(!active)return;if(['Space','ControlLeft','ControlRight','Tab'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='KeyR'){reset();return}if(e.code==='KeyV')third=!third;if(vault)return;if(e.code==='Space'){if(tryVault())return;if(jumps<2){jumps++;vel.y=jumps===1?9.8:9;grounded=false;slide=0}}if(e.code==='KeyQ'&&dashCooldown<=0){const d=direction();if(!d.lengthSq())d.set(-Math.sin(yaw),0,-Math.cos(yaw));vel.x=d.x*24;vel.z=d.z*24;dashTime=.16;dashCooldown=1.1}if(e.code.startsWith('Control')&&grounded&&slide<=0&&Math.hypot(vel.x,vel.z)>4){slide=.9;const s=Math.hypot(vel.x,vel.z);slideHeading=Math.atan2(-vel.x,-vel.z);vel.x=vel.x/s* Math.min(17,s+4);vel.z=vel.z/s*Math.min(17,s+4)}});
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{clear();if(document.pointerLockElement)document.exitPointerLock()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clear();document.exitPointerLock()}});
 let dragging=false;const fallback=document.createElement('button');fallback.textContent='Play with drag-to-look';fallback.style.marginTop='12px';$('play').after(fallback);fallback.onclick=()=>{active=true;$('overlay').hidden=true;clear();last=performance.now();$('hint').textContent='Hold left mouse to look · WASD move · Space jump · Shift sprint · Ctrl slide · Q dash · V camera · Esc pause'};
 renderer.domElement.addEventListener('mousedown',e=>{if(e.button===0)dragging=true});addEventListener('mouseup',()=>dragging=false);
@@ -42,7 +80,23 @@ addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>
 document.addEventListener('mousemove',e=>{if(!active||(!document.pointerLockElement&&!dragging))return;const sensitivity=Number($('sensitivity').value)*.002;yaw-=e.movementX*sensitivity;pitch=THREE.MathUtils.clamp(pitch-e.movementY*sensitivity,-1.25,1.25)});
 $('play').disabled=false;$('play').textContent='Enter arena';$('play').onclick=()=>{try{const request=renderer.domElement.requestPointerLock();request?.catch(()=>{$('error').textContent='Mouse capture was blocked. Click Enter arena to retry.'})}catch{$('error').textContent='Mouse capture is unavailable in this browser.'}};
 document.addEventListener('pointerlockchange',()=>{active=document.pointerLockElement===renderer.domElement;$('overlay').hidden=active;$('play').textContent='Resume arena';clear();last=performance.now()});
-function step(dt){dashCooldown=Math.max(0,dashCooldown-dt);dashTime=Math.max(0,dashTime-dt);slide=Math.max(0,slide-dt);height=slide>0? .9:canStand()?1.85:.9;const d=direction(),moving=d.lengthSq()>0,sprinting=keys.has('ShiftLeft')||keys.has('ShiftRight');if(dashTime<=0){if(slide>0){vel.x*=Math.exp(-1.2*dt);vel.z*=Math.exp(-1.2*dt);vel.x+=d.x*5*dt;vel.z+=d.z*5*dt}else{const speed=sprinting?12:8,blend=1-Math.exp(-(grounded?13:3.5)*dt);if(moving){vel.x+=(d.x*speed-vel.x)*blend;vel.z+=(d.z*speed-vel.z)*blend}else if(grounded){vel.x*=Math.exp(-11*dt);vel.z*=Math.exp(-11*dt)}}}vel.y-=25*dt;grounded=false;moveAxis('x',vel.x*dt);moveAxis('z',vel.z*dt);moveAxis('y',vel.y*dt);if(pos.y< -15)reset()}
-function frame(now){requestAnimationFrame(frame);let dt=Math.min((now-last)/1000,.05);last=now;if(active){const count=Math.ceil(dt/.008);for(let i=0;i<count;i++)step(dt/count)}const speed=Math.hypot(vel.x,vel.z);walk+=speed*dt*1.6;robot.position.copy(pos);robot.rotation.y=yaw;robot.scale.y=height<1? .48:1;robot.visible=third;limbs.forEach((l,i)=>l.rotation.x=grounded?Math.sin(walk+(i<2?0:Math.PI))*(i%2?.45:.7)*Math.min(speed/8,1):i%2?-.5:.45);eye.copy(pos);eye.y+=height<1?.75:1.6;camera.rotation.order='YXZ';camera.rotation.set(pitch,yaw,0);offset.set(0,1,5).applyEuler(camera.rotation);if(third){const distance=offset.length();ray.set(eye,offset.clone().normalize());ray.far=distance;const hits=ray.intersectObjects(solidMeshes,false);if(hits.length)offset.setLength(Math.max(.15,hits[0].distance-.2));camera.position.copy(eye).add(offset)}else camera.position.copy(eye);camera.fov=THREE.MathUtils.lerp(camera.fov,78+Math.min(speed,24)*.55,1-Math.exp(-5*dt));camera.updateProjectionMatrix();$('speed').textContent=Math.round(speed);$('dash').textContent=dashCooldown>0?'DASH '+dashCooldown.toFixed(1)+'s':'DASH READY';$('mode').textContent=(third?'THIRD PERSON':'FIRST PERSON')+' / '+(height<1?'SLIDE':!grounded?'AIRBORNE':speed>9?'SPRINT':'FREE ROAM');renderer.render(scene,camera)}
+function step(dt){
+ dashCooldown=Math.max(0,dashCooldown-dt);dashTime=Math.max(0,dashTime-dt);
+ if(vault){height=1.85;vault.t=Math.min(1,vault.t+dt/.48);const t=vault.t;const p=t<.4?vault.start.clone().lerp(vault.lift,t/.4):vault.lift.clone().lerp(vault.end,(t-.4)/.6);if(!freeAt(p)){vault=null;return}pos.copy(p);if(t>=1){vault=null;grounded=false;vel.y=-1}return}
+ slide=Math.max(0,slide-dt);height=slide>0?.9:canStand()?1.85:.9;
+ const d=direction(),moving=d.lengthSq()>0,sprinting=keys.has('ShiftLeft')||keys.has('ShiftRight');
+ if(dashTime<=0){if(slide>0){vel.x*=Math.exp(-.85*dt);vel.z*=Math.exp(-.85*dt)}else{const speed=(height<1?4:sprinting?12:8),blend=1-Math.exp(-(grounded?13:3.5)*dt);if(moving){vel.x+=(d.x*speed-vel.x)*blend;vel.z+=(d.z*speed-vel.z)*blend}else if(grounded){vel.x*=Math.exp(-11*dt);vel.z*=Math.exp(-11*dt)}}}
+ vel.y-=25*dt;grounded=false;moveAxis('x',vel.x*dt);moveAxis('z',vel.z*dt);moveAxis('y',vel.y*dt);if(slide>0&&Math.hypot(vel.x,vel.z)<1)slide=0;if(pos.y< -15)reset();
+}
+function animateRobot(dt,speed){
+ pose=THREE.MathUtils.lerp(pose,height<1?1:0,1-Math.exp(-18*dt));
+ robot.position.copy(pos);robot.rotation.y=slide>0?slideHeading:yaw;robot.visible=third;
+ // Feet-first slide: lower hips, lean torso back, extend both legs forward.
+ hips.position.y=.86-pose*.49;torso.rotation.x=-pose*.65;body.position.y=grounded&&!pose?Math.abs(Math.sin(walk))*.035:0;
+ legs.forEach(({hip,knee},i)=>{const gait=Math.sin(walk+i*Math.PI)*Math.min(speed/9,1);hip.rotation.x=pose*1.65+(1-pose)*(grounded?gait*.7:.65);knee.rotation.x=-pose*.25-(1-pose)*(grounded?Math.max(0,-gait)*.85:.8)});
+ arms.forEach(({shoulder,elbow},i)=>{const gait=Math.sin(walk+i*Math.PI);shoulder.rotation.x=pose*-.5+(1-pose)*(grounded?-gait*.55*Math.min(speed/9,1):-.6);shoulder.rotation.z=(i?1:-1)*(.12+pose*.15);elbow.rotation.x=-.4-pose*.2});
+ if(vault){torso.rotation.x=.45;legs[0].hip.rotation.x=1.2;legs[1].hip.rotation.x=.8;legs.forEach(l=>l.knee.rotation.x=-1.3);arms.forEach(a=>{a.shoulder.rotation.x=-1.5;a.elbow.rotation.x=-.3})}
+}
+function frame(now){requestAnimationFrame(frame);let dt=Math.min((now-last)/1000,.05);last=now;if(active){const count=Math.ceil(dt/.008);for(let i=0;i<count;i++)step(dt/count)}const speed=Math.hypot(vel.x,vel.z);walk+=speed*dt*1.6;animateRobot(dt,speed);eye.copy(pos);eye.y+=1.6-pose*.85;camera.rotation.order='YXZ';camera.rotation.set(pitch,yaw,0);offset.set(0,.7,4).applyEuler(camera.rotation);if(third){const distance=offset.length();ray.set(eye,offset.clone().normalize());ray.far=distance;const hits=ray.intersectObjects(solidMeshes,false);if(hits.length)offset.setLength(Math.max(.15,hits[0].distance-.2));camera.position.copy(eye).add(offset)}else camera.position.copy(eye);camera.fov=THREE.MathUtils.lerp(camera.fov,78+Math.min(speed,24)*.55,1-Math.exp(-5*dt));camera.updateProjectionMatrix();$('dash').textContent=dashCooldown>0?'DASH '+dashCooldown.toFixed(1)+'s':'DASH READY';$('mode').textContent=(third?'THIRD PERSON':'FIRST PERSON')+' / '+(vault?'VAULT':slide>0?'SLIDE':height<1?'CROUCH':!grounded?'AIRBORNE':'FREE ROAM');renderer.render(scene,camera)}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});reset();requestAnimationFrame(frame);
 </script></body></html>
