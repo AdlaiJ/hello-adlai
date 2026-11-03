@@ -88,7 +88,8 @@ function tryVault(){
 }
 const pos=new THREE.Vector3(0,0,23),vel=new THREE.Vector3(),keys=new Set();let yaw=0,pitch=0,grounded=true,jumps=0,slide=0,dashTime=0,dashCooldown=0,third=true,walk=0,active=false,last=performance.now(),height=1.85;
 const radius=.34,eye=new THREE.Vector3(),offset=new THREE.Vector3(),ray=new THREE.Raycaster();const solidMeshes=scene.children.filter(o=>o.isMesh);
-const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Green preview = clear; red = blocked. 60 pieces; R clears builds.',wall:'E near a wall: change gravity and attach. W/S run up/down, A/D across; corners turn automatically. W climbs over the top. Space leaps off; E releases.',grapple:'Aim at a surface and press E to hook (up to 45m). WASD steers your swing. E fires a new rope, replacing the old one. F releases.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall or floor and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves. Release to coast. Hold E to brake. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
+const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Builds snap to platform tops. Green = clear; red = blocked. 60 pieces; R clears builds.',wall:'E near a wall: change gravity and attach. W/S run up/down, A/D across; corners turn automatically. W climbs over the top. Space leaps off; E releases.',grapple:'Aim near an edge or beam and press E to hook (up to 65m, with aim assist). WASD steers; Shift reels in. E chains to a new rope; F releases and keeps your speed.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall or floor and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves. Release to coast. Hold E to brake. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
+let ropeLength=8,grapplePreviewTimer=0;
 let glideSpeed=12;
 let ability='wall',hook=null,gliding=false,wall=null,portalNext=0,portalCooldown=0;
 const portals=[null,null],portalMeshes=[];
@@ -99,10 +100,19 @@ function updateAbilityHelp(){ $('abilityHelp').textContent=abilityHelp[ability];
 function clearAbility(){clearBuilds();hook=null;gliding=false;wall=null;portalCooldown=0;portals.fill(null);portalNext=0;for(const m of portalMeshes){scene.remove(m);disposePortal(m)}portalMeshes.length=0;}
 $('ability').onchange=()=>{ability=$('ability').value;clearAbility();reset();updateAbilityHelp()};updateAbilityHelp();
 function aimHit(range){const r=new THREE.Raycaster();r.set(pos.clone().add(new THREE.Vector3(0,1.5,0)),new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ')));r.far=range;return r.intersectObjects(solidMeshes,false)[0]}
+function findGrappleTarget(){
+ const direct=aimHit(65);if(direct)return direct;
+ const origin=pos.clone().add(new THREE.Vector3(0,1.5,0)),r=new THREE.Raycaster();r.far=65;
+ // A small cone catches nearby platform edges without snapping to distant off-screen targets.
+ for(const spread of [.045,.09])for(const [x,y] of [[0,1],[1,0],[-1,0],[0,-1],[.7,.7],[-.7,.7],[.7,-.7],[-.7,-.7]]){
+  r.set(origin,new THREE.Vector3(x*spread,y*spread,-1).normalize().applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ')));
+  const hit=r.intersectObjects(solidMeshes,false)[0];if(hit)return hit;
+ }return null;
+}
 function useAbility(){
  if(ability==='builder'){placeBuild();return}
  if(ability==='glider'){if(!grounded){gliding=!gliding;if(gliding)glideSpeed=Math.max(10,vel.length())}return}
- if(ability==='grapple'){hook=null;const hit=aimHit(45);if(hit){hook=hit.point.clone();grounded=false;vel.y=Math.max(vel.y,5)}return}
+ if(ability==='grapple'){hook=null;const hit=findGrappleTarget();if(hit){hook=hit.point.clone();ropeLength=Math.max(3,hook.clone().sub(pos).length()*.92);if(grounded){vel.y=Math.max(vel.y,9);if(Math.hypot(vel.x,vel.z)<6){vel.x-=Math.sin(yaw)*6;vel.z-=Math.cos(yaw)*6}}grounded=false;slide=0}return}
  if(ability==='wall'){
   if(wall){wall=null;return}const hit=aimHit(2.5);if(!hit||Math.abs(hit.face.normal.y)>.1)return;
   const normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld),b=solids.find(b=>hit.point.x>=b.x-.01&&hit.point.x<=b.X+.01&&hit.point.y>=b.y-.01&&hit.point.y<=b.Y+.01&&hit.point.z>=b.z-.01&&hit.point.z<=b.Z+.01);
@@ -135,9 +145,20 @@ function buildParts(type,x,y,z,rotation){
  if(type==='roof')for(let i=0;i<6;i++)add(0,i*.25+.125,0,4-i*.6,.25,4-i*.6);
  return parts;
 }
+function buildPlacement(point,surfacePoint=null){
+ const contains=(b,p)=>p.x>=b.x-.01&&p.x<=b.X+.01&&p.z>=b.z-.01&&p.z<=b.Z+.01;
+ const top=surfacePoint&&solids.find(b=>contains(b,surfacePoint)&&Math.abs(b.Y-surfacePoint.y)<.06);
+ const beneath=solids.filter(b=>contains(b,point)&&b.Y<=pos.y+.35).sort((a,b)=>b.Y-a.Y)[0];
+ const standing=solids.filter(b=>contains(b,pos)&&b.Y<=pos.y+.15&&b.Y>=pos.y-.35).sort((a,b)=>b.Y-a.Y)[0];
+ const support=top||(beneath&&Math.abs(beneath.Y-pos.y)<.6?beneath:standing)||beneath;
+ const y=support?support.Y:Math.max(0,Math.floor(pos.y/3)*3);
+ // Use the platform's own grid origin so off-grid islands accept full-size walls.
+ const originX=support&&support.Y>0?(support.x+support.X)/2:0,originZ=support&&support.Y>0?(support.z+support.Z)/2:0;
+ return {x:originX+Math.round((point.x-originX)/4)*4,y,z:originZ+Math.round((point.z-originZ)/4)*4};
+}
 function buildCandidate(){
  const hit=aimHit(8),point=hit?hit.point.clone().addScaledVector(hit.face.normal.clone().transformDirection(hit.object.matrixWorld),.3):pos.clone().add(new THREE.Vector3(-Math.sin(yaw)*5,0,-Math.cos(yaw)*5));
- const x=Math.round(point.x/4)*4,z=Math.round(point.z/4)*4,y=Math.max(0,Math.floor((point.y+.1)/3)*3),rotation=((Math.round(yaw/(Math.PI/2))+buildRotation)%4+4)%4;
+ const {x,y,z}=buildPlacement(point,hit?.point),rotation=((Math.round(yaw/(Math.PI/2))+buildRotation)%4+4)%4;
  const parts=buildParts(buildType,x,y,z,rotation),key=[buildType,x,y,z,rotation].join(':');
  const valid=builds.length<60&&Math.abs(x)<38&&Math.abs(z)<38&&y<30&&!builds.some(b=>b.key===key)&&parts.every(p=>{
   const b={x:p.x-p.w/2,X:p.x+p.w/2,y:p.y-p.h/2,Y:p.y+p.h/2,z:p.z-p.d/2,Z:p.z+p.d/2};
@@ -233,10 +254,21 @@ function wallStep(dt){
  }
  vel.copy(pos).sub(old).multiplyScalar(1/dt);grounded=false;jumps=0;return true;
 }
+function swingRope(dt){
+ const pull=hook.clone().sub(pos),distance=pull.length();if(distance<1.5){hook=null;return}
+ const reeling=keys.has('ShiftLeft')||keys.has('ShiftRight');if(reeling)ropeLength=Math.max(3,ropeLength-6*dt);
+ pull.multiplyScalar(1/distance);const stretch=distance-ropeLength;
+ if(stretch>0){const radial=vel.dot(pull),force=Math.min(100,Math.max(0,stretch*38-radial*7));vel.addScaledVector(pull,force*dt)}
+ const speed=vel.length();if(speed>38)vel.multiplyScalar(Math.exp(-2*dt)+38/speed*(1-Math.exp(-2*dt)));
+}
+function grappleAirSteer(dt,d){
+ // Steering adds to flight instead of dragging a released swing back to walking speed.
+ vel.x+=d.x*9*dt;vel.z+=d.z*9*dt;
+}
 function abilityStep(dt){
  portalCooldown=Math.max(0,portalCooldown-dt);
  if(wall)return wallStep(dt);
- if(hook){const pull=hook.clone().sub(pos);const distance=pull.length();if(distance<1.5)hook=null;else{pull.normalize();vel.addScaledVector(pull,42*dt);const speed=vel.length();if(speed>30)vel.multiplyScalar(30/speed)}}
+ if(hook)swingRope(dt);
  if(ability==='portal'&&!portalCooldown&&portals.every(Boolean)){for(let i=0;i<2;i++){const p=portals[i];if(portalContains(p,pos)&&vel.dot(p.n)<=.001){const out=portals[1-i];if(freeAt(out.exit)){const forward=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));transformPortalVector(forward,p,out);transformPortalVector(vel,p,out);pos.copy(out.exit);yaw=Math.atan2(-forward.x,-forward.z);pitch=Math.atan2(forward.y,Math.hypot(forward.x,forward.z));portalCooldown=.8;grounded=false}break}}}
  return false;
 }
@@ -285,7 +317,7 @@ function step(dt){
  if(vault){height=1.85;vault.t=Math.min(1,vault.t+dt/.48);const t=vault.t;const p=t<.4?vault.start.clone().lerp(vault.lift,t/.4):vault.lift.clone().lerp(vault.end,(t-.4)/.6);if(!freeAt(p)){vault=null;return}pos.copy(p);if(t>=1){vault=null;grounded=false;vel.y=-1}return}
  slide=Math.max(0,slide-dt);height=slide>0?.9:canStand()?1.85:.9;
  const d=direction(),moving=d.lengthSq()>0,sprinting=keys.has('ShiftLeft')||keys.has('ShiftRight');
- if(ability==='skate'&&slide<=0&&dashTime<=0){vel.x+=d.x*24*dt;vel.z+=d.z*24*dt;const drag=keys.has('KeyE')?10:moving?.55:.18;vel.x*=Math.exp(-drag*dt);vel.z*=Math.exp(-drag*dt);const speed=Math.hypot(vel.x,vel.z);if(speed>22){vel.x*=22/speed;vel.z*=22/speed}}else if(dashTime<=0&&!hook&&!gliding){if(slide>0){vel.x*=Math.exp(-.85*dt);vel.z*=Math.exp(-.85*dt)}else{const speed=(height<1?4:sprinting?14:8),blend=1-Math.exp(-(grounded?16:4.5)*dt);if(moving){vel.x+=(d.x*speed-vel.x)*blend;vel.z+=(d.z*speed-vel.z)*blend}else if(grounded){vel.x*=Math.exp(-14*dt);vel.z*=Math.exp(-14*dt)}}}
+ if(ability==='grapple'&&!grounded&&!hook){grappleAirSteer(dt,d)}else if(ability==='skate'&&slide<=0&&dashTime<=0){vel.x+=d.x*24*dt;vel.z+=d.z*24*dt;const drag=keys.has('KeyE')?10:moving?.55:.18;vel.x*=Math.exp(-drag*dt);vel.z*=Math.exp(-drag*dt);const speed=Math.hypot(vel.x,vel.z);if(speed>22){vel.x*=22/speed;vel.z*=22/speed}}else if(dashTime<=0&&!hook&&!gliding){if(slide>0){vel.x*=Math.exp(-.85*dt);vel.z*=Math.exp(-.85*dt)}else{const speed=(height<1?4:sprinting?14:8),blend=1-Math.exp(-(grounded?16:4.5)*dt);if(moving){vel.x+=(d.x*speed-vel.x)*blend;vel.z+=(d.z*speed-vel.z)*blend}else if(grounded){vel.x*=Math.exp(-14*dt);vel.z*=Math.exp(-14*dt)}}}
  if(hook){vel.x+=d.x*12*dt;vel.z+=d.z*12*dt}if(grounded)gliding=false;if(gliding)glideStep(dt);const wasGrounded=grounded,fallSpeed=vel.y;if(!gliding)vel.y-=25*dt;grounded=false;moveAxis('x',vel.x*dt);moveAxis('z',vel.z*dt);moveAxis('y',vel.y*dt);if(grounded&&!wasGrounded)landing=Math.min(.18,Math.max(0,-fallSpeed-3)*.018);if(slide>0&&Math.hypot(vel.x,vel.z)<1)slide=0;if(pos.y< -15)reset();
 }
 let landing=0,bodyHeading=0,lean=0,cameraEyeHeight=1.6;
@@ -324,7 +356,7 @@ function frame(now){
  if(third){const distance=offset.length();ray.set(eye,offset.clone().normalize());ray.far=distance;const hits=ray.intersectObjects(solidMeshes,false);if(hits.length)offset.setLength(Math.max(.15,hits[0].distance-.2));camera.position.copy(eye).add(offset)}else camera.position.copy(eye);
  camera.fov=THREE.MathUtils.lerp(camera.fov,78+Math.min(speed,24)*.55,1-Math.exp(-5*dt));camera.updateProjectionMatrix();
  $('dash').textContent=dashCooldown>0?'DASH '+dashCooldown.toFixed(1)+'s':'DASH READY';
- $('mode').textContent=(third?'THIRD PERSON':'FIRST PERSON')+' / '+(wall?'WALL GRAVITY':hook?'GRAPPLE':gliding?'GLIDING':vault?'VAULT':slide>0?'SLIDE':height<1?'CROUCH':!grounded?'AIRBORNE':'FREE ROAM');updateBuildPreview();renderPortalViews();renderer.render(scene,camera);
+ $('mode').textContent=(third?'THIRD PERSON':'FIRST PERSON')+' / '+(wall?'WALL GRAVITY':hook?'GRAPPLE':gliding?'GLIDING':vault?'VAULT':slide>0?'SLIDE':height<1?'CROUCH':!grounded?'AIRBORNE':'FREE ROAM');grapplePreviewTimer-=dt;if(grapplePreviewTimer<=0){grapplePreviewTimer=.12;$('cross').style.color=ability==='grapple'&&active&&findGrappleTarget()?'#79f4db':'white'}updateBuildPreview();renderPortalViews();renderer.render(scene,camera);
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});reset();requestAnimationFrame(frame);
 </script></body></html>
