@@ -89,9 +89,10 @@ function tryVault(){
 }
 const pos=new THREE.Vector3(0,0,23),vel=new THREE.Vector3(),keys=new Set();let yaw=0,pitch=0,grounded=true,jumps=0,slide=0,dashTime=0,dashCooldown=0,third=true,walk=0,active=false,last=performance.now(),height=1.85;
 const radius=.34,eye=new THREE.Vector3(),offset=new THREE.Vector3(),ray=new THREE.Raycaster();const solidMeshes=scene.children.filter(o=>o.isMesh);
-const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Builds snap to platform tops. Green = clear; red = blocked. 60 pieces; R clears builds.',wall:'Hold E as you walk off a platform to catch its side. Hold E + W into a wall to attach and run up, even when looking upward. W/S run up/down, A/D across; corners turn automatically. W climbs over the top; S wraps underneath. WASD moves underneath. Space jumps with surface gravity for up to 1 second in the air, then normal gravity returns. E releases boots.',grapple:'Aim near an edge or beam and press E to hook (up to 65m, with aim assist). The rope gently pulls you in automatically. WASD steers; Shift reels in faster. E chains to a new rope; F releases and keeps your speed.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall, floor, or platform underside and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves with responsive steering. Release to coast. E redirects all your speed straight upward. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
+const abilityHelp={builder:'1 wall · 2 ramp · 3 floor · 4 roof. E builds, T rotates, F removes the aimed build. Builds snap to platform tops. Green = clear; red = blocked. 60 pieces; R clears builds.',wall:'Hold E as you walk off a platform to catch its side. Hold E + W into a wall to attach and run up, even when looking upward. W/S run up/down, A/D across; corners turn automatically. W climbs over the top; S wraps underneath. WASD moves underneath. Space jumps with surface gravity for up to 1 second in the air, then normal gravity returns. E releases boots.',grapple:'Aim near an edge or beam and press E to hook (up to 65m, with aim assist). The rope gently pulls you in automatically. WASD steers; Shift reels in faster. E chains to a new rope; F releases and keeps your speed.',glider:'Jump, then E to open/close your glider. Look up to pull up and climb using speed; look down to dive and regain speed. A/D steers.',portal:'Aim at a broad wall, floor, or platform underside and press E to place alternating blue/orange portals. See through the linked portals and enter either to travel with your momentum. R clears them.',skate:'WASD accelerates and carves with responsive steering. Release to coast. E redirects all your speed straight upward, once until you land again. Space jumps; C slides.',triple:'Space gives one high jump and two extra air jumps. Land to recharge all three.'};
 let ropeLength=8,grapplePreviewTimer=0,bootsAttachBlocked=false;
 let glideSpeed=12;
+let skateLaunchUsed=false;
 let ability='wall',hook=null,gliding=false,wall=null,portalNext=0,portalExitLock=null;
 const portals=[null,null],portalMeshes=[];
 const rope=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:0x79f4db}));scene.add(rope);rope.visible=false;
@@ -117,8 +118,9 @@ function findGrappleTarget(){
 }
 
 function skateLaunch(){
+ if(skateLaunchUsed)return;
  const speed=Math.hypot(vel.x,vel.y,vel.z);if(speed<.01)return;
- vel.set(0,speed,0);grounded=false;slide=0;dashTime=0;
+ skateLaunchUsed=true;vel.set(0,speed,0);grounded=false;slide=0;dashTime=0;
 }
 function skateStep(dt,d){
  const moving=d.x*d.x+d.z*d.z>0,speed=Math.hypot(vel.x,vel.z);
@@ -355,7 +357,7 @@ function abilityStep(dt){
  if(ability==='portal'&&portals.every(Boolean)){for(let i=0;i<2;i++){const p=portals[i];if(p!==portalExitLock&&portalContains(p,pos)&&vel.dot(p.n)<=.001){const out=portals[1-i];if(freeAt(out.exit)){const forward=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));transformPortalVector(forward,p,out);transformPortalVector(vel,p,out);pos.copy(out.exit);yaw=Math.atan2(-forward.x,-forward.z);pitch=Math.atan2(forward.y,Math.hypot(forward.x,forward.z));portalExitLock=out;grounded=false}break}}}
  return false;
 }
-function reset(){clearAbility();pos.set(0,.02,23);vel.set(0,0,0);grounded=false;jumps=0;slide=0;vault=null;dashTime=0;dashCooldown=0;yaw=0;pitch=0}
+function reset(){skateLaunchUsed=false;clearAbility();pos.set(0,.02,23);vel.set(0,0,0);grounded=false;jumps=0;slide=0;vault=null;dashTime=0;dashCooldown=0;yaw=0;pitch=0}
 function clear(){bootsAttachBlocked=false;hook=null;gliding=false;wall=null;keys.clear();slide=0;dashTime=0;vel.set(0,0,0)}
 function overlaps(b,h=height){return pos.x+radius>b.x&&pos.x-radius<b.X&&pos.z+radius>b.z&&pos.z-radius<b.Z&&pos.y+h>b.y+.001&&pos.y<b.Y-.001}
 function canStand(){return !solids.some(b=>overlaps(b,1.85))}
@@ -367,10 +369,10 @@ function moveAxis(axis,amount){
   const horizontal=pos.x+radius>b.x&&pos.x-radius<b.X&&pos.z+radius>b.z&&pos.z-radius<b.Z;
   // Sweep vertical surfaces even for sub-millimeter steps. Floors are never side walls.
   if(axis==='y'&&horizontal){
-   if(amount<0&&previous>=b.Y-.00001&&pos.y<=b.Y){pos.y=b.Y;grounded=true;jumps=0;vel.y=0}
+   if(amount<0&&previous>=b.Y-.00001&&pos.y<=b.Y){pos.y=b.Y;grounded=true;skateLaunchUsed=false;jumps=0;vel.y=0}
    else if(amount>0&&previous+height<=b.y+.00001&&pos.y+height>=b.y){pos.y=b.y-height;vel.y=0}
   }else if(axis!=='y'&&b.Y>pos.y+.00001&&overlaps(b)){
-   if(b.step&&vel.y<=0&&b.Y-pos.y<=.6){const stepTop=Math.max(b.Y,...solids.filter(q=>q.step&&pos.x+radius>q.x&&pos.x-radius<q.X&&pos.z+radius>q.z&&pos.z-radius<q.Z&&q.Y<=pos.y+.6).map(q=>q.Y));const raised={x:pos.x,y:stepTop,z:pos.z};if(freeAt(raised,height)){pos.y=stepTop;grounded=true;jumps=0;continue}} 
+   if(b.step&&vel.y<=0&&b.Y-pos.y<=.6){const stepTop=Math.max(b.Y,...solids.filter(q=>q.step&&pos.x+radius>q.x&&pos.x-radius<q.X&&pos.z+radius>q.z&&pos.z-radius<q.Z&&q.Y<=pos.y+.6).map(q=>q.Y));const raised={x:pos.x,y:stepTop,z:pos.z};if(freeAt(raised,height)){pos.y=stepTop;grounded=true;skateLaunchUsed=false;jumps=0;continue}} 
    pos[axis]=axis==='x'?(amount>0?b.x-radius:b.X+radius):(amount>0?b.z-radius:b.Z+radius);vel[axis]=0;
   }
  }
