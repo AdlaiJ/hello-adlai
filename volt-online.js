@@ -9,7 +9,7 @@ export function meleeDamage(w,speed=0){return w==='fists'?20+Math.round(Math.min
 export function meleeReach(w,origin,d,target){const spec=WEAPONS[w];if(!spec?.melee)return false;const v=target.map((x,i)=>x-origin[i]),r=Math.hypot(...v);return r<=spec.range&&(r<.5||v.reduce((n,x,i)=>n+x*d[i],0)/r>=spec.cone)}
 export function inFireCone(origin,direction,target){const v=target.map((x,i)=>x-origin[i]),length=Math.hypot(...v);return length<=9&&(length<.7||v.reduce((n,x,i)=>n+x*direction[i],0)/length>=.88)}
 export function bounceVelocity(v,n){const dot=v.reduce((sum,x,i)=>sum+x*n[i],0);return v.map((x,i)=>(x-2*dot*n[i])*.92)}
-export function bubbleSpeed(point,fields){let slow=false,fast=false;for(const f of fields){if(f.age>=.6&&f.age<15.6&&Math.hypot(...point.map((v,i)=>v-f.to[i]))<4){slow ||= f.kind==='slow';fast ||= f.kind==='fast'}}return slow?.55:fast?1.5:1}
+export function bubbleSpeed(point,fields){let slow=false,fast=false;for(const f of fields){if(f.age>=.6&&f.age<15.6&&Math.hypot(...point.map((v,i)=>v-f.to[i]))<5){slow ||= f.kind==='slow';fast ||= f.kind==='fast'}}return slow?.4:fast?1.8:1}
 
 export function portalRay(origin,direction,range,pairs,radius=0){
  const dot=(a,b)=>a.reduce((v,x,i)=>v+x*b[i],0),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -190,7 +190,7 @@ export function setupOnline(api){
  if(gate&&gate.distance<=distance+.0001){r.mesh.position.fromArray(gate.origin);r.d.fromArray(gate.direction);step-=gate.distance;continue}
  r.mesh.position.addScaledVector(r.d,Math.min(step,distance));collided=distance<=step;break}
  r.age+=dt;if(collided||r.age>4){const at=r.mesh.position.clone().addScaledVector(r.d,-.05).toArray();dispose(r.mesh);rockets.splice(i,1);if(host||!connected)explode(at,r.owner)}}
- for(let i=fields.length-1;i>=0;i--){const f=fields[i];f.age+=dt;f.mesh.position.fromArray(f.from).lerp(new THREE.Vector3(...f.to),Math.min(1,f.age/.6));f.mesh.scale.setScalar(f.age<.6?1:16);f.mesh.material.opacity=f.age>14.6?Math.max(0,(15.6-f.age)*.22):.22;if(f.age>=15.6){dispose(f.mesh);fields.splice(i,1)}}
+ for(let i=fields.length-1;i>=0;i--){const f=fields[i];f.age+=dt;f.mesh.position.fromArray(f.from).lerp(new THREE.Vector3(...f.to),Math.min(1,f.age/.6));f.mesh.scale.setScalar(f.age<.6?1:20);f.mesh.material.opacity=f.age>14.6?Math.max(0,(15.6-f.age)*.22):.22;if(f.age>=15.6){dispose(f.mesh);fields.splice(i,1)}}
  for(let i=blasts.length-1;i>=0;i--){const b=blasts[i];b.age+=dt;b.mesh.scale.setScalar(1+b.age*50);b.mesh.material.opacity=Math.max(0,.5-b.age);if(b.age>.5){dispose(b.mesh);blasts.splice(i,1)}}
  }
  function clearCombat(){hitTime=0;hitMarker.style.opacity='0';for(const b of bombs)dispose(b.mesh);bombs.length=0;pendingSlams.clear();secondaryClocks.fill(-Infinity);drillRuns.clear();drillClocks.fill(-Infinity);for(let id=0;id<4;id++)clearEchoes(id);echoTimes.fill(-Infinity);for(const a of swings)scene.remove(a.pivot);swings.length=0;motion.clear();for(const f of breaths)scene.remove(f.group);breaths.length=0;fireClock.fill(-Infinity);for(const b of [...balls])removeBall(b.id);for(const a of [rockets,fields,blasts]){for(const v of a)dispose(v.mesh);a.length=0}bubbleClock=Array(4).fill(-Infinity)}
