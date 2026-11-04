@@ -1,13 +1,13 @@
-import {SPELLS} from './wizard-spells.js?v=team-rooms';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=team-rooms';
+import {SPELLS} from './wizard-spells.js?v=grand-power';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=grand-power';
 
 import {markChangedChunk,T} from './wizard-world.js';
-import {openRoom} from './wizard-room.js?v=team-rooms';
+import {openRoom} from './wizard-room.js?v=grand-power';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=team-rooms');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=grand-power');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -53,7 +53,7 @@ function drawBook(){previewStarter();const list=$('cards');list.replaceChildren(
  for(const school of schools){
   const filter=$('school').value;
   if(filter!=='All'&&filter!=='grand'&&filter!==school)continue;
-  const entries=SPELLS.filter(spell=>spell.category===school&&(filter!=='grand'||spell.cost>=50)),heading=document.createElement('h3');
+  const entries=SPELLS.filter(spell=>spell.category===school&&(filter!=='grand'||spell.grand)),heading=document.createElement('h3');
   if(!entries.length)continue;heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
   for(const s of entries){
  const i=selected.indexOf(s.id),b=document.createElement('button');b.setAttribute('aria-pressed',String(i>=0));b.disabled=locked||(i<0&&selected.length>=settings.count);

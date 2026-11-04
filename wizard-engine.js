@@ -1,4 +1,4 @@
-import {bloodWeapons,SPELLS,spellRadius} from './wizard-spells.js?v=team-rooms';
+import {bloodWeapons,SPELLS,spellRadius} from './wizard-spells.js?v=grand-power';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -62,14 +62,14 @@ export function createGame(settings,loadouts,mode){
    for(let arm=0;arm<4;arm++){
     const angle=p.yaw+arm*Math.PI/2;
     for(let i=1;i<=9;i++){
-     const reach=17+i*9,bend=6*Math.sin(i*.7+arm);
+     const reach=20+i*10.5,bend=7*Math.sin(i*.7+arm);
      const x=p.x+reach*Math.cos(angle)-bend*Math.sin(angle),z=p.z+reach*Math.sin(angle)+bend*Math.cos(angle);
      const y=api.surface(x,z,floor-24);
      if(y!==null)rivers.push({x,y,z});
     }
    }
    api.zone(p,p.x,floor,20,18,1,(w,owner)=>{
-    for(const q of w.enemies(owner))if(rivers.some(tile=>Math.abs(q.y-tile.y)<16&&Math.hypot(q.x-tile.x,q.z-tile.z)<10))damage(q,6);
+    for(const q of w.enemies(owner))if(rivers.some(tile=>Math.abs(q.y-tile.y)<16&&Math.hypot(q.x-tile.x,q.z-tile.z)<11.5))damage(q,6);
    },'#ac1537',p.z,'throne');
    Object.assign(s.zones.at(-1),{yaw:p.yaw,rivers});
    p.y=floor-24;p.vy=0;p.ground=true;p.onThrone=true;
@@ -89,11 +89,11 @@ export function createGame(settings,loadouts,mode){
    for(const block of p.blocks)setBlock(index(block.x,block.y,block.z),0);
    p.liftedAt=s.time;
   },
-  spike:(owner,x,y,z)=>s.zones.push({p:owner,x,y,z,r:spellRadius(24),life:14,hp:18,style:'spikes',color:'#f3dfa7'}),
+  spike:(owner,x,y,z)=>s.zones.push({p:owner,x,y,z,r:spellRadius(28),life:14,hp:18,style:'spikes',color:'#f3dfa7'}),
   occupants:()=>s.players.concat(s.summons).filter(q=>q.hp>0),
   surface:(x,z,y)=>{for(let j=clamp(Math.floor(y/T),0,H-1);j<H;j++)if(solid(x,j*T,z)&&!solid(x,j*T-1,z))return j*T;return null},
   bone:(x,y,z)=>{if(x<0||x>=W*T||z<0||z>=D*T||y<0||y>=H*T||solid(x,y,z))return;
-   if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-x)<17&&Math.abs(q.z-z)<17&&Math.abs(q.y-12-y)<24))setBlock(index(x,y,z),176)},
+   if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-x)<17&&Math.abs(q.z-z)<17&&Math.abs(q.y-12-y)<24))setBlock(index(x,y,z),186)},
   build:(p,x,y,w,h,z=p.z)=>{
    const depth=24,halfX=(Math.abs(Math.cos(p.yaw))*w+Math.abs(Math.sin(p.yaw))*depth)/2,halfZ=(Math.abs(Math.sin(p.yaw))*w+Math.abs(Math.cos(p.yaw))*depth)/2;
    for(let d=clamp(Math.floor((z-halfZ)/T),0,D-1);d<=clamp(Math.floor((z+halfZ)/T),0,D-1);d++)
@@ -107,15 +107,15 @@ export function createGame(settings,loadouts,mode){
   bolt:(p,angle,o,origin)=>{const yaw=p.yaw+(o.yawOffset||0),dx=Math.cos(angle)*Math.cos(yaw),dz=Math.cos(angle)*Math.sin(yaw),dy=Math.sin(angle);
    s.shots.push({p,style:p.kind?'familiar-'+p.kind:o.style,x:origin?.x??p.x+dx*10,y:origin?.y??p.y-14+dy*10,z:origin?.z??p.z+dz*10,vx:dx*o.speed,vy:dy*o.speed,vz:dz*o.speed,life:4,color:'#ffd76d',...o,r:spellRadius(o.r??3),hit:new Set()})}
  };
- function summon(owner,kind){
+ function summon(owner,kind,duration=12){
   const active=s.summons.filter(f=>f.owner===owner);
   if(active.length>=3)s.summons.splice(s.summons.indexOf(active[0]),1);
   const f={id:++nextSummon,kind,owner,side:owner.side,x:owner.x,y:owner.y,z:owner.z,hp:28,maxHp:28,
-   shield:0,statuses:{},vx:0,vy:0,vz:0,yaw:owner.yaw,time:0,pulse:.35};
+   shield:0,statuses:{},vx:0,vy:0,vz:0,yaw:owner.yaw,time:0,duration,pulse:.35};
   move(f,Math.cos(owner.yaw)*20,-12,Math.sin(owner.yaw)*20);s.summons.push(f);return f;
  }
  function stepFamiliars(dt){
-  s.summons=s.summons.filter(f=>f.hp>0&&f.time<12&&f.owner.hp>0);
+  s.summons=s.summons.filter(f=>f.hp>0&&f.time<f.duration&&f.owner.hp>0);
   for(const f of s.summons){
    f.time+=dt;f.pulse-=dt;
    for(const k of Object.keys(f.statuses))f.statuses[k]=Math.max(0,f.statuses[k]-dt);
@@ -157,7 +157,7 @@ export function createGame(settings,loadouts,mode){
  function fireSword(index){
   const p=s.players[index];
   if(!p?.onThrone||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0)||p.hp<=0||s.over||p.cast>0||p.statuses.silence>0||p.swordReady>s.time)return false;
-  api.bolt(p,p.aim,{style:'skull-throne',speed:390,damage:22,r:4,color:'#fc274b'});
+  api.bolt(p,p.aim,{style:'skull-throne',speed:390,damage:26,r:4,color:'#fc274b'});
   p.swordReady=s.time+.32;return true;
  }
  function fireBlood(index){
@@ -305,10 +305,10 @@ export function createGame(settings,loadouts,mode){
   s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){z.life-=dt;
    if(z.style==='spikes'){
     if(z.hp<=0||!solid(z.x,z.y+1,z.z)){z.life=0;fx(z.x,z.y-9,16,z.color,'burst',z.z);continue}
-    const victim=api.occupants().find(q=>Math.hypot(q.x-z.x,q.z-z.z)<=spellRadius(21)&&q.y>=z.y-spellRadius(23)&&q.y<=z.y+5);
+    const victim=api.occupants().find(q=>Math.hypot(q.x-z.x,q.z-z.z)<=spellRadius(24)&&q.y>=z.y-spellRadius(26)&&q.y<=z.y+5);
     if(victim){z.life=0;if(victim.side===z.p.side){victim.vy=-440;victim.ground=false}
-     else{damage(victim,22);api.status(victim,'root',1.4)}
-     fx(z.x,z.y-8,26,z.color,'burst',z.z)}
+     else{damage(victim,26);api.status(victim,'root',1.7)}
+     fx(z.x,z.y-8,30,z.color,'burst',z.z)}
     continue;
    }
    z.tick-=dt;if(z.tick<=0){z.cb(api,z.p,z.x,z.y,z.z);z.tick+=z.interval}}
