@@ -1,4 +1,4 @@
-import {SPELLS,spellRadius} from './wizard-spells.js?v=stored-time';
+import {SPELLS,spellRadius} from './wizard-spells.js?v=meteor-storm';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -61,8 +61,8 @@ export function createGame(settings,loadouts,mode){
   area:(p,x,y,r,n,color,z=p.z)=>{r=spellRadius(r);fx(x,y,r,color,'burst',z);tileDamage(x,y,r,n,z);for(const trap of s.zones){
     if(trap.style==='spikes'&&Math.hypot(trap.x-x,trap.y-12-y,trap.z-z)<=r+spellRadius(12))trap.hp-=n;
    }for(const q of enemies(p))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<=r+9)damage(q,n)},
-  bolt:(p,angle,o)=>{const yaw=p.yaw+(o.yawOffset||0),dx=Math.cos(angle)*Math.cos(yaw),dz=Math.cos(angle)*Math.sin(yaw),dy=Math.sin(angle);
-   s.shots.push({p,style:p.kind?'familiar-'+p.kind:o.style,x:p.x+dx*10,y:p.y-14+dy*10,z:p.z+dz*10,vx:dx*o.speed,vy:dy*o.speed,vz:dz*o.speed,life:4,color:'#ffd76d',...o,r:spellRadius(o.r??3),hit:new Set()})}
+  bolt:(p,angle,o,origin)=>{const yaw=p.yaw+(o.yawOffset||0),dx=Math.cos(angle)*Math.cos(yaw),dz=Math.cos(angle)*Math.sin(yaw),dy=Math.sin(angle);
+   s.shots.push({p,style:p.kind?'familiar-'+p.kind:o.style,x:origin?.x??p.x+dx*10,y:origin?.y??p.y-14+dy*10,z:origin?.z??p.z+dz*10,vx:dx*o.speed,vy:dy*o.speed,vz:dz*o.speed,life:4,color:'#ffd76d',...o,r:spellRadius(o.r??3),hit:new Set()})}
  };
  function summon(owner,kind){
   const active=s.summons.filter(f=>f.owner===owner);
@@ -200,7 +200,7 @@ export function createGame(settings,loadouts,mode){
     const ox=b.x,oy=b.y,oz=b.z;b.z+=b.vz*dt/n;b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
     const target=enemies(b.p).find(q=>!b.hit.has(q)&&Math.hypot(q.x-b.x,q.z-b.z)<8+b.r&&Math.abs(q.y-13-b.y)<14+b.r);
     const wall=solid(b.x,b.y,b.z),hitX=wall&&solid(b.x,oy,oz),hitZ=wall&&solid(ox,oy,b.z);
-    if(!wall&&!target){
+    if(!wall&&!target&&!(b.impactY!==undefined&&oy<b.impactY&&b.y>=b.impactY)){
      const spike=s.zones.find(t=>t.style==='spikes'&&t.hp>0&&Math.hypot(t.x-b.x,t.z-b.z)<spellRadius(16)+b.r&&b.y>=t.y-t.r-b.r&&b.y<=t.y+b.r);
      if(!spike)continue;
      spike.hp-=b.damage||0;b.dead=true;

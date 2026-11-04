@@ -131,6 +131,11 @@ export function makeProjectileArt(THREE) {
       });
     }
     switch(style){
+      case 'meteor-storm': {
+        mesh(stone,0x433035,0,0,0,1.1,1,.94);
+        band(0xff972c,0,1,.35);bright(gem,0xffbc5c,.54,.18,.52,.41);
+        stream('flare',0xff612b);cycle=beads(0xffab46,6,.24,.7);spin=3;break;
+      }
       case 'fire-skull': {
         mesh(ball,0xffdc9b,0,0,0,1,.88,.84);
         for(const side of [-1,1]){

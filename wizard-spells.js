@@ -195,7 +195,7 @@ const healing = [
     'Plant a healing lantern. Stay within its circle to recover 5 health every second for six seconds.',
     (api, p) => api.zone(p, p.x, p.y - 12, 41, 6.1, 1, (world, owner, x, y, z) => {
       if (distanceFrom(owner, x, y, z) <= spellRadius(41)) world.heal(owner, 5);
-    }, color.Restoration, p.z)),
+    }, color.Restoration, p.z,'lantern')),
   spell('Restoration', 'vampire-moth', 'Vampire Moth', 'ʚ', 19, .45,
     'Send out a seeking moth. A hit deals 9 damage and restores 12 health to its caster.',
     bolt('Restoration', { style: 'vampire-moth', speed: 160, homing: 2, damage: 9, r: 5, life: 3.2,
@@ -340,7 +340,7 @@ const movementArts = [
     'Place a five-second updraft at your feet. Any wizard in its core is repeatedly lifted.',
     (api,p)=>api.zone(p,p.x,p.y-12,38,5,.28,(world,owner,x,y,z)=>{
       for(const q of [owner,...world.enemies(owner)])if(distanceFrom(q,x,y,z)<=spellRadius(38))q.vy=-255;
-    },color.Movement,p.z)),
+    },color.Movement,p.z,'wind')),
   spell('Movement','moonwalk','Moonwalk','☽',18,.16,
     'Blink sideways and briefly become mist. Your aim stays pointed at the same opponent.',
     (api,p)=>{
@@ -412,11 +412,15 @@ const hexArts = [
       },color.Hexes,q.z);
     }})),
   spell('Hexes','mute-marsh','Mute Marsh','♮',26,.6,
-    'Throw a seed that plants a four-second patch of silence. Enemies inside cannot begin new spells.',
+    'Throw a seed that grows a four-second swamp. Enemies standing in the reeds cannot start spells. Jump clear to escape the silence.',
     bolt('Hexes',{ style: 'mute-marsh',speed:255,gravity:120,r:5,damage:2,life:4,onHit(api,p,q,x,y,z){
-      api.zone(p,x,y,38,4,.24,(world,owner,gx,gy,gz)=>{
-        for(const target of nearby(world,owner,gx,gy,gz,38))world.status(target,'silence',.32);
-      },color.Hexes,z);
+      const ground=api.surface(x,z,y-24);
+      if(ground===null)return;
+      api.zone(p,x,ground,38,4,.24,(world,owner,gx,gy,gz)=>{
+        for(const target of world.enemies(owner)){
+          if(Math.hypot(target.x-gx,target.z-gz)<=spellRadius(38)&&target.y>=gy-24&&target.y<=gy+6)world.status(target,'silence',.32);
+        }
+      },'#67985f',z,'marsh');
     }})),
   spell('Hexes','unlace','Unlace','♘',10,.2,
     'Unravel a struck wizard’s active speed and jumping boosts. Each boost removed adds a small burst.',
@@ -666,8 +670,26 @@ const arsenal=[
     (a,p)=>{a.area(p,p.x,p.y-12,54,36,'#ff985b',p.z);a.blink(p,-120*Math.cos(p.yaw),0,-120*Math.sin(p.yaw))}),
   spell('Summoning','winter-court','Winter Court','♛',295,3,'Summon two frost owls. For eight seconds their shards freeze already-chilled enemies in place for one second.',
     (a,p)=>{for(const turn of [-1,1]){const owl=a.summon(p,'frost');a.blink(owl,-turn*24*Math.sin(p.yaw),0,turn*24*Math.cos(p.yaw));a.status(owl,'court',8)}mark(a,p,'Summoning',96)}),
-  spell('Evocation','siege-clock','Siege Clock','◷',640,5,'Mark a point sixteen blocks along your aim. Three blasts hit it one second apart, each dealing 40 damage.',
-    (a,p,pitch)=>{const at=aimPoint(p,pitch,192);a.zone(p,at.x,at.y,70,3.05,1,(w,o,x,y,z)=>w.area(o,x,y,70,40,'#ffc563',z),'#ffc563',at.z)}),
+  spell('Evocation','siege-clock','Siege Clock','◷',640,5,'Mark a point sixteen blocks along your aim. Three blasts hit one second apart, each wider than the last, dealing 20, 40, then 60 damage.',
+    (a,p,pitch)=>{const at=aimPoint(p,pitch,192);let beat=0;
+      a.zone(p,at.x,at.y,96,3.05,1,(w,o,x,y,z)=>{
+        beat++;w.area(o,x,y,beat*32,beat*20,'#ffc563',z);
+      },'#ffc563',at.z,'clock')}),
+  spell('Evocation','meteor-storm','Meteor Storm','🌋',560,4.5,
+    'Call nine burning meteors over the ground ahead. They fall in a spiral toward the center. Each impact blasts cover and deals 26 splash damage.',
+    (api,p,pitch)=>{
+      const at=aimPoint(p,pitch,210),ground=api.surface(at.x,at.z,0);
+      if(ground===null)return;
+      let count=0;
+      api.zone(p,at.x,ground,82,2.92,.32,(world,owner)=>{
+        const angle=count*2.4,spread=68*(1-count/8);
+        const x=at.x+Math.cos(angle)*spread,z=at.z+Math.sin(angle)*spread;
+        count++;
+        const floor=world.surface(x,z,0)??ground;
+
+        world.bolt(owner,Math.PI/2,{style:'meteor-storm',impactY:floor,speed:215,gravity:160,r:6,damage:26,blast:34,color:'#ff8235'}, {x,y:Math.max(-140,floor-160),z});
+      },'#ff8338',at.z,'embers');
+    }),
   spell('Restoration','dawn-coronation','Dawn Coronation','♕',850,6,'Crown yourself for eight seconds. The first lethal hit leaves you at 1 health and turns you into mist for one second.',
     (a,p)=>{a.status(p,'crowned',8);mark(a,p,'Restoration',72)})
 ];

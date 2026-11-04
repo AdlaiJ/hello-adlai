@@ -1,7 +1,7 @@
-import {makeCastPainter} from './wizard-casting.js?v=stored-time';
-import {SPELLS} from './wizard-spells.js?v=stored-time';
+import {makeCastPainter} from './wizard-casting.js?v=meteor-storm';
+import {SPELLS} from './wizard-spells.js?v=meteor-storm';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
-import {makeProjectileArt} from './wizard-projectile-art.js?v=undead';
+import {makeProjectileArt} from './wizard-projectile-art.js?v=meteor-storm';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
@@ -451,13 +451,47 @@ function makeSpellParts(scene){
    b.beads.forEach((m,j)=>{const a=j*TAU/5+i;m.position.set(Math.cos(a)*r,Math.sin(a)*r,Math.sin(a*2)*r*.5);m.scale.setScalar(Math.max(.01,life*r*.09))});
   });
   each(fields,zones,field,(z,b,i)=>{
+   if(['marsh','wind','lantern','clock','embers'].includes(z.style)){
+    b.scenery??=new Map();
+    let patch=b.scenery.get(z.style);
+    if(!patch){
+     patch=joint(b.root,0,0,0);b.scenery.set(z.style,patch);patch.userData.zoneStyle=z.style;
+     if(z.style==='marsh'){
+      part(patch,shape.ball,mat(0x304d42),0,.012,0,.93,.03,.96);
+      for(let k=0;k<13;k++){
+       const angle=k*2.4,dist=.92*Math.sqrt(k/13),x=Math.cos(angle)*dist,zp=Math.sin(angle)*dist;
+       part(patch,shape.ball,mat(k%2?0x587850:0x46695a),x,.035,zp,.18,.025,.17);
+       const reed=part(patch,shape.pole,mat(0x8a9956),x,.17,zp,.018,.29,.018);
+       reed.rotation.z=.17*Math.sin(angle);part(patch,shape.ball,mat(0x645034),x-.025*Math.sin(angle),.31,zp,.025,.065,.025);
+      }
+     }else if(z.style==='lantern'){
+      part(patch,shape.pole,mat(0x63543b),0,0,0,.05,.7,.05);
+      part(patch,shape.gem,mat(0xffdb85,true),0,.37,0,.14,.22,.14);
+      part(patch,shape.cone,mat(0x44544e),0,.6,0,.23,.18,.23);
+      part(patch,shape.hoop,mat(0x98dfbf,true),0,-.24,0,1).rotation.x=Math.PI/2;
+     }else if(z.style==='wind'){
+      for(let k=0;k<24;k++){const a=k*.52;part(patch,shape.gem,mat(0xbbf1e5,true),Math.cos(a)*.68,k/17-.3,Math.sin(a)*.68,.12,.035,.05)}
+     }else{
+      const clock=z.style==='clock',ink=mat(clock?0xffcf74:0xff7437,true);
+      for(let k=0;k<12;k++){const a=k*TAU/12;
+       part(patch,clock?shape.box:shape.gem,ink,Math.sin(a)*.9,.04,Math.cos(a)*.9,.035,.04,.13).rotation.y=a;
+      }
+      if(clock){const hand=joint(patch,0,0,0);part(hand,shape.box,ink,0,.05,.32,.035,.035,.64);patch.userData.hand=hand}
+     }
+    }
+    for(const child of b.root.children)child.visible=child===patch;
+    b.root.position.set(z.x,HEIGHT-z.y+.4,z.z);b.root.scale.setScalar(z.r);
+    if(z.style==='wind')patch.rotation.y=t*2;
+    if(patch.userData.hand)patch.userData.hand.rotation.y=-t*TAU;
+    return;
+   }
    const spikes=z.style==='spikes';
    if(spikes&&!b.spikes){b.spikes=joint(b.root,0,0,0);for(let j=0;j<7;j++){
     const a=j*2.4,d=j?.58:0,h=j?.84:1.18;
     part(b.spikes,shape.cone,mat(0xf1dfb1),Math.cos(a)*d,h/2,Math.sin(a)*d,.15,h,.15).rotation.z=.13*Math.sin(a);
    }}
    if(spikes)b.spikes.scale.y=.55+.45*Math.max(0,z.hp??18)/18;
-   for(const child of b.root.children)child.visible=child===b.spikes?spikes:!spikes;
+   for(const child of b.root.children)child.visible=child===b.spikes?spikes:!spikes&&!b.scenery?.has(child.userData.zoneStyle);
    const r=Math.max(1,z.r||12);b.root.position.set(z.x,HEIGHT-z.y,z.z);b.root.scale.setScalar(r);b.m.color.copy(color(z));b.edge.color.copy(b.m.color);b.ring.scale.setScalar(.84+.08*Math.sin(t*3+i));
   });
  };
