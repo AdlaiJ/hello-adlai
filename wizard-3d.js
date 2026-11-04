@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=undead-army';
+import {makeSpellModels} from './wizard-spell-models.js?v=six-arenas';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=undead-army';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=six-arenas';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=six-arenas';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -13,7 +13,10 @@ const noise=n=>frac(Math.sin(n*127.1+311.7)*43758.5453);
 const worlds={
  'Bellfall Keep':{sky:0x242744,haze:0xd4a6a2,ridge:0x756987,ruin:0x5e5875,top:0x9da78e,rock:0x665e72,sun:0xffe6be},
  'Ember Quarry':{sky:0x311f3b,haze:0xf4a172,ridge:0x936269,ruin:0x774e60,top:0xc8946c,rock:0x724b52,sun:0xffc498},
- 'Frostglass Bridge':{sky:0x172f4d,haze:0xb7dce7,ridge:0x7297b8,ruin:0x59819a,top:0xc3e2df,rock:0x66869e,sun:0xe5fff3}
+ 'Frostglass Bridge':{sky:0x172f4d,haze:0xb7dce7,ridge:0x7297b8,ruin:0x59819a,top:0xc3e2df,rock:0x66869e,sun:0xe5fff3},
+ 'Thornroot Ruins':{sky:0x173c38,haze:0x9ebaa0,ridge:0x496b61,ruin:0x4e6651,top:0x86ad65,rock:0x555f4b,sun:0xe3f5b8},
+ 'Sunken Oasis':{sky:0x536f8d,haze:0xf2d4a0,ridge:0xbb8e6b,ruin:0x9f7956,top:0xe3c184,rock:0x977353,sun:0xffe6ab},
+ 'Void Cathedral':{sky:0x19162e,haze:0x8c7ea9,ridge:0x4c416b,ruin:0x4c395f,top:0x9d88b8,rock:0x4c435d,sun:0xd1beff}
 };
 const themes=[
  {dark:0x293d70,cloth:0x4879b5,hem:0x69abbc,point:0x84eedd,trim:0xffca79,skin:0x6399df,hair:0xffe2bf},
@@ -623,6 +626,74 @@ function makeSpellParts(scene){
 }
 function costume(head,chest,outfit){
  const hat=joint(head,-.22,2.5,0);
+ if(outfit>=9){
+  const add=(parent,type,color,x,y,z,w,h=w,d=w)=>part(parent,shape[type],mat(color),x,y,z,w,h,d);
+  switch(outfit){
+   case 9:{
+    add(chest,'ball',0x459453,0,1,0,4.7,7.4,5.4);
+    add(hat,'ball',0x58a65c,0,0,0,3.5,2,3.6);
+    for(const side of [-1,1]){
+     add(chest,'pole',0x459453,0,3,side*6.2,2.5,7,2.5);
+     add(chest,'ball',0x459453,0,-.5,side*4.8,1.8,1.6,3);
+     add(chest,'ball',0x58a65c,0,6.5,side*6.2,1.4);
+    }
+    for(let row=0;row<4;row++)for(let i=0;i<8;i++){
+     const a=i*TAU/8,spine=add(chest,'cone',0xffe2a9,Math.cos(a)*4.5,row*3-4,Math.sin(a)*5.2,.17,1.9,.17);
+     spine.rotation.set(Math.sin(a)*Math.PI/2,0,-Math.cos(a)*Math.PI/2);
+    }
+    for(let i=0;i<5;i++){const a=i*TAU/5;add(hat,'ball',0xff83bc,Math.cos(a),2.3,Math.sin(a),.8,.5,.8)}
+    add(hat,'ball',0xffde66,0,2.5,0,.6);break;
+   }
+   case 10:{
+    add(chest,'pole',0xf2dfbd,0,0,0,8.8,13,10.5);
+    add(hat,'ball',0xd44f53,0,1.4,0,7,3.2,7);
+    for(let i=0;i<9;i++){const a=i*2.4,r=i%2?4.6:2.7;add(hat,'ball',0xffedcc,Math.cos(a)*r,3.6,Math.sin(a)*r,1,.28,1)}
+    break;
+   }
+   case 11:{
+    add(chest,'ball',0xf6c746,-.4,0,0,4.8,7,5.6);
+    for(const y of [-3,0,3])add(chest,'pole',0x352c31,0,y,0,9.5,1.3,11.2);
+    for(const side of [-1,1]){
+     const wing=add(chest,'ball',0xc7f0ec,-3.8,5,side*5,1,4.6,2.6);wing.rotation.x=side*.5;
+     const stalk=add(hat,'pole',0x352c31,0,2,side*1.8,.35,4,.35);stalk.rotation.x=side*.3;
+     add(hat,'ball',0x352c31,0,4,side*2.4,.7);
+    }break;
+   }
+   case 12:{
+    add(chest,'ball',0xef8e47,0,0,0,5.4,7,5.8);
+    for(const side of [-1,1]){
+     add(chest,'gem',0xffbc72,0,2,side*6.1,1.4,4,2.7);
+     add(hat,'ball',0xffedc8,1,0,side*3.2,1.4);
+     add(hat,'ball',0x302f4e,1.8,.2,side*3.5,.55);
+    }
+    add(chest,'gem',0xffbc72,-5,0,0,3,5,1.3);break;
+   }
+   case 13:{
+    add(chest,'ball',0xe17c29,0,-.5,0,5.6,6.5,6.5);
+    for(let i=0;i<8;i++){const a=i*TAU/8;add(chest,'pole',0xc26323,Math.cos(a)*5,-.5,Math.sin(a)*5.8,.35,9,.35)}
+    add(hat,'ball',0xe99935,0,0,0,4,1.7,4);
+    add(hat,'pole',0x537e40,0,2.3,0,1.4,3,1.4);
+    for(const side of [-1,1])add(chest,'gem',0xffd972,5.1,1.5,side*2,.4,1.6,1.2);
+    break;
+   }
+   case 14:{
+    add(chest,'box',0xdbe3ec,0,0,0,9,12,10);
+    add(chest,'box',0x6d7991,-5,2,0,3,9,7);
+    add(chest,'box',0x33465c,4.6,3,0,.5,3.5,4.5);
+    for(let i=0;i<3;i++)add(chest,'ball',[0xf06855,0x65d9ad,0xf5cd68][i],5,3,(i-1)*1.1,.35);
+    const rim=add(hat,'ring',0xe2e8ee,0,-1.3,0,4.3,4.3,.55);rim.rotation.y=Math.PI/2;
+    add(hat,'ball',0xe2e8ee,-1.5,.2,0,2.8,3,3.8);break;
+   }
+   case 15:{
+    add(chest,'box',0x7752b4,0,0,0,10,12,11);
+    add(chest,'box',0xf2c65b,0,0,0,10.2,2,11.2);
+    add(chest,'box',0xf2c65b,0,0,0,2,12.2,11.3);
+    for(const side of [-1,1]){const bow=add(hat,'ring',0xf2c65b,0,1,side*2,1.8,1.1,.6);bow.rotation.y=Math.PI/2;bow.rotation.x=side*.4}
+    add(hat,'ball',0xf2c65b,0,1,0,.85);break;
+   }
+  }
+  return hat;
+ }
  if(outfit%3===0){
   const metal=new THREE.MeshStandardMaterial({color:0xb9ccd1,metalness:.55,roughness:.33});
   part(hat,new THREE.SphereGeometry(1,18,9,0,TAU,0,Math.PI/2),metal,0,0,0,4.1,3.35,4.35);
@@ -684,6 +755,7 @@ export function makeRenderer(canvas){
  let pixelScale=1,frames=0,frameSeconds=0,lastDraw=0;
  let palette=null,logicalW=0,logicalH=0,oldDPR=0;
  const look=new THREE.Vector3(),eye=new THREE.Vector3(),target=new THREE.Vector3(),offset=new THREE.Vector3(),desired=new THREE.Vector3(),pos=new THREE.Vector3(),sideVec=new THREE.Vector3();
+ let titleScene=0,wasDemo=false,titleEpoch=0,titleOutfits=[0,4];
  const titleStart=new THREE.Vector3(),titleEnd=new THREE.Vector3(),titleBolt={},titleBursts=[];
  function getRig(index,side,outfit){
   if(!rigs[index]||rigs[index].side!==side||rigs[index].outfit!==outfit){
@@ -736,15 +808,26 @@ export function makeRenderer(canvas){
   const p=worlds[state?.map]||worlds['Bellfall Keep'];
   if(p!==palette){sky.update(p);scene.fog.color.setHex(p.haze);palette=p}
   const demo=!state||!state.players?.length;title.visible=demo;groundGroup.visible=!demo;sky.layout(demo);
-  const players=demo?[{x:395,y:420,z:192,side:0,hp:100,yaw:.27,aim:-.1},{x:565,y:420,z:192,side:1,hp:100,yaw:Math.PI-.27,aim:-.1}]:state.players;
-  const clock=demo?time*.52:time,cycle=clock%4,hideLocal=demo?false:moveCamera(state,players[me]||players[0],yaw,pitch,distance);
+  if(demo&&!wasDemo){titleScene=Math.floor(Math.random()*4);titleEpoch=time;titleOutfits=[Math.floor(Math.random()*16),Math.floor(Math.random()*16)]}
+  wasDemo=demo;
+  const players=demo?[{x:395,y:420,z:192,side:0,outfit:titleOutfits[0],hp:100,yaw:.27,aim:-.1},{x:565,y:420,z:192,side:1,outfit:titleOutfits[1],hp:100,yaw:Math.PI-.27,aim:-.1}]:state.players;
+  const clock=demo?(time-titleEpoch)*.52:time,cycle=clock%4,hideLocal=demo?false:moveCamera(state,players[me]||players[0],yaw,pitch,distance);
   const demoScale=1.74;
+  if(demo&&titleScene===1){
+   players[1].z+=Math.sin(cycle*Math.PI/2)*32;
+   players[1].y-=Math.max(0,Math.sin(cycle*Math.PI))*25;
+  }
+  if(demo&&titleScene===2)players[1].x+=Math.sin(cycle*Math.PI/2)*16;
   if(demo){
    const framing=Math.max(1,1.55/camera.aspect),distance=141*framing;
    camera.position.set(480+Math.sin(clock*.17)*9,152+29*framing,192+distance);
    camera.lookAt(480,143,192);
   }else updateTerrain(state,p,camera);
   const creatures=demo?[]:[...(state.summons||[])];
+  if(demo&&titleScene===3){
+   for(let i=0;i<6;i++)creatures.push({id:i,kind:i<4?'squire':'wraith',side:0,hp:28,maxHp:28,
+    x:435+i*13+Math.sin(clock*2+i)*9,y:420,z:170+(i%3)*19,yaw:0});
+  }
   for(const a of players)if(a.monster&&a.hp>0)creatures.push({...a,kind:a.monster});
   paintFamiliars(creatures,players,clock,camera);
   sky.sky.position.copy(camera.position);sky.glitter.position.copy(camera.position);
@@ -770,7 +853,23 @@ export function makeRenderer(canvas){
    Object.assign(titleBolt,{style:from?'kiln-heart':'north-star',x:pos.x,y:HEIGHT-pos.y,z:pos.z,r:2.8,vx:to?150:-150,vy:-Math.cos(progress*Math.PI)*30,vz:0,color:from?'#ffac67':'#83ffea'});
    titleBursts.length=0;
    if(phase>=.81)titleBursts.push({x:titleEnd.x,y:HEIGHT-titleEnd.y,z:titleEnd.z,r:13,life:1-(phase-.81)/.19,maxLife:1,color:titleBolt.color});
-   paintSpells(phase>.09&&phase<.81?[titleBolt]:[],titleBursts,[],clock,camera);
+   const shots=phase>.09&&phase<.81?[{...titleBolt}]:[],zones=[];
+   if(titleScene===1){
+    shots.length=0;titleBursts.length=0;
+    for(let i=0;i<3;i++){
+     const fall=(clock*.48+i/3)%1,x=520+i*24;
+     if(fall<.86)shots.push({style:'comet',x:x-45*(1-fall),y:270+fall*150,z:178+i*15,r:5,vx:45,vy:150,vz:0});
+     else titleBursts.push({x,y:420,z:178+i*15,r:26,life:(1-fall)/.14,maxLife:1,color:'#a1cfff'});
+    }
+   }else if(titleScene===2){
+    zones.push({style:'demon-arm',x:490,y:420,z:185,r:55,life:2.4*(1-cycle/4),color:'#c74563'});
+    if(cycle>1.9&&cycle<2.4)titleBursts.push({x:510,y:420,z:192,r:32,life:1-(cycle-1.9)*2,maxLife:1,color:'#ff6954'});
+    shots.forEach(shot=>{shot.style='cone-of-cold';shot.r=5});
+   }else if(titleScene===3){
+    shots.forEach(shot=>{shot.style=from?'incendiary-volley':'void-orb';shot.r=4});
+    zones.push({style:'tentacle-field',x:515,y:420,z:192,r:35,color:'#985acb'});
+   }
+   paintSpells(shots,titleBursts,zones,clock,camera);
   }else{
    const visibleShots=[...(state.shots||[])];
    for(const wizard of players)if(wizard.hp>0&&wizard.bloodAmmo){

@@ -1,6 +1,6 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=undead-army';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
-export {MAPS,makeTiles} from './wizard-world.js';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=six-arenas';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=six-arenas';
+export {MAPS,makeTiles} from './wizard-world.js?v=six-arenas';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -9,7 +9,7 @@ export function createGame(settings,loadouts,mode){
  const dirty=new Set();s.terrainVersion=0;
  const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
  function actor(side,x,ids,bot=false){
-  const p={outfit:Math.floor(Math.random()*9),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,statuses:{},bot,ground:false,brain:1};
+  const p={outfit:Math.floor(Math.random()*16),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,statuses:{},bot,ground:false,brain:1};
   inputs.push({strafe:0,move:0,jump:false});s.players.push(p);return p;
  }
  if(mode==='multi'){
