@@ -1,6 +1,6 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=companions';
+import {makeSpellModels} from './wizard-spell-models.js?v=undead-army';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=companions';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=undead-army';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';

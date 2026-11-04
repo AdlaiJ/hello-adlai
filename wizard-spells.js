@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=companions';
+import {extraSpells} from './wizard-extra-spells.js?v=undead-army';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity']);
 export const spellRadius = radius => radius * 1.12;
 
@@ -741,7 +741,7 @@ const arsenal=[
 ];
 
 const creatureSpells = new Map([
- ['grave-squire','summon'],['crypt-bow','summon'],['soul-wraith','summon'],
+ ['grave-squire','summon'],['crypt-bow','summon'],['soul-wraith','summon'],['undead-army','summon'],
  ['bone-pincer','summon'],['fletchers-roost','summon'],['grave-relay','summon'],
  ['last-battalion','mixed'],['summon-purple-wurm','summon'],['summon-void-entity','summon'],
  ...['ember-newt','rime-owl','balm-beetle','bastion-crab','storm-finch','quarry-mole','wild-hunt','winter-court','frost-kennel','traveling-infirmary','ember-courier','mole-survey','thunder-brood'].map(id=>[id,'familiar'])

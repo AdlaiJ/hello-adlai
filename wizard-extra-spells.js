@@ -127,5 +127,20 @@ export function extraSpells(){
  add('Summon Purple Wurm','♜',360,3.5,'Summon a giant purple wurm with 110 health for 20 seconds. It pursues enemies and bites for 24 damage, chewing nearby terrain.',(a,p)=>a.summon(p,'purple-wurm',20));
  school('Summoning','vortex','#9a8bff');
  add('Summon Void Entity','◈',480,4,'Summon a floating void entity with 85 health for 20 seconds. It pulls nearby enemies inward and fires slowing void orbs for 18 damage.',(a,p)=>a.summon(p,'void-entity',20));
+ school('Summoning','ribs','#b6e4b0');
+ add('Undead Army','☠',800,6,
+  'Raise twelve undead for 25 seconds: six skeleton swordsmen, four skeletal archers, and two life-draining wraiths. Each has 28 health. They hunt enemies and can be killed.',
+  (a,p)=>{
+   const ranks=['squire','squire','squire','squire','squire','squire','archer','archer','archer','archer','wraith','wraith'];
+   const yaw=p.yaw;
+   try{
+    for(const [i,kind] of ranks.entries()){
+     p.yaw=yaw+i*Math.PI*2/ranks.length;
+     const soldier=a.summon(p,kind,25);
+     a.blink(soldier,Math.cos(p.yaw)*36,0,Math.sin(p.yaw)*36);
+     a.fx(soldier.x,soldier.y-8,18,'#b6e4b0','undead-army',soldier.z,p.yaw,0);
+    }
+   }finally{p.yaw=yaw}
+  });
  return book;
 }

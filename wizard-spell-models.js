@@ -120,5 +120,12 @@ export function makeSpellModels({joint,part,shape,mat}){
   cluster(orbit,6,(_,a)=>piece(orbit,'gem',0x8855bd,Math.cos(a)*.9,Math.sin(a)*.4,Math.sin(a)*.8,.15,.5,.17,0,true));
   return u=>{orbit.rotation.y=u*4;g.position.y=Math.sin(u*3)*.18};
  };
+ models['undead-army']=g=>{
+  for(let i=-1;i<=1;i++){
+   skull(g,i*.55,.25-Math.abs(i)*.15);
+   rod(g,0xb6e4b0,i*.55,-.4,.55,.06);
+  }
+  return u=>{g.position.y=u*.4;g.rotation.y=u*.6};
+ };
  return models;
 }
