@@ -1,5 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
+import {extraSpells} from './wizard-extra-spells.js?v=fifty-spells';
 export const spellRadius = radius => radius * 1.12;
 
 const color = {
@@ -41,6 +42,24 @@ function buildAhead(api, p, distance, heightOffset, width, height, yawOffset = 0
 }
 
 const damage = [
+  spell('Evocation','shrine-of-cleavers','Shrine of Cleavers','⛩',600,4,
+    'Unfold an open shrine for eight seconds. Every half second it slashes every enemy inside the marked circle for 7 damage and cuts a trench through the terrain. Escape the circle to avoid the next cut.',
+    (api,p)=>{
+      const ground=api.surface(p.x,p.z,p.y-24)??p.y;
+      let beat=0;
+      api.zone(p,p.x,ground,110,8,.5,(w,owner,x,y,z)=>{
+        const angle=beat++*2.4,dx=Math.cos(angle),dz=Math.sin(angle);
+        for(const q of w.enemies(owner)){
+          if(Math.hypot(q.x-x,q.z-z)>spellRadius(110)||Math.abs(q.y-12-y)>spellRadius(110))continue;
+          w.hurt(q,7);w.fx(q.x,q.y-12,17,'#ff3155','cleave',q.z,angle,.45*(beat%2?1:-1));
+        }
+        w.fx(x,y-2,104,'#ff3155','cleave',z,angle);
+        for(let d=-108;d<=108;d+=12)w.cutTerrain(x+d*dx,y+4,6,40,z+d*dz);
+      },'#bc173a',p.z,'cleaver-shrine');
+    }),
+  spell('Summoning','skull-throne','Skull Throne','☠',320,2.8,
+    'Raise a bone throne for 18 seconds. Blood rivers hurt enemies. On its seat, click or press this slot to launch crimson swords for 22 damage.',
+    (api,p)=>api.raiseThrone(p)),
   spell('Evocation','quarry-volley','Quarry Volley','▦',45,.9,
     'Lift up to nine nearby terrain blocks. Click the arena or press this spell slot to fire one block for 17 damage.',
     (api,p)=>api.liftBlocks(p)),
@@ -713,4 +732,4 @@ const arsenal=[
 ];
 
 export const SPELLS = [...damage, ...ranged, ...boost, ...healing, ...shields, ...evocationArts,
-  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal];
+  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal, ...extraSpells()];

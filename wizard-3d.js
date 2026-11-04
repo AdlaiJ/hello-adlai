@@ -1,7 +1,7 @@
-import {makeCastPainter} from './wizard-casting.js?v=monster-outfits';
-import {SPELLS} from './wizard-spells.js?v=monster-outfits';
+import {makeCastPainter} from './wizard-casting.js?v=fifty-spells';
+import {SPELLS} from './wizard-spells.js?v=fifty-spells';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
-import {makeProjectileArt} from './wizard-projectile-art.js?v=monster-outfits';
+import {makeProjectileArt} from './wizard-projectile-art.js?v=fifty-spells';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
@@ -437,10 +437,13 @@ function makeSpellParts(scene){
   }
   for(const pool of projectiles.values())for(let i=pool.used;i<pool.models.length;i++)pool.models[i].root.visible=false;
  }
- const propKinds=new Set(['shears','bell','valve','firewheel','fissure']);
+ const propKinds=new Set(['cleave','shears','bell','valve','firewheel','fissure']);
  function buildProp(root,kind){
   const g=joint(root,0,0,0),metal=mat(0xbacbd7),brass=mat(0xd99746),fire=mat(0xff9148,true);
-  if(kind==='shears'){
+  if(kind==='cleave'){
+   part(g,shape.gem,mat(0xe62046,true),0,0,0,1,.046,.027);
+   part(g,shape.gem,mat(0xffe1dc,true),.06,.013,0,.94,.018,.032);
+  }else if(kind==='shears'){
    g.userData.arms=[];
    const outline=new THREE.Shape();
    outline.moveTo(-.03,-.1);outline.lineTo(1.15,0);outline.lineTo(.15,.17);outline.lineTo(-.03,.1);outline.closePath();
@@ -511,12 +514,37 @@ function makeSpellParts(scene){
    b.beads.forEach((m,j)=>{const a=j*TAU/5+i;m.position.set(Math.cos(a)*r,Math.sin(a)*r,Math.sin(a*2)*r*.5);m.scale.setScalar(Math.max(.01,life*r*.09))});
   });
   each(fields,zones,field,(z,b,i)=>{
-   if(['marsh','wind','lantern','clock','embers','nest','sundial'].includes(z.style)){
+   if(['marsh','wind','lantern','clock','embers','cleaver-shrine','throne','nest','sundial'].includes(z.style)){
     b.scenery??=new Map();
     let patch=b.scenery.get(z.style);
     if(!patch){
      patch=joint(b.root,0,0,0);b.scenery.set(z.style,patch);patch.userData.zoneStyle=z.style;
-     if(z.style==='sundial'){
+     if(z.style==='cleaver-shrine'){
+      const lacquer=mat(0x92192c),tile=mat(0x241e2b),bone=mat(0xe4cdaf);
+      part(patch,shape.ring,mat(0xcc2442,true),0,.008,0,1,1,.12).rotation.x=Math.PI/2;
+      part(patch,shape.box,tile,0,.05,0,.48,.10,.40);
+      for(const x of [-.16,.16])for(const d of [-.13,.13])
+       part(patch,shape.pole,lacquer,x,.21,d,.05,.32,.05);
+      for(let k=0;k<4;k++)part(patch,shape.box,tile,0,.39+k*.029,0,.55-k*.095,.036,.46-k*.08);
+      for(let k=-3;k<=3;k++)part(patch,shape.cone,bone,k*.049,.32,.16,.022,.09,.022).rotation.z=Math.PI;
+      part(patch,shape.gem,mat(0xff244a,true),0,.21,0,.052,.10,.05);
+     }else if(z.style==='throne'){
+      const frame=joint(patch,0,0,0),ivory=mat(0xe9d4ac),shadow=mat(0x301e28);
+      patch.userData.frame=frame;
+      part(frame,shape.box,mat(0x783041),0,.96,0,1.75,.22,1.8);
+      for(const side of [-1,1]){
+       for(const x of [-.72,.72])part(frame,shape.pole,ivory,x,.55,side*.75,.28,1.1,.28);
+       part(frame,shape.box,ivory,0,1.43,side*.89,1.65,.19,.21);
+      }
+      for(let j=-3;j<=3;j++){
+       const h=2.85-.18*Math.abs(j),skull=joint(frame,-.85,h,j*.29);
+       part(frame,shape.pole,ivory,-.85,h/2,j*.29,.22,h,.22);
+       part(skull,shape.ball,ivory,0,0,0,.25,.32,.24);
+       part(skull,shape.box,ivory,.08,-.24,0,.24,.18,.28);
+       for(const side of [-1,1])part(skull,shape.ball,shadow,.20,.01,side*.10,.065,.09,.075);
+      }
+      patch.userData.pools=Array.from({length:36},()=>part(patch,shape.ball,mat(0xa51033),0,0,0,.34,.034,.34));
+     }else if(z.style==='sundial'){
       part(patch,shape.pole,mat(0xbb8541),0,0,0,.67,.045,.67);
       part(patch,shape.cone,mat(0xffc767),0,.12,0,.08,.24,.08).rotation.z=-.4;
       for(let k=0;k<12;k++){const a=k*TAU/12;part(patch,shape.box,mat(0x634731),Math.sin(a)*.27,.03,Math.cos(a)*.27,.015,.015,.06).rotation.y=a}
@@ -551,6 +579,13 @@ function makeSpellParts(scene){
     }
     for(const child of b.root.children)child.visible=child===patch;
     b.root.position.set(z.x,HEIGHT-z.y+.4,z.z);b.root.scale.setScalar(z.r);
+    if(z.style==='throne'){
+     patch.userData.frame.rotation.y=-z.yaw;
+     patch.userData.pools.forEach((pool,j)=>{
+      const tile=z.rivers[j];pool.visible=!!tile;
+      if(tile)pool.position.set((tile.x-z.x)/z.r,(z.y-tile.y+.5)/z.r,(tile.z-z.z)/z.r);
+     });
+    }
     if(z.style==='nest')patch.scale.y=1+.09*Math.sin(t*TAU/.6);
     if(z.style==='wind')patch.rotation.y=t*2;
     if(patch.userData.hand)patch.userData.hand.rotation.y=-t*TAU;

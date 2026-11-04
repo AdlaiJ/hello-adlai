@@ -131,6 +131,12 @@ export function makeProjectileArt(THREE) {
       });
     }
     switch(style){
+      case 'skull-throne': {
+        bright(gem,0xff3155,0,1.65,0,.43,2.1,.14);
+        mesh(box,0x74112f,0,-.45,0,1.85,.24,.3);
+        mesh(box,0x391628,0,-1,0,.28,1,.28);bright(gem,0xff6274,0,-1.62,0,.26);
+        stream('split',0xff2347);spin=.4;break;
+      }
       case 'quarry-volley': {
         mesh(box,0xa88a67,0,0,0,2);
         mesh(box,0xc1a27b,0,.99,0,2,.05,2);spin=1.4;break;

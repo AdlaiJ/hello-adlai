@@ -10,7 +10,7 @@ formation('fountain', 'witchspark:ffe36c bottle-rocket:ff964a thermal-font:87ffe
 formation('orbit', 'north-star:9acfff corner-pocket:75f7be catherine-wheel:ff8171 winter-ring:9feaff moonwalk:c1baff wild-hunt:c3f583 dawn-coronation:ffdb72');
 formation('fault', 'fault-stitch:f5d95f fork-lightning:9cefff quarry-volley:bf9e72 quarry-auger:d89963 worldbreaker:ffb554 fault-cross:f48356 unlace:c0a4ff');
 formation('bloom', 'kiln-heart:ff783b crater-bell:eeb971 airburst:fff4a0 overbloom:f789dd heartwood:95dc71 aegis-break:be90ff phoenix-vigil:ffaf38');
-formation('ribs', 'grave-squire:d3e4a8 rampart:bdadff bone-wall:f6deb1 bone-spikes:e4d5c5 hedge-hospice:81c76f rising-stair:ffc870 sky-shutter:a4e8f8 last-citadel:d8acff');
+formation('ribs', 'shrine-of-cleavers:ff244a skull-throne:e52948 grave-squire:d3e4a8 rampart:bdadff bone-wall:f6deb1 bone-spikes:e4d5c5 hedge-hospice:81c76f rising-stair:ffc870 sky-shutter:a4e8f8 last-citadel:d8acff');
 formation('weave', 'green-thread:80efb8 last-stitch:b4ffbb glass-graft:9af9ea root-needle:99d981 safety-net:f7b8ff field-dressing:f9c9ad tripwire:ff9bd9');
 formation('vortex', 'gravity-well:b58cff lodestone:f287bc undertow:74c8ff hook-and-eye:d2b68c vampire-moth:f298c8 thieves-quill:e4a5ff ward-tax:ffda7f');
 formation('fall', 'meteor-storm:ff8235 moon-mortar:d8cdff sky-toll:bda6fa dew-wash:81e1ff lead-anklet:a5b9da lead-bell:c6aba4 siege-clock:f5bf78 pilgrim-salve:7cf7ca');
@@ -51,7 +51,7 @@ function trace(d,t,i){
   return [x*d.cos-y*d.sin+curl,y*d.cos+x*d.sin];
 }
 export function castingDesign(spell){
-  const design=designs.get(spell.id);
+  const design=spell.design??designs.get(spell.id);
   if(!design)throw new Error('Missing casting design for '+spell.id);
   const power=Math.min(1,Math.sqrt(spell.cost/900));
   const seed=[...spell.id].reduce((v,c)=>(Math.imul(v,31)+c.charCodeAt(0))>>>0,0);

@@ -1,4 +1,4 @@
-import {SPELLS,spellRadius} from './wizard-spells.js?v=quarry-volley';
+import {SPELLS,spellRadius} from './wizard-spells.js?v=fifty-spells';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -46,7 +46,27 @@ export function createGame(settings,loadouts,mode){
    }
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds)=>{p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
-  blink:move,hurt:damage,
+  blink:move,hurt:damage,cutTerrain:tileDamage,
+  raiseThrone(p){
+   const floor=api.surface(p.x,p.z,p.y-2);
+   if(floor===null||blocked(p.x,floor-24,p.z))return;
+   s.zones=s.zones.filter(z=>!(z.style==='throne'&&z.p===p));
+   const rivers=[];
+   for(let arm=0;arm<4;arm++){
+    const angle=p.yaw+arm*Math.PI/2;
+    for(let i=1;i<=9;i++){
+     const reach=17+i*9,bend=6*Math.sin(i*.7+arm);
+     const x=p.x+reach*Math.cos(angle)-bend*Math.sin(angle),z=p.z+reach*Math.sin(angle)+bend*Math.cos(angle);
+     const y=api.surface(x,z,floor-24);
+     if(y!==null)rivers.push({x,y,z});
+    }
+   }
+   api.zone(p,p.x,floor,20,18,1,(w,owner)=>{
+    for(const q of w.enemies(owner))if(rivers.some(tile=>Math.abs(q.y-tile.y)<16&&Math.hypot(q.x-tile.x,q.z-tile.z)<10))damage(q,6);
+   },'#ac1537',p.z,'throne');
+   Object.assign(s.zones.at(-1),{yaw:p.yaw,rivers});
+   p.y=floor-24;p.vy=0;p.ground=true;p.onThrone=true;
+  },
   liftBlocks(p){
    const candidates=[];
    const cx=Math.floor((p.x+30*Math.cos(p.yaw))/T),cz=Math.floor((p.z+30*Math.sin(p.yaw))/T);
@@ -127,6 +147,12 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
+ function fireSword(index){
+  const p=s.players[index];
+  if(!p?.onThrone||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0)||p.hp<=0||s.over||p.cast>0||p.statuses.silence>0||p.swordReady>s.time)return false;
+  api.bolt(p,p.aim,{style:'skull-throne',speed:390,damage:22,r:4,color:'#fc274b'});
+  p.swordReady=s.time+.32;return true;
+ }
  function fireBlock(index){
   const p=s.players[index];
   if(!p?.blocks?.length||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
@@ -138,6 +164,7 @@ export function createGame(settings,loadouts,mode){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
   if(!Number.isInteger(slot)||!spell||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
+  if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
   if(spell.id==='quarry-volley'&&p.blocks?.length)return fireBlock(index);
   const held=p.weapon;
   if(held?.id===spell.id&&held.until>s.time&&held.strikes>0){
@@ -211,7 +238,16 @@ export function createGame(settings,loadouts,mode){
    const drive=inputs[i],speed=140*(st.haste>0?1.65:1)*(st.slow>0?.45:1);
    p.vx+=(drive.move*speed-p.vx)*(1-Math.exp(-7*dt));p.vz+=(drive.strafe*speed-p.vz)*(1-Math.exp(-7*dt));if(st.root>0)p.vx=p.vz=0;
    if(p.ground&&drive.jump&&!(st.root>0)){p.vy=st.leap>0?-440:-300;p.ground=false}
+   const previousY=p.y;
    p.ground=false;p.vy=Math.min(560,p.vy+720*dt);move(p,p.vx*dt,p.vy*dt,p.vz*dt);
+   p.onThrone=false;
+   for(const z of s.zones){
+    if(z.style!=='throne'||Math.hypot(p.x-z.x,p.z-z.z)>19)continue;
+    const seat=z.y-24;
+    if(p.vy>=0&&previousY<=seat+.1&&p.y>=seat){
+     p.y=seat;p.vy=0;p.ground=true;p.onThrone=z.p===p;break;
+    }
+   }
    if(p.y>580){damage(p,22);p.x=midX+(p.side?300:-300);p.z=midZ;p.y=40;p.vy=0}
    if(p.pending>=0){p.cast=Math.max(0,p.cast-dt);if(!p.cast){const sp=byId.get(p.ids[p.pending]);p.pending=-1;fx(p.x,p.y-14,14,'#ffdc94','cast',p.z);const look=p.yaw;p.yaw=p.castYaw;sp.cast(api,p,p.castingAngle);p.yaw=look}}
   }
@@ -261,6 +297,6 @@ export function createGame(settings,loadouts,mode){
   else if(mode==='multi'&&s.players[1].hp<=0)s.over='Blue wizard wins';
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
  }
- function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time,hp,maxHp,yaw})=>({id,kind,side,x,y,z,time,hp,maxHp,yaw})),players:s.players.map(({brain,castingAngle,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp})=>({x,y,z,r,color,style,hp})),...(includeTiles?{tiles:s.tiles}:{})}}
- return {dirty,state:s,command,fireBlock,input,tick,snapshot,spawn};
+ function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time,hp,maxHp,yaw})=>({id,kind,side,x,y,z,time,hp,maxHp,yaw})),players:s.players.map(({brain,castingAngle,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers})=>({x,y,z,r,color,style,hp,yaw,rivers})),...(includeTiles?{tiles:s.tiles}:{})}}
+ return {dirty,state:s,command,fireSword,fireBlock,input,tick,snapshot,spawn};
 }
