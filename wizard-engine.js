@@ -7,7 +7,7 @@ const midX=W*T/2,midZ=D*T/2;
 export function createGame(settings,loadouts,mode){
  const s={map:settings.map,tiles:makeTiles(settings.map),players:[],summons:[],changedChunks:new Map(),shots:[],effects:[],zones:[],time:0,wave:0,over:'',mode};
  const dirty=new Set();s.terrainVersion=0;
- const inputs=[],maxMana=settings.mana;let regen=0,waveWait=0,nextSummon=0;
+ const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
  function actor(side,x,ids,bot=false){
   const p={side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,castingAngle:0,statuses:{},bot,ground:false,brain:1};
   inputs.push({strafe:0,move:0,jump:false});s.players.push(p);return p;
@@ -161,14 +161,18 @@ export function createGame(settings,loadouts,mode){
  function startWave(){s.wave++;for(let i=0;i<Math.min(1+Math.floor(s.wave/2),6);i++)spawn();waveWait=0}
  if(mode==='waves')startWave();
  function tick(dt){
-  if(s.over)return;s.time+=dt;regen+=dt;
-  const pulse=regen>=10;if(pulse)regen-=10;
+  if(s.over)return;
+  const previousSecond=Math.floor(s.time+1e-8);
+  s.time+=dt;
+  const second=Math.floor(s.time+1e-8);
+  const pulses=Math.floor(second/10)-Math.floor(previousSecond/10);
+  const manaFraction=(second-previousSecond)*.005+pulses*.1;
   for(const [i,p] of s.players.entries()){
    if(p.hp<=0)continue;const st=p.statuses;
    if(p.weapon&&(s.time>=p.weapon.until||(!p.weapon.strikes&&s.time>=p.weapon.ready)))p.weapon=null;
    for(const k of Object.keys(st))st[k]=Math.max(0,st[k]-dt);
    if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt);
-   if(pulse)p.mana=Math.min(p.maxMana,p.mana+p.maxMana/10);
+   if(manaFraction)p.mana=Math.min(p.maxMana,p.mana+p.maxMana*manaFraction);
    if(p.store>=0&&!(st.silence>0)){
     const slot=p.store,cost=byId.get(p.ids[slot]).cost,deposit=Math.min(p.mana,p.maxMana/20*dt,cost-p.bank[slot]);
     p.mana-=deposit;p.bank[slot]+=deposit;if(p.bank[slot]>=cost-.00001){p.bank[slot]=cost;p.store=-1}
