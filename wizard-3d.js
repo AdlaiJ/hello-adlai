@@ -1,4 +1,4 @@
-import {SPELLS} from './wizard-spells.js';
+import {SPELLS} from './wizard-spells.js?v=armory110';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';

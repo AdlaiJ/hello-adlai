@@ -1,4 +1,4 @@
-import {SPELLS} from './wizard-spells.js';
+import {SPELLS} from './wizard-spells.js?v=armory110';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
