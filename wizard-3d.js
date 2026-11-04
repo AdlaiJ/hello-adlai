@@ -1,3 +1,4 @@
+import {makeProjectileArt} from './wizard-projectile-art.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
@@ -14,6 +15,7 @@ const themes=[
  {dark:0x293d70,cloth:0x4879b5,hem:0x69abbc,point:0x84eedd,trim:0xffca79,skin:0x6399df,hair:0xffe2bf},
  {dark:0x672b43,cloth:0xb95867,hem:0xe58d80,point:0xffa177,trim:0xffd386,skin:0xda6f78,hair:0xe1d8e0}
 ];
+const boneTint=new THREE.Color(0xf1dfb1);
 const shape={
  box:new THREE.BoxGeometry(1,1,1),
  ball:new THREE.SphereGeometry(1,12,8),
@@ -227,7 +229,7 @@ function chunkSurface(tiles,xc,zc,palette,masks){
   const i=x+X*(y+Y*z),hp=tiles[i],tint=(.87+((i*13+(i>>3)*7)%43)/43*.14)*(hp<8?.68:hp<14?.84:1);
   for(let f=0;f<6;f++){
    if(!(mask&(1<<f)))continue;
-   const {n,v}=faces[f],base=f===2?top:stone,r=Math.round(base.r*tint*255),g=Math.round(base.g*tint*255),b=Math.round(base.b*tint*255),k=quad*4;
+   const {n,v}=faces[f],base=(hp&128)?boneTint:f===2?top:stone,r=Math.round(base.r*tint*255),g=Math.round(base.g*tint*255),b=Math.round(base.b*tint*255),k=quad*4;
    for(let j=0;j<4;j++){
     const a=(k+j)*3,j3=j*3;position[a]=(x+v[j3])*TILE;position[a+1]=HEIGHT+(v[j3+1]-y-1)*TILE;position[a+2]=(z+v[j3+2])*TILE;
     normal[a]=n[0]*127;normal[a+1]=n[1]*127;normal[a+2]=n[2]*127;color[a]=r;color[a+1]=g;color[a+2]=b;
@@ -347,9 +349,26 @@ function makeFamiliars(scene){
  };
 }
 function makeSpellParts(scene){
- const bolts=[],effects=[],zones=[];
- function bolt(){const root=joint(scene,0,0,0),m=new THREE.MeshBasicMaterial(),gem=part(root,shape.gem,m,0,0,0,1),shine=halo(root,0xffffff,6);
-  const trail=part(root,shape.cone,new THREE.MeshBasicMaterial({transparent:true,opacity:.52,depthWrite:false}),0,0,0,1);return {root,m,gem,shine,trail}}
+ const effects=[],zones=[];
+ const buildProjectile=makeProjectileArt(THREE),projectiles=new Map();
+ function paintShots(shots,time){
+  for(const pool of projectiles.values())pool.used=0;
+  for(const shot of shots){
+   const style=shot.style||'witchspark';
+   let pool=projectiles.get(style);
+   if(!pool){pool={used:0,models:[]};projectiles.set(style,pool)}
+   let model=pool.models[pool.used];
+   if(!model){model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
+   pool.used++;
+   model.root.visible=true;
+   model.root.position.set(shot.x,HEIGHT-shot.y,shot.z);
+   model.root.scale.setScalar(clamp(shot.r||3,1,35));
+   v.set(shot.vx||0,-(shot.vy||0),shot.vz||0);
+   if(v.lengthSq()>0)model.root.quaternion.setFromUnitVectors(up,v.normalize());
+   model.animate(time);
+  }
+  for(const pool of projectiles.values())for(let i=pool.used;i<pool.models.length;i++)pool.models[i].root.visible=false;
+ }
  function burst(){
   const root=joint(scene,0,0,0),m=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false}),ring=part(root,shape.hoop,m,0,0,0,1),beads=[];
   for(let i=0;i<5;i++)beads.push(part(root,shape.gem,m,0,0,0,1));return {root,m,ring,beads};
@@ -368,18 +387,19 @@ function makeSpellParts(scene){
  const v=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),sColor=new THREE.Color();
  function color(s){return sColor.set(s.color||'#f7c779')}
  return (shots,bursts,fields,t,camera)=>{
-  each(shots,bolts,bolt,(s,b,i)=>{
-   const r=clamp(s.r||3,1,35),tone=color(s);b.root.position.set(s.x,HEIGHT-s.y,s.z);b.m.color.copy(tone);b.gem.scale.setScalar(r);
-   b.gem.rotation.set(t*4+i,t*5,t*.8);b.shine.material.color.copy(tone);b.shine.scale.setScalar(r*6.7);
-   v.set(s.vx||0,-(s.vy||0),s.vz||0);b.trail.visible=v.lengthSq()>1;
-   if(b.trail.visible){v.normalize();b.trail.material.color.copy(tone);b.trail.quaternion.setFromUnitVectors(up,v.clone().negate());b.trail.position.copy(v).multiplyScalar(-r*1.9);b.trail.scale.set(r*.78,r*3.8,r*.78)}
-  });
+  paintShots(shots,t);
   each(bursts,effects,burst,(e,b,i)=>{
    const life=clamp(e.life/(e.maxLife||.45),0,1),r=Math.max(1,e.r||10)*(1-life*.75);b.root.position.set(e.x,HEIGHT-e.y,e.z);
    b.m.color.copy(color(e));b.m.opacity=life*.85;b.ring.scale.setScalar(r);b.ring.quaternion.copy(camera.quaternion);
    b.beads.forEach((m,j)=>{const a=j*TAU/5+i;m.position.set(Math.cos(a)*r,Math.sin(a)*r,Math.sin(a*2)*r*.5);m.scale.setScalar(Math.max(.01,life*r*.09))});
   });
   each(fields,zones,field,(z,b,i)=>{
+   const spikes=z.style==='spikes';
+   if(spikes&&!b.spikes){b.spikes=joint(b.root,0,0,0);for(let j=0;j<7;j++){
+    const a=j*2.4,d=j?.58:0,h=j?.84:1.18;
+    part(b.spikes,shape.cone,mat(0xf1dfb1),Math.cos(a)*d,h/2,Math.sin(a)*d,.15,h,.15).rotation.z=.13*Math.sin(a);
+   }}
+   for(const child of b.root.children)child.visible=child===b.spikes?spikes:!spikes;
    const r=Math.max(1,z.r||12);b.root.position.set(z.x,HEIGHT-z.y,z.z);b.root.scale.setScalar(r);b.m.color.copy(color(z));b.edge.color.copy(b.m.color);b.ring.scale.setScalar(.84+.08*Math.sin(t*3+i));
   });
  };
@@ -499,7 +519,7 @@ export function makeRenderer(canvas){
    const from=cycle<2?0:1,to=1-from,phase=(cycle%2)/2,progress=clamp((phase-.09)/.72,0,1);
    rigs[from].crystal.getWorldPosition(titleStart);rigs[to].chest.getWorldPosition(titleEnd);titleEnd.y+=10;
    pos.copy(titleStart).lerp(titleEnd,progress);pos.y+=Math.sin(progress*Math.PI)*16;pos.z+=Math.sin(progress*Math.PI)*7;
-   Object.assign(titleBolt,{x:pos.x,y:HEIGHT-pos.y,z:pos.z,r:2.8,vx:to?150:-150,vy:-Math.cos(progress*Math.PI)*30,vz:0,color:from?'#ffac67':'#83ffea'});
+   Object.assign(titleBolt,{style:from?'kiln-heart':'north-star',x:pos.x,y:HEIGHT-pos.y,z:pos.z,r:2.8,vx:to?150:-150,vy:-Math.cos(progress*Math.PI)*30,vz:0,color:from?'#ffac67':'#83ffea'});
    titleBursts.length=0;
    if(phase>=.81)titleBursts.push({x:titleEnd.x,y:HEIGHT-titleEnd.y,z:titleEnd.z,r:13,life:1-(phase-.81)/.19,maxLife:1,color:titleBolt.color});
    paintSpells(phase>.09&&phase<.81?[titleBolt]:[],titleBursts,[],clock,camera);

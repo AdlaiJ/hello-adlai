@@ -15,7 +15,7 @@ const keys=new Set();
 for(const map of MAPS)$('map').add(new Option(map,map));
 const schools=[...new Set(SPELLS.map(s=>s.category))].sort();
 for(const cat of schools)$('school').add(new Option(cat,cat));
-function show(id){page=id;document.body.classList.toggle('playing',id==='hud');for(const x of ['home','setup','book','end','hud'])$(x).hidden=x!==id;document.querySelector('main').style.display=id==='hud'?'none':''}
+function show(id){page=id;if(id!=='hud'&&windowAim)setWindowAim(false);if(id!=='hud'&&document.pointerLockElement===canvas)document.exitPointerLock();document.body.classList.toggle('playing',id==='hud');for(const x of ['home','setup','book','end','hud'])$(x).hidden=x!==id;document.querySelector('main').style.display=id==='hud'?'none':''}
 function clean(){room?.stop();room=null;game=state=null;code='';connected=locked=false;other=null;me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
 function setup(m){clean();mode=m;show('setup');$('modeName').textContent={waves:'Singleplayer · Waves',multi:'Multiplayer · Two wizards',sandbox:'Sandbox · Training grounds'}[m];
  $('proceed').textContent=m==='multi'?'Create room':'Choose spells';$('joining').hidden=m!=='multi';$('setupStatus').textContent=m==='multi'?'The host sets the rules. Share the room word with one friend.':'Choose how many spells you want to bring.';$('join').disabled=$('proceed').disabled=false}
@@ -27,8 +27,9 @@ function book(){selected=[];locked=false;$('school').value='All';show('book');$(
  $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Every 10 seconds, regain 10% mana. F then a spell banks 5% of your pool per second. Cast early for a discount or fully charge for a free cast.';drawBook()}
 function drawBook(){const list=$('cards');list.replaceChildren();
  for(const school of schools){
-  if($('school').value!=='All'&&$('school').value!==school)continue;
-  const entries=SPELLS.filter(spell=>spell.category===school),heading=document.createElement('h3');
+  const filter=$('school').value;
+  if(filter!=='All'&&filter!=='grand'&&filter!==school)continue;
+  const entries=SPELLS.filter(spell=>spell.category===school&&(filter!=='grand'||spell.cost>=50)),heading=document.createElement('h3');
   heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
   for(const s of entries){
  const i=selected.indexOf(s.id),b=document.createElement('button');b.setAttribute('aria-pressed',String(i>=0));b.disabled=locked||(i<0&&selected.length>=settings.count);
@@ -84,12 +85,42 @@ function strafe(){return Number(keys.has('d'))-Number(keys.has('a'))}
 function jumping(){return keys.has(' ')}
 function turn(dx,dy){yaw+=dx;angle=Math.max(-1.35,Math.min(1.35,angle+dy))}
 addEventListener('keydown',e=>{if(page!=='hud'||e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key.toLowerCase();if(k===' '||k.startsWith('arrow'))e.preventDefault();keys.add(k);if(e.repeat)return;
+ if(k==='escape'&&windowAim){setWindowAim(false);return}
+ if(k==='shift'){toggleShiftLock();return}
  if(k==='f')armed=!armed;else if(/^\d$/.test(k))act((Number(k)+9)%10);
 });addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));addEventListener('blur',()=>keys.clear());
 document.querySelectorAll('[data-control]').forEach(b=>{b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);keys.add(b.dataset.control)};b.onlostpointercapture=()=>keys.delete(b.dataset.control)});$('touchStore').onclick=()=>armed=!armed;
 let drag=null;
-canvas.onpointerdown=e=>{if(page!=='hud')return;canvas.setPointerCapture(e.pointerId);drag=[e.clientX,e.clientY]};
-canvas.onpointermove=e=>{if(!drag||page!=='hud')return;turn((e.clientX-drag[0])*.007,(e.clientY-drag[1])*.006);drag=[e.clientX,e.clientY]};
+const lockButton=$('shiftLock');
+let windowAim=false;
+function setWindowAim(on){
+ windowAim=on;drag=null;canvas.style.cursor=on?'none':'';
+ lockButton.setAttribute('aria-pressed',String(on));
+ lockButton.textContent=on?'Shift Lock: Window aim':'Shift Lock: Off';
+}
+function lockFailed(){
+ if(page!=='hud'||document.pointerLockElement===canvas)return;
+ setWindowAim(true);notify('Window aim active. Move the mouse over the arena. Shift or Esc releases.');
+}
+async function toggleShiftLock(){
+ if(page!=='hud')return;
+ if(windowAim){setWindowAim(false);return}
+ if(document.pointerLockElement===canvas){document.exitPointerLock();return}
+ try{await canvas.requestPointerLock()}catch{lockFailed()}
+}
+lockButton.onclick=toggleShiftLock;
+document.addEventListener('pointerlockerror',lockFailed);
+document.addEventListener('pointerlockchange',()=>{
+ const locked=document.pointerLockElement===canvas;
+ if(locked&&page!=='hud'){document.exitPointerLock();return}
+ setWindowAim(false);lockButton.setAttribute('aria-pressed',String(locked));
+ lockButton.textContent=locked?'Shift Lock: On':'Shift Lock: Off';
+});
+document.addEventListener('mousemove',e=>{
+ if(page==='hud'&&(document.pointerLockElement===canvas||(windowAim&&e.target===canvas)))turn(e.movementX*.004,e.movementY*.004);
+});
+canvas.onpointerdown=e=>{if(page!=='hud'||windowAim||document.pointerLockElement===canvas)return;canvas.setPointerCapture(e.pointerId);drag=[e.clientX,e.clientY]};
+canvas.onpointermove=e=>{if(!drag||page!=='hud'||windowAim||document.pointerLockElement===canvas)return;turn((e.clientX-drag[0])*.007,(e.clientY-drag[1])*.006);drag=[e.clientX,e.clientY]};
 canvas.onlostpointercapture=()=>drag=null;
 let prev=performance.now(),acc=0,uiClock=0;
 function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)/1000);prev=now;

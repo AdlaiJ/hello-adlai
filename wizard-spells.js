@@ -41,10 +41,10 @@ function buildAhead(api, p, distance, heightOffset, width, height, yawOffset = 0
 const damage = [
   spell('Evocation', 'witchspark', 'Witchspark', '✦', 2, 0,
     'Flick a quick spark for 12 damage. Its tiny mana cost makes it a reliable finishing shot.',
-    bolt('Evocation', { speed: 410, damage: 12, r: 3, life: 1.7 })),
+    bolt('Evocation', { style: 'witchspark', speed: 410, damage: 12, r: 3, life: 1.7 })),
   spell('Evocation', 'kiln-heart', 'Kiln Heart', '☄', 24, .72,
     'Launch a slow molten heart that explodes on impact, blasting a pocket out of cover.',
-    bolt('Evocation', { speed: 220, damage: 27, r: 8, blast: 44, life: 3.6 })),
+    bolt('Evocation', { style: 'kiln-heart', speed: 220, damage: 27, r: 8, blast: 44, life: 3.6 })),
   spell('Evocation', 'crater-bell', 'Crater Bell', '◉', 22, .42,
     'Ring out a shockwave in every direction. It hits nearby enemies and carves surrounding blocks for 24 damage.',
     (api, p) => api.area(p, p.x, p.y - 8, 58, 24, color.Evocation, p.z)),
@@ -61,11 +61,11 @@ const damage = [
     }),
   spell('Hexes', 'cinder-brand', 'Cinder Brand', '♢', 13, .28,
     'Brand the first wizard hit. The bolt deals 7 damage and ignites them for four seconds.',
-    bolt('Hexes', { speed: 320, damage: 7, r: 5, life: 2.2,
+    bolt('Hexes', { style: 'cinder-brand', speed: 320, damage: 7, r: 5, life: 2.2,
       onHit(api, p, target) { if (target) api.status(target, 'burn', 4); } })),
   spell('Evocation', 'salamander-nest', 'Salamander Nest', '♨', 35, .8,
     'Plant a furnace where the seed hits. It scorches nearby enemies and blocks every half second for three seconds.',
-    bolt('Evocation', { speed: 270, gravity: 130, damage: 3, r: 6, life: 4,
+    bolt('Evocation', { style: 'salamander-nest', speed: 270, gravity: 130, damage: 3, r: 6, life: 4,
       onHit(api, p, target, x, y, z) {
         api.zone(p, x, y, 33, 3, .5, (world, owner, zx, zy, zz) =>
           world.area(owner, zx, zy, 33, 7, color.Evocation, zz), color.Evocation, z);
@@ -95,23 +95,23 @@ const ranged = [
     'Throw five glass slivers in a widening fan. Up close, more than one can hit.',
     (api, p, a) => {
       for (let i = -2; i <= 2; i++)
-        api.bolt(p, a, { speed: 335, damage: 7, r: 3, color: color.Evocation, life: 1.5, yawOffset: i * .135 });
+        api.bolt(p, a, { style: 'glass-fan', speed: 335, damage: 7, r: 3, color: color.Evocation, life: 1.5, yawOffset: i * .135 });
     }),
   spell('Evocation', 'corner-pocket', 'Corner Pocket', '◇', 12, .2,
     'Shoot a glass marble that can bank off three surfaces. Use corners to reach hidden enemies.',
-    bolt('Evocation', { speed: 360, damage: 15, r: 4, bounces: 3, life: 3.6 })),
+    bolt('Evocation', { style: 'corner-pocket', speed: 360, damage: 15, r: 4, bounces: 3, life: 3.6 })),
   spell('Evocation', 'north-star', 'North Star', '✶', 21, .55,
     'Release a slow star that bends its flight toward a living enemy.',
-    bolt('Evocation', { speed: 180, damage: 19, r: 6, homing: 3, life: 4 })),
+    bolt('Evocation', { style: 'north-star', speed: 180, damage: 19, r: 6, homing: 3, life: 4 })),
   spell('Evocation', 'silver-skewer', 'Silver Skewer', '➳', 23, .75,
     'Fire a fast, narrow lance with piercing power for a line of enemies.',
-    bolt('Evocation', { speed: 660, damage: 17, r: 3, pierce: 3, life: 1.75 })),
+    bolt('Evocation', { style: 'silver-skewer', speed: 660, damage: 17, r: 3, pierce: 3, life: 1.75 })),
   spell('Evocation', 'moon-mortar', 'Moon Mortar', '☾', 18, .5,
     'Lob a heavy moon shell in a falling arc. Aim above a barricade to blast the far side.',
-    bolt('Evocation', { speed: 300, gravity: 300, damage: 21, r: 6, blast: 31, life: 4 })),
+    bolt('Evocation', { style: 'moon-mortar', speed: 300, gravity: 300, damage: 21, r: 6, blast: 31, life: 4 })),
   spell('Movement', 'undertow', 'Undertow', '⚓', 16, .32,
     'Hook a wizard and yank them almost five blocks toward you. Solid cover stops the pull.',
-    bolt('Movement', { speed: 380, damage: 8, r: 4, life: 1.9,
+    bolt('Movement', { style: 'undertow', speed: 380, damage: 8, r: 4, life: 1.9,
       onHit(api, p, target) {
         if (!target) return;
         const dx = p.x - target.x, dy = p.y - target.y, dz = p.z - target.z;
@@ -123,11 +123,11 @@ const ranged = [
       } })),
   spell('Hexes', 'hush-feather', 'Hush Feather', '♩', 14, .4,
     'Nick a wizard for 5 damage and prevent them from starting spells for two seconds.',
-    bolt('Hexes', { speed: 300, damage: 5, r: 4, life: 2.6,
+    bolt('Hexes', { style: 'hush-feather', speed: 300, damage: 5, r: 4, life: 2.6,
       onHit(api, p, target) { if (target) api.status(target, 'silence', 2); } })),
   spell('Hexes', 'root-needle', 'Root Needle', '♧', 8, .27,
     'A thorn pins its target in place for 1.2 seconds. They can still cast.',
-    bolt('Hexes', { speed: 360, damage: 5, r: 4, life: 2,
+    bolt('Hexes', { style: 'root-needle', speed: 360, damage: 5, r: 4, life: 2,
       onHit(api, p, target) { if (target) api.status(target, 'root', 1.2); } }))
 ];
 
@@ -196,7 +196,7 @@ const healing = [
     }, color.Restoration, p.z)),
   spell('Restoration', 'vampire-moth', 'Vampire Moth', 'ʚ', 19, .45,
     'Send out a seeking moth. A hit deals 9 damage and restores 12 health to its caster.',
-    bolt('Restoration', { speed: 160, homing: 2, damage: 9, r: 5, life: 3.2,
+    bolt('Restoration', { style: 'vampire-moth', speed: 160, homing: 2, damage: 9, r: 5, life: 3.2,
       onHit(api, p, target) { if (target) { api.heal(p, 12); mark(api, p, 'Restoration'); } } })),
   spell('Restoration', 'last-stitch', 'Last Stitch', '✜', 27, .95,
     'Recover half of your missing health, rounded up. Cast it when badly wounded.',
@@ -264,16 +264,16 @@ const evocationArts = [
   spell('Evocation', 'roman-candle', 'Roman Candle', '⋮', 21, .2,
     'Your staff fires four sparks at quarter-second intervals. Turn between shots to sweep the volley.',
     (api, p) => api.zone(p, p.x, p.y-12, 8, 1.04, .25, (world, owner) => {
-      world.bolt(owner, owner.aim, { speed: 350, r: 3, damage: 8, color: color.Evocation, life: 2 });
+      world.bolt(owner, owner.aim, { style: 'roman-candle', speed: 350, r: 3, damage: 8, color: color.Evocation, life: 2 });
     }, color.Evocation, p.z)),
   spell('Evocation', 'airburst', 'Airburst', '✹', 14, .22,
     'Fire a timed shell. It bursts after half a second in open air or detonates early on contact.',
-    bolt('Evocation', { speed: 260, r: 4, damage: 6, life: .5,
+    bolt('Evocation', { style: 'airburst', speed: 260, r: 4, damage: 6, life: .5,
       onHit(api,p,t,x,y,z) { api.area(p,x,y,35,16,color.Evocation,z); },
       onExpire(api,p,x,y,z) { api.area(p,x,y,35,16,color.Evocation,z); } })),
   spell('Evocation', 'fork-lightning', 'Fork Lightning', '↯', 27, .54,
     'Hit a wizard to arc lightning to the two closest enemies within seven blocks of them.',
-    bolt('Evocation', { speed: 380, r: 4, damage: 15, life: 2,
+    bolt('Evocation', { style: 'fork-lightning', speed: 380, r: 4, damage: 15, life: 2,
       onHit(api,p,target,x,y,z) {
         if (!target) return;
         const others=nearby(api,p,x,y,z,84).filter(q=>q!==target);
@@ -284,7 +284,7 @@ const evocationArts = [
     'An auger slug drills into the first solid surface it strikes, bursting three times deeper into the wall.',
     (api,p,pitch) => {
       const yaw=p.yaw;
-      api.bolt(p,pitch,{speed:300,r:5,damage:9,life:3,color:color.Evocation,
+      api.bolt(p,pitch,{ style: 'quarry-auger',speed:300,r:5,damage:9,life:3,color:color.Evocation,
         onHit(world,owner,target,x,y,z) {
           if(target)return;
           let bite=0;
@@ -320,13 +320,13 @@ const movementArts = [
   spell('Movement','recoil-rose','Recoil Rose','↢',14,.18,
     'Shoot a thorn forward and spring three blocks backward, away from your aim.',
     (api,p,a)=>{
-      api.bolt(p,a,{speed:385,damage:12,r:4,color:color.Movement,life:2});
+      api.bolt(p,a,{ style: 'recoil-rose',speed:385,damage:12,r:4,color:color.Movement,life:2});
       const end=aimPoint(p,a,36);
       api.blink(p,p.x-end.x,p.y-12-end.y,p.z-end.z);
     }),
   spell('Movement','hook-and-eye','Hook and Eye','➰',23,.32,
     'Fire a hook. On contact it pulls you toward its impact point by up to ten blocks.',
-    bolt('Movement',{speed:385,damage:4,r:4,life:2.5,
+    bolt('Movement',{ style: 'hook-and-eye',speed:385,damage:4,r:4,life:2.5,
       onHit(api,p,target,x,y,z){
         const dx=x-p.x,dy=y-(p.y-12),dz=z-p.z,scale=Math.min(1,120/(Math.hypot(dx,dy,dz)||1));
         api.blink(p,dx*scale,dy*scale,dz*scale);mark(api,p,'Movement');
@@ -362,23 +362,23 @@ const familiars = [
 const hexArts = [
   spell('Hexes','peel-gilt','Peel Gilt','♤',11,.24,
     'Strip up to 20 shielding from the wizard hit. Half the amount stripped becomes your shield.',
-    bolt('Hexes',{speed:335,r:4,damage:1,life:2.5,onHit(api,p,q){
+    bolt('Hexes',{ style: 'peel-gilt',speed:335,r:4,damage:1,life:2.5,onHit(api,p,q){
       if(!q)return;const stripped=Math.min(q.shield,20);q.shield-=stripped;ward(p,stripped/2);mark(api,q,'Hexes');
     }})),
   spell('Hexes','thieves-quill','Thief’s Quill','✎',8,.34,
     'A seeking quill steals up to 12 unspent mana from its target, limited by the room left in your pool.',
-    bolt('Hexes',{speed:210,r:4,damage:2,homing:1.8,life:3,onHit(api,p,q){
+    bolt('Hexes',{ style: 'thieves-quill',speed:210,r:4,damage:2,homing:1.8,life:3,onHit(api,p,q){
       if(!q||!Number.isFinite(q.mana))return;
       const taken=Math.min(12,q.mana,p.maxMana-p.mana);q.mana-=taken;p.mana+=taken;mark(api,q,'Hexes');
     }})),
   spell('Hexes','lead-anklet','Lead Anklet','⚒',12,.27,
     'Drag a struck wizard sharply downward and slow their running speed for 1.5 seconds.',
-    bolt('Hexes',{speed:355,r:4,damage:5,life:2,onHit(api,p,q){
+    bolt('Hexes',{ style: 'lead-anklet',speed:355,r:4,damage:5,life:2,onHit(api,p,q){
       if(q){q.vy=Math.max(q.vy,330);api.status(q,'slow',1.5);}
     }})),
   spell('Hexes','hemlock-clock','Hemlock Clock','⌚',20,.45,
     'Mark a struck enemy for three seconds. If they move four blocks from the mark, it bursts around them.',
-    bolt('Hexes',{speed:345,r:4,damage:3,life:3,onHit(api,p,q){
+    bolt('Hexes',{ style: 'hemlock-clock',speed:345,r:4,damage:3,life:3,onHit(api,p,q){
       if(!q)return;
       let triggered=false;
       api.zone(p,q.x,q.y-12,48,3,.15,(world,owner,x,y,z)=>{
@@ -388,7 +388,7 @@ const hexArts = [
     }})),
   spell('Hexes','fevervine','Fevervine','☣',23,.55,
     'Poison a target with a burning vine. For three seconds the marked wizard can spread burns to nearby enemies.',
-    bolt('Hexes',{speed:290,r:5,damage:2,life:3,onHit(api,p,q){
+    bolt('Hexes',{ style: 'fevervine',speed:290,r:5,damage:2,life:3,onHit(api,p,q){
       if(!q)return;
       api.status(q,'burn',3);
       api.zone(p,q.x,q.y-12,16,3,.5,(world,owner)=>{
@@ -398,7 +398,7 @@ const hexArts = [
     }})),
   spell('Hexes','vowbreaker','Vowbreaker','♭',21,.38,
     'Mark an enemy for four seconds. If caught winding up a spell, they suffer a 20-damage burst.',
-    bolt('Hexes',{speed:315,r:5,damage:4,life:2.5,onHit(api,p,q){
+    bolt('Hexes',{ style: 'vowbreaker',speed:315,r:5,damage:4,life:2.5,onHit(api,p,q){
       if(!q)return;
       let spent=false;
       api.zone(p,q.x,q.y-12,10,4,.08,(world,owner)=>{
@@ -408,14 +408,14 @@ const hexArts = [
     }})),
   spell('Hexes','mute-marsh','Mute Marsh','♮',26,.6,
     'Throw a seed that plants a four-second patch of silence. Enemies inside cannot begin new spells.',
-    bolt('Hexes',{speed:255,gravity:120,r:5,damage:2,life:4,onHit(api,p,q,x,y,z){
+    bolt('Hexes',{ style: 'mute-marsh',speed:255,gravity:120,r:5,damage:2,life:4,onHit(api,p,q,x,y,z){
       api.zone(p,x,y,38,4,.24,(world,owner,gx,gy,gz)=>{
         for(const target of nearby(world,owner,gx,gy,gz,38))world.status(target,'silence',.32);
       },color.Hexes,z);
     }})),
   spell('Hexes','unlace','Unlace','♘',10,.2,
     'Unravel a struck wizard’s active speed and jumping boosts. Each boost removed adds a small burst.',
-    bolt('Hexes',{speed:410,r:3,damage:4,life:2,onHit(api,p,q){
+    bolt('Hexes',{ style: 'unlace',speed:410,r:3,damage:4,life:2,onHit(api,p,q){
       if(!q?.statuses)return;
       for(const status of ['haste','leap'])if(q.statuses[status]>0){
         q.statuses[status]=0;api.area(p,q.x,q.y-12,11,8,color.Hexes,q.z);
@@ -423,7 +423,7 @@ const hexArts = [
     }})),
   spell('Hexes','lodestone','Lodestone','⊛',29,.65,
     'Anchor a magnet on impact. It drags nearby enemies toward its center every third of a second for three seconds.',
-    bolt('Hexes',{speed:280,r:5,damage:3,life:3,onHit(api,p,q,x,y,z){
+    bolt('Hexes',{ style: 'lodestone',speed:280,r:5,damage:3,life:3,onHit(api,p,q,x,y,z){
       api.zone(p,x,y,50,3,.33,(world,owner,gx,gy,gz)=>{
         for(const target of nearby(world,owner,gx,gy,gz,50)){
           const scale=Math.min(1,14/Math.max(1,distanceFrom(target,gx,gy,gz)));
@@ -485,7 +485,7 @@ const restorationArts = [
     }),
   spell('Restoration','midnight-harvest','Midnight Harvest','☘',21,.38,
     'Throw a sickle for 14 damage. A finishing hit restores 24 health. A surviving target grants 4 instead.',
-    bolt('Restoration',{speed:320,r:5,damage:14,life:2.5,onHit(api,p,q){
+    bolt('Restoration',{ style: 'midnight-harvest',speed:320,r:5,damage:14,life:2.5,onHit(api,p,q){
       if(q&&p.hp>0){api.heal(p,q.hp<=0?24:4);mark(api,p,'Restoration');}
     }}))
 ];
@@ -533,5 +533,81 @@ const wardingArts = [
     })
 ];
 
+const grandSpells = [
+  spell('Warding','bone-wall','Bone Wall','⚒',240,3,
+    'Raise a barricade of ivory ribs five blocks ahead. Each block stops shots and breaks after 48 damage.',
+    (api,p)=>{const at=aimPoint(p,0,60);
+      for(let i=-7;i<=7;i++){const x=at.x-Math.sin(p.yaw)*i*10,z=at.z+Math.cos(p.yaw)*i*10,y=api.surface(x,z,p.y-120);
+        if(y!==null)for(let j=0;j<(i%2===0?7:4);j++)api.bone(x,y-6-j*12,z)}
+    }),
+  spell('Hexes','bone-spikes','Bone Floor Spikes','♆',380,4,
+    'Raise seven clusters of bone spikes straight ahead for six seconds. Each cluster deals 12 damage every half second to enemies near the ground.',
+    (api,p)=>{for(let i=1;i<=7;i++){const at=aimPoint(p,0,i*42),y=api.surface(at.x,at.z,p.y-120);
+      if(y!==null)api.zone(p,at.x,y,24,6,.5,(a,o,x,y,z)=>{for(const q of a.enemies(o))
+        if(Math.hypot(q.x-x,q.z-z)<=24&&q.y>=y-26&&q.y<=y+6)a.hurt(q,12)},'#f3dfa7',at.z,'spikes')}
+    }),
+  spell('Evocation','fire-skull','Fire Skull','☠',650,5.5,
+    'Launch a flaming skull that curves toward an enemy. It explodes for 40 damage; a direct hit deals 40 more and burns for three seconds.',
+    bolt('Evocation',{style:'fire-skull',speed:245,r:9,homing:1.4,life:7,damage:40,blast:68,color:'#ff6630',onHit:(a,p,q)=>{if(q)a.status(q,'burn',3)}})),
+  spell('Restoration','phoenix-vigil','Phoenix Vigil','☀',900,7.5,
+    'For ten seconds, the first time your health falls below half while alive, recover 55 health and blast nearby enemies for 45 damage.',
+    (api,p)=>{let spent=false;api.zone(p,p.x,p.y-12,20,10,.1,(a,o)=>{if(!spent&&o.hp>0&&o.hp<o.maxHp/2){
+      spent=true;a.heal(o,55);a.area(o,o.x,o.y-12,90,45,'#ffac48',o.z)}},'#ffac48',p.z)}),
+  spell('Movement','thunder-road','Thunder Road','⟿',50,1.8,
+    'Blink up to 24 blocks along your aim. Both ends erupt for 22 damage in a four-block radius.',
+    (api,p,pitch)=>{
+      const end=aimPoint(p,pitch,288);
+      api.area(p,p.x,p.y-12,48,22,color.Movement,p.z);
+      api.blink(p,end.x-p.x,end.y+12-p.y,end.z-p.z);
+      api.area(p,p.x,p.y-12,48,22,color.Movement,p.z);
+    }),
+  spell('Warding','last-citadel','Last Citadel','♖',100,2.5,
+    'Raise four destructible pillars around you, gain 65 shielding, and reflect incoming shots for three seconds.',
+    (api,p)=>{
+      for(const dx of [-36,36])for(const dz of [-36,36])api.build(p,p.x+dx,p.y-42,36,84,p.z+dz);
+      ward(p,65);api.status(p,'reflect',3);mark(api,p,'Warding',65);
+    }),
+  spell('Summoning','wild-hunt','Call the Wild Hunt','♧',180,3.2,
+    'Call an Ember Newt, a Rime Owl and a Storm Finch at once. They fill your three familiar slots for 12 seconds.',
+    (api,p)=>{
+      const yaw=p.yaw;
+      for(const [i,kind] of ['ember','frost','storm'].entries()){
+        p.yaw=yaw+(i-1)*1.6;api.summon(p,kind);
+      }
+      p.yaw=yaw;mark(api,p,'Summoning',68);
+    }),
+  spell('Restoration','second-sun','Second Sun','☀',300,4,
+    'Restore 60 health and kindle a sanctuary for eight seconds. Each second inside restores 10 health and grants 4 shielding.',
+    (api,p)=>{
+      api.heal(p,60);
+      api.zone(p,p.x,p.y-12,96,8.05,1,(world,owner,x,y,z)=>{
+        if(owner.hp>0&&distanceFrom(owner,x,y,z)<=96){world.heal(owner,10);ward(owner,4);mark(world,owner,'Restoration',36)}
+      },color.Restoration,p.z);
+    }),
+  spell('Hexes','gravity-well','Gravity Well','◍',450,5,
+    'Open a well ten blocks straight ahead. Six pulses drag enemies toward its center, where a final blast deals 55 damage.',
+    (api,p)=>{
+      const at=aimPoint(p,0,120);let pulses=0;
+      api.zone(p,at.x,at.y,120,3.55,.5,(world,owner,x,y,z)=>{
+        if(++pulses===7){world.area(owner,x,y,78,55,color.Hexes,z);return}
+        for(const target of nearby(world,owner,x,y,z,120)){
+          const pull=Math.min(1,22/Math.max(1,distanceFrom(target,x,y,z)));
+          world.blink(target,(x-target.x)*pull,(y+12-target.y)*pull,(z-target.z)*pull);
+        }
+        world.fx(x,y,70,color.Hexes,'ring',z);
+      },color.Hexes,at.z);
+    }),
+  spell('Evocation','worldbreaker','Worldbreaker','✺',700,7,
+    'After a seven-second windup, release five expanding blasts along your aim. Each tears through cover. The final blast reaches nine blocks and deals 90 damage.',
+    (api,p,pitch)=>{
+      const origin={x:p.x,y:p.y,z:p.z,yaw:p.yaw};let step=0;
+      api.zone(p,p.x,p.y-12,16,1.31,.25,(world,owner)=>{
+        const at=aimPoint(origin,pitch,72+step*72);
+        world.area(owner,at.x,at.y,48+step*15,34+step*14,'#ffcd65',at.z);
+        step++;
+      },color.Evocation,p.z);
+    })
+];
+
 export const SPELLS = [...damage, ...ranged, ...boost, ...healing, ...shields, ...evocationArts,
-  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts];
+  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells];
