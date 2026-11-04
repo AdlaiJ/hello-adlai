@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=grounded-rocket';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=grounded-rocket';
+import {SPELLS} from './wizard-spells.js?v=blood-arsenal';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=release-aim';
 
 import {markChangedChunk,T} from './wizard-world.js';
 import {openRoom} from './wizard-room.js';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=grounded-rocket');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=blood-arsenal');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,connected=false,code='',selected=[],locked=false,other=null,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -77,6 +77,7 @@ function network(isHost,word=''){
    if(m.t==='ready'&&!other&&validIds(m.ids)){other=m.ids;tryStart();if(!game)$('bookStatus').textContent='Your friend is ready. Lock in your own spellbook to start.'}
    if(!game||game.state.over)return;
    if(m.t==='input')game.input(1,m.move,m.jump===true,m.angle,m.strafe,m.yaw);
+   if(m.t==='blood')game.fireBlood(1);
    if(m.t==='sword')game.fireSword(1);
    if(m.t==='block')game.fireBlock(1);
    if(m.t==='cast')game.command(1,m.slot,m.store===true);
@@ -88,7 +89,7 @@ function network(isHost,word=''){
 $('proceed').onclick=()=>{settings=readSettings();if(!settings)return;if(mode==='multi')network(true);else book()};
 $('join').onclick=()=>{const word=$('word').value.trim().toLowerCase();if(!/^[a-z]{4,6}$/.test(word)){$('setupStatus').textContent='Enter the 4–6 letter room word.';return}network(false,word)};
 $('copy').onclick=async()=>{const url=new URL(location.href);url.search='';url.searchParams.set('room',code);try{await navigator.clipboard.writeText(url.href);$('bookStatus').textContent='Invite link copied.'}catch{$('bookStatus').textContent='Share room word '+code}};
-function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
+function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="blood-arsenal"&&p.bloodAmmo)&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:'cast',slot:i,store})}}
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  $('vitals').textContent=(me?'Red':'Blue')+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
@@ -101,7 +102,7 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   $('opponent').textContent+=' · '+(rival.monster?'Monster ':'Rival ')+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
  $('signal').textContent=armed?'STORE · Choose a spell':p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
- selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='skull-throne'&&p.onThrone)b.textContent='Click to fire crimson swords';if(id==='quarry-volley'&&p.blocks?.length)b.textContent='Click to fire · '+p.blocks.length+' blocks';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
+ selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent='Blood Arsenal · '+p.bloodAmmo+' left';if(id==='skull-throne'&&p.onThrone)b.textContent='Click to fire crimson swords';if(id==='quarry-volley'&&p.blocks?.length)b.textContent='Click to fire · '+p.blocks.length+' blocks';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
 function finish(){show('end');$('result').textContent=state.over;$('resultInfo').textContent=mode==='waves'?'Reached wave '+state.wave+' in '+Math.floor(state.time)+' seconds.':settings.map+' · '+Math.floor(state.time)+' seconds';keys.clear()}
 $('dummy').onclick=()=>{if(game&&game.state.players.length<24)game.spawn()};
 $('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana};$('restore').onclick=()=>{state.tiles=makeTiles(settings.map);state.terrainVersion++};$('change').onclick=()=>{game=state=null;book()};
@@ -164,10 +165,10 @@ document.addEventListener('mousemove',e=>{
  if(page==='hud'&&(document.pointerLockElement===canvas||(windowAim&&e.target===canvas)))turn(e.movementX*.004,e.movementY*.004);
 });
 canvas.onpointerdown=e=>{
- if(page==='hud'&&e.button===0&&(state.players[me]?.onThrone||state.players[me]?.blocks?.length)){
-  const sword=state.players[me].onThrone;
-  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);if(sword)game.fireSword(me);else game.fireBlock(me)}
-  else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:sword?'sword':'block'})}
+ if(page==='hud'&&e.button===0&&(state.players[me]?.bloodAmmo||state.players[me]?.onThrone||state.players[me]?.blocks?.length)){
+  const {bloodAmmo,onThrone:sword}=state.players[me];
+  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);if(bloodAmmo)game.fireBlood(me);else if(sword)game.fireSword(me);else game.fireBlock(me)}
+  else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:bloodAmmo?'blood':sword?'sword':'block'})}
  }
  if(page!=='hud'||windowAim||document.pointerLockElement===canvas)return;canvas.setPointerCapture(e.pointerId);drag=[e.clientX,e.clientY]};
 canvas.onpointermove=e=>{if(!drag||page!=='hud'||windowAim||document.pointerLockElement===canvas)return;turn((e.clientX-drag[0])*.007,(e.clientY-drag[1])*.006);drag=[e.clientX,e.clientY]};

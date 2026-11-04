@@ -1,7 +1,7 @@
-import {makeCastPainter} from './wizard-casting.js?v=fifty-spells';
-import {SPELLS} from './wizard-spells.js?v=grounded-rocket';
+import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=blood-arsenal';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
-import {makeProjectileArt} from './wizard-projectile-art.js?v=fifty-spells';
+import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
@@ -756,6 +756,14 @@ export function makeRenderer(canvas){
    paintSpells(phase>.09&&phase<.81?[titleBolt]:[],titleBursts,[],clock,camera);
   }else{
    const visibleShots=[...(state.shots||[])];
+   for(const wizard of players)if(wizard.hp>0&&wizard.bloodAmmo){
+    for(let i=6-wizard.bloodAmmo;i<6;i++){
+     const angle=clock*1.25+i*TAU/6;
+     visibleShots.push({style:bloodWeapons[i%bloodWeapons.length].style,r:4,
+      x:wizard.x+24*Math.cos(angle),y:wizard.y-27+3*Math.sin(angle*2),z:wizard.z+24*Math.sin(angle),
+      vx:0,vy:-1,vz:0});
+    }
+   }
    for(const wizard of players)if(wizard.hp>0&&wizard.blocks?.length){
     const rise=clamp((state.time-wizard.liftedAt)/.45,0,1);
     wizard.blocks.forEach((block,i)=>{

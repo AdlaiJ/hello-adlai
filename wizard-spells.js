@@ -41,7 +41,15 @@ function buildAhead(api, p, distance, heightOffset, width, height, yawOffset = 0
   api.build(p, center.x, p.y + heightOffset, width, height, center.z);
 }
 
+export const bloodWeapons=[
+ {style:'blood-dagger',speed:470,damage:12,r:3},
+ {style:'blood-spear',speed:370,damage:16,r:4,pierce:2},
+ {style:'blood-axe',speed:225,damage:12,r:5,blast:19}
+];
 const damage = [
+  spell('Summoning','blood-arsenal','Blood Arsenal','⚔',95,1.4,
+    'Summon six orbiting blood weapons. Click or press this slot to launch a swift dagger, a piercing spear, then a bursting axe. The sequence repeats once.',
+    (api,p)=>{p.bloodAmmo=6;}),
   spell('Evocation','shrine-of-cleavers','Shrine of Cleavers','⛩',600,4,
     'Unfold an open shrine for eight seconds. Every half second it slashes every enemy inside the marked circle for 7 damage and cuts a trench through the terrain. Escape the circle to avoid the next cut.',
     (api,p)=>{

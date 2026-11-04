@@ -1,4 +1,4 @@
-import {SPELLS,spellRadius} from './wizard-spells.js?v=grounded-rocket';
+import {bloodWeapons,SPELLS,spellRadius} from './wizard-spells.js?v=blood-arsenal';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -9,7 +9,7 @@ export function createGame(settings,loadouts,mode){
  const dirty=new Set();s.terrainVersion=0;
  const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
  function actor(side,x,ids,bot=false){
-  const p={outfit:Math.floor(Math.random()*9),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,castingAngle:0,statuses:{},bot,ground:false,brain:1};
+  const p={outfit:Math.floor(Math.random()*9),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,statuses:{},bot,ground:false,brain:1};
   inputs.push({strafe:0,move:0,jump:false});s.players.push(p);return p;
  }
  actor(0,midX-300,loadouts[0]);
@@ -153,6 +153,12 @@ export function createGame(settings,loadouts,mode){
   api.bolt(p,p.aim,{style:'skull-throne',speed:390,damage:22,r:4,color:'#fc274b'});
   p.swordReady=s.time+.32;return true;
  }
+ function fireBlood(index){
+  const p=s.players[index];
+  if(!p?.bloodAmmo||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  const weapon=bloodWeapons[(6-p.bloodAmmo)%bloodWeapons.length];
+  api.bolt(p,p.aim,{...weapon,color:'#da1741'});p.bloodAmmo--;return true;
+ }
  function fireBlock(index){
   const p=s.players[index];
   if(!p?.blocks?.length||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
@@ -165,6 +171,7 @@ export function createGame(settings,loadouts,mode){
   if(!Number.isInteger(slot)||!spell||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
   if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
+  if(spell.id==='blood-arsenal'&&p.bloodAmmo)return fireBlood(index);
   if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
   if(spell.id==='quarry-volley'&&p.blocks?.length)return fireBlock(index);
   const held=p.weapon;
@@ -194,7 +201,7 @@ export function createGame(settings,loadouts,mode){
   if(held?.id===spell.id&&s.time<held.ready)return false;
   const price=Math.max(0,spell.cost-p.bank[slot]);if(p.mana+.00001<price)return false;
   p.castDuration=spell.cost>0?spell.time*price/spell.cost:spell.time;
-  p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castVisual=spell.id;p.castStarted=s.time;p.castingAngle=p.aim;p.castYaw=p.yaw;p.cast=Math.max(.016,p.castDuration);return true;
+  p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castVisual=spell.id;p.castStarted=s.time;p.cast=Math.max(.016,p.castDuration);return true;
  }
  function input(i,forward,jump,pitch,strafe=0,yaw=0){
   const p=s.players[i];if(!p||![forward,pitch,strafe,yaw].every(Number.isFinite))return;
@@ -251,7 +258,7 @@ export function createGame(settings,loadouts,mode){
    }
    if(p.y>580){damage(p,22);p.x=midX+(p.side?300:-300);p.z=midZ;p.y=40;p.vy=0}
    if(p.rocketSpent&&p.ground)p.rocketSpent=false;
-   if(p.pending>=0){p.cast=Math.max(0,p.cast-dt);if(!p.cast){const sp=byId.get(p.ids[p.pending]);p.pending=-1;fx(p.x,p.y-14,14,'#ffdc94','cast',p.z);const look=p.yaw;p.yaw=p.castYaw;sp.cast(api,p,p.castingAngle);p.yaw=look}}
+   if(p.pending>=0){p.cast=Math.max(0,p.cast-dt);if(!p.cast){const sp=byId.get(p.ids[p.pending]);p.pending=-1;fx(p.x,p.y-14,14,'#ffdc94','cast',p.z);sp.cast(api,p,p.aim)}}
   }
   stepFamiliars(dt);
   const targetsBySide=new Map();
@@ -303,6 +310,6 @@ export function createGame(settings,loadouts,mode){
   else if(mode==='multi'&&s.players[1].hp<=0)s.over='Blue wizard wins';
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
  }
- function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time,hp,maxHp,yaw})=>({id,kind,side,x,y,z,time,hp,maxHp,yaw})),players:s.players.map(({brain,castingAngle,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers})=>({x,y,z,r,color,style,hp,yaw,rivers})),...(includeTiles?{tiles:s.tiles}:{})}}
- return {dirty,state:s,command,fireSword,fireBlock,input,tick,snapshot,spawn};
+ function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time,hp,maxHp,yaw})=>({id,kind,side,x,y,z,time,hp,maxHp,yaw})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers})=>({x,y,z,r,color,style,hp,yaw,rivers})),...(includeTiles?{tiles:s.tiles}:{})}}
+ return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

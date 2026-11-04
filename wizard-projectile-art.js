@@ -131,6 +131,17 @@ export function makeProjectileArt(THREE) {
       });
     }
     switch(style){
+      case 'blood-dagger':case 'blood-spear':case 'blood-axe': {
+        const spear=style==='blood-spear',axe=style==='blood-axe';
+        mesh(box,0x651229,0,-.35,0,.22,spear?3.6:1.6,.22);
+        if(axe){
+          for(const side of [-1,1])bright(gem,0xe6214e,side*.52,.64,0,.72,.91,.17);
+        }else{
+          bright(gem,0xf73358,0,spear?1.64:.77,0,spear?.31:.48,spear?.96:1.08,.14);
+          if(!spear)mesh(box,0x8c1937,0,-.16,0,1.16,.23,.26);
+        }
+        stream('split',0xa71437);spin=axe?4:.7;break;
+      }
       case 'skull-throne': {
         bright(gem,0xff3155,0,1.65,0,.43,2.1,.14);
         mesh(box,0x74112f,0,-.45,0,1.85,.24,.3);
