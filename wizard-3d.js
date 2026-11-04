@@ -1,7 +1,7 @@
-import {makeCastPainter} from './wizard-casting.js?v=meteor-storm';
-import {SPELLS} from './wizard-spells.js?v=meteor-storm';
+import {makeCastPainter} from './wizard-casting.js?v=quarry-volley';
+import {SPELLS} from './wizard-spells.js?v=quarry-volley';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
-import {makeProjectileArt} from './wizard-projectile-art.js?v=meteor-storm';
+import {makeProjectileArt} from './wizard-projectile-art.js?v=quarry-volley';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
@@ -426,6 +426,42 @@ function makeSpellParts(scene){
   }
   for(const pool of projectiles.values())for(let i=pool.used;i<pool.models.length;i++)pool.models[i].root.visible=false;
  }
+ const propKinds=new Set(['shears','bell','valve','firewheel','fissure']);
+ function buildProp(root,kind){
+  const g=joint(root,0,0,0),metal=mat(0xbacbd7),brass=mat(0xd99746),fire=mat(0xff9148,true);
+  if(kind==='shears'){
+   g.userData.arms=[];
+   const outline=new THREE.Shape();
+   outline.moveTo(-.03,-.1);outline.lineTo(1.15,0);outline.lineTo(.15,.17);outline.lineTo(-.03,.1);outline.closePath();
+   const blade=new THREE.ExtrudeGeometry(outline,{depth:.035,bevelEnabled:false});
+   for(const sign of [-1,1]){
+    const arm=joint(g,0,sign*.035,0);g.userData.arms.push(arm);
+    part(arm,blade,metal,0,0,0,1).rotation.x=sign*Math.PI/2;
+    part(arm,shape.box,brass,-.17,0,0,.36,.075,.085);
+    part(arm,shape.ring,brass,-.48,0,-sign*.08,.27,.18,.8).rotation.x=Math.PI/2;
+   }
+   part(g,shape.pole,brass,0,.05,0,.17,.2,.17);
+  }else if(kind==='bell'){
+   part(g,shape.sleeve,brass,0,0,0,.74,1,.74);
+   part(g,shape.ring,brass,0,-.48,0,.8).rotation.x=Math.PI/2;
+   part(g,shape.ball,metal,0,-.6,0,.18);
+   part(g,shape.ring,brass,0,.56,0,.22);
+  }else if(kind==='fissure'){
+   for(let k=0;k<5;k++){
+    const slab=part(g,shape.gem,k%2?fire:mat(0x663e37),(k-2)*.42,-.12,(k%2)*.18,.38,.52,.14);
+    slab.rotation.z=(k%2-.5)*.8;
+   }
+  }else{
+   const wheel=kind==='firewheel';
+   part(g,shape.ring,wheel?fire:brass,0,0,0,.8).rotation.x=Math.PI/2;
+   for(let k=0;k<3;k++)part(g,shape.box,brass,0,0,0,1.6,.08,.08).rotation.y=k*Math.PI/3;
+   if(!wheel){
+    part(g,shape.pole,metal,0,-.4,0,.34,.8,.34);
+    for(let k=0;k<5;k++)part(g,shape.ball,mat(0xcae9ed),.3+k*.25,.12*k,.09*Math.sin(k),.12+k*.05);
+   }
+  }
+  return g;
+ }
  function burst(){
   const root=joint(scene,0,0,0),m=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false}),ring=part(root,shape.hoop,m,0,0,0,1),beads=[];
   for(let i=0;i<5;i++)beads.push(part(root,shape.gem,m,0,0,0,1));return {root,m,ring,beads};
@@ -447,16 +483,39 @@ function makeSpellParts(scene){
   paintShots(shots,t);
   each(bursts,effects,burst,(e,b,i)=>{
    const life=clamp(e.life/(e.maxLife||.45),0,1),r=Math.max(1,e.r||10)*(1-life*.75);b.root.position.set(e.x,HEIGHT-e.y,e.z);
+   b.props??=new Map();
+   for(const prop of b.props.values())prop.visible=false;
+   const special=propKinds.has(e.kind);
+   b.ring.visible=!special;b.beads.forEach(mesh=>mesh.visible=!special);
+   if(special){
+    if(!b.props.has(e.kind))b.props.set(e.kind,buildProp(b.root,e.kind));
+    const prop=b.props.get(e.kind);prop.visible=true;prop.scale.setScalar(e.r*Math.min(1,life*5));
+    prop.rotation.set(0,-(e.yaw||0),-(e.pitch||0),'YXZ');
+    if(e.kind==='shears')prop.userData.arms.forEach((arm,k)=>arm.rotation.y=(k?1:-1)*(.02+.57*Math.max(0,(life-.38)/.62)));
+    if(e.kind==='bell')prop.rotation.z=.32*Math.sin(life*9);
+    if(e.kind==='firewheel')prop.rotation.y+=life*2;
+    return;
+   }
    b.m.color.copy(color(e));b.m.opacity=life*.85;b.ring.scale.setScalar(r);b.ring.quaternion.copy(camera.quaternion);
    b.beads.forEach((m,j)=>{const a=j*TAU/5+i;m.position.set(Math.cos(a)*r,Math.sin(a)*r,Math.sin(a*2)*r*.5);m.scale.setScalar(Math.max(.01,life*r*.09))});
   });
   each(fields,zones,field,(z,b,i)=>{
-   if(['marsh','wind','lantern','clock','embers'].includes(z.style)){
+   if(['marsh','wind','lantern','clock','embers','nest','sundial'].includes(z.style)){
     b.scenery??=new Map();
     let patch=b.scenery.get(z.style);
     if(!patch){
      patch=joint(b.root,0,0,0);b.scenery.set(z.style,patch);patch.userData.zoneStyle=z.style;
-     if(z.style==='marsh'){
+     if(z.style==='sundial'){
+      part(patch,shape.pole,mat(0xbb8541),0,0,0,.67,.045,.67);
+      part(patch,shape.cone,mat(0xffc767),0,.12,0,.08,.24,.08).rotation.z=-.4;
+      for(let k=0;k<12;k++){const a=k*TAU/12;part(patch,shape.box,mat(0x634731),Math.sin(a)*.27,.03,Math.cos(a)*.27,.015,.015,.06).rotation.y=a}
+     }else if(z.style==='nest'){
+      part(patch,shape.ball,mat(0x693d30),0,.06,0,1,.65,.93);
+      for(let k=0;k<7;k++){const a=k*TAU/7;
+       part(patch,shape.gem,mat(0x8c5040),.44*Math.cos(a),.43,.44*Math.sin(a),.36,.3,.31);
+      }
+      part(patch,shape.ball,mat(0xff7435,true),0,.56,0,.32,.09,.32);
+     }else if(z.style==='marsh'){
       part(patch,shape.ball,mat(0x304d42),0,.012,0,.93,.03,.96);
       for(let k=0;k<13;k++){
        const angle=k*2.4,dist=.92*Math.sqrt(k/13),x=Math.cos(angle)*dist,zp=Math.sin(angle)*dist;
@@ -481,6 +540,7 @@ function makeSpellParts(scene){
     }
     for(const child of b.root.children)child.visible=child===patch;
     b.root.position.set(z.x,HEIGHT-z.y+.4,z.z);b.root.scale.setScalar(z.r);
+    if(z.style==='nest')patch.scale.y=1+.09*Math.sin(t*TAU/.6);
     if(z.style==='wind')patch.rotation.y=t*2;
     if(patch.userData.hand)patch.userData.hand.rotation.y=-t*TAU;
     return;
@@ -616,7 +676,18 @@ export function makeRenderer(canvas){
    titleBursts.length=0;
    if(phase>=.81)titleBursts.push({x:titleEnd.x,y:HEIGHT-titleEnd.y,z:titleEnd.z,r:13,life:1-(phase-.81)/.19,maxLife:1,color:titleBolt.color});
    paintSpells(phase>.09&&phase<.81?[titleBolt]:[],titleBursts,[],clock,camera);
-  }else paintSpells(state.shots||[],state.effects||[],state.zones||[],clock,camera);
+  }else{
+   const visibleShots=[...(state.shots||[])];
+   for(const wizard of players)if(wizard.hp>0&&wizard.blocks?.length){
+    const rise=clamp((state.time-wizard.liftedAt)/.45,0,1);
+    wizard.blocks.forEach((block,i)=>{
+     const phase=clock*1.4+i*TAU/9;
+     const x=wizard.x+24*Math.cos(phase),y=wizard.y-31+3*Math.sin(phase*2),z=wizard.z+24*Math.sin(phase);
+     visibleShots.push({style:'quarry-volley',r:6,x:block.x+(x-block.x)*rise,y:block.y+(y-block.y)*rise,z:block.z+(z-block.z)*rise,vx:0,vy:-1,vz:0});
+    });
+   }
+   paintSpells(visibleShots,state.effects||[],state.zones||[],clock,camera);
+  }
   paintCasting(demo?[]:players,state?.time??0,camera,me,hideLocal);
   renderer.render(scene,camera);
  }

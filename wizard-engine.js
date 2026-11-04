@@ -1,4 +1,4 @@
-import {SPELLS,spellRadius} from './wizard-spells.js?v=meteor-storm';
+import {SPELLS,spellRadius} from './wizard-spells.js?v=quarry-volley';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -14,7 +14,7 @@ export function createGame(settings,loadouts,mode){
  }
  actor(0,midX-300,loadouts[0]);
  if(mode==='multi')actor(1,midX+300,loadouts[1]);
- function fx(x,y,r,color,kind='burst',z=midZ){s.effects.push({x,y,z,r,color,kind,life:.45,maxLife:.45})}
+ function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0){s.effects.push({x,y,z,r,color,kind,yaw,pitch,life:.45,maxLife:.45})}
  const index=(x,y,z)=>Math.floor(x/T)+W*(Math.floor(y/T)+H*Math.floor(z/T));
  function solid(x,y,z){return x>=0&&x<W*T&&y>=0&&y<540&&z>=0&&z<D*T&&s.tiles[index(x,y,z)]>0}
  function setBlock(k,hp){if(s.tiles[k]===hp)return;s.tiles[k]=hp;s.terrainVersion++;markChangedChunk(s.changedChunks,k);if(mode==='multi')dirty.add(k)}
@@ -46,6 +46,21 @@ export function createGame(settings,loadouts,mode){
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds)=>{p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,
+  liftBlocks(p){
+   const candidates=[];
+   const cx=Math.floor((p.x+30*Math.cos(p.yaw))/T),cz=Math.floor((p.z+30*Math.sin(p.yaw))/T);
+   for(let x=Math.max(0,cx-4);x<=Math.min(W-1,cx+4);x++){
+    for(let z=Math.max(0,cz-4);z<=Math.min(D-1,cz+4);z++){
+     const bx=(x+.5)*T,bz=(z+.5)*T;
+     const top=api.surface(bx,bz,p.y-48);
+     if(top===null)continue;
+     candidates.push({x:bx,y:top+T/2,z:bz,distance:Math.hypot(x-cx,z-cz,(top-p.y)/T)});
+    }
+   }
+   p.blocks=candidates.sort((a,b)=>a.distance-b.distance).slice(0,9);
+   for(const block of p.blocks)setBlock(index(block.x,block.y,block.z),0);
+   p.liftedAt=s.time;
+  },
   spike:(owner,x,y,z)=>s.zones.push({p:owner,x,y,z,r:spellRadius(24),life:14,hp:18,style:'spikes',color:'#f3dfa7'}),
   occupants:()=>s.players.filter(q=>q.hp>0),
   surface:(x,z,y)=>{for(let j=clamp(Math.floor(y/T),0,H-1);j<H;j++)if(solid(x,j*T,z)&&!solid(x,j*T-1,z))return j*T;return null},
@@ -110,10 +125,18 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
+ function fireBlock(index){
+  const p=s.players[index];
+  if(!p?.blocks?.length||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  p.blocks.pop();
+  api.bolt(p,p.aim,{style:'quarry-volley',speed:355,r:5,damage:17,color:'#bf9e72'});
+  return true;
+ }
  function command(index,slot,store=false){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
   if(!Number.isInteger(slot)||!spell||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
+  if(spell.id==='quarry-volley'&&p.blocks?.length)return fireBlock(index);
   const held=p.weapon;
   if(held?.id===spell.id&&held.until>s.time&&held.strikes>0){
    if(s.time<held.ready)return false;
@@ -236,5 +259,5 @@ export function createGame(settings,loadouts,mode){
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
  }
  function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time})=>({id,kind,side,x,y,z,time})),players:s.players.map(({brain,castingAngle,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp})=>({x,y,z,r,color,style,hp})),...(includeTiles?{tiles:s.tiles}:{})}}
- return {dirty,state:s,command,input,tick,snapshot,spawn};
+ return {dirty,state:s,command,fireBlock,input,tick,snapshot,spawn};
 }

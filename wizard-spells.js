@@ -41,6 +41,9 @@ function buildAhead(api, p, distance, heightOffset, width, height, yawOffset = 0
 }
 
 const damage = [
+  spell('Evocation','quarry-volley','Quarry Volley','▦',45,.9,
+    'Lift up to nine nearby terrain blocks. Click the arena or press this spell slot to fire one block for 17 damage.',
+    (api,p)=>api.liftBlocks(p)),
   spell('Evocation', 'witchspark', 'Witchspark', '✦', 2, 0,
     'Flick a quick spark for 12 damage. Its tiny mana cost makes it a reliable finishing shot.',
     bolt('Evocation', { style: 'witchspark', speed: 410, damage: 12, r: 3, life: 1.7 })),
@@ -49,7 +52,7 @@ const damage = [
     bolt('Evocation', { style: 'kiln-heart', speed: 220, damage: 27, r: 8, blast: 44, life: 3.6 })),
   spell('Evocation', 'crater-bell', 'Crater Bell', '◉', 22, .42,
     'Ring out a shockwave in every direction. It hits nearby enemies and carves surrounding blocks for 24 damage.',
-    (api, p) => api.area(p, p.x, p.y - 8, 58, 24, color.Evocation, p.z)),
+    (api,p)=>{api.fx(p.x,p.y-20,16,color.Evocation,'bell',p.z);api.area(p,p.x,p.y-8,58,24,color.Evocation,p.z)}),
   spell('Evocation', 'fault-stitch', 'Fault Stitch', 'ϟ', 34, .85,
     'Tear a seam along your aim. Four blasts erupt in sequence, each farther from your starting point.',
     (api, p, a) => {
@@ -58,6 +61,7 @@ const damage = [
       api.zone(p, p.x, p.y - 12, 8, 1.1, .24, (world, owner) => {
         if (segment >= 4) return;
         const point = aimPoint(origin, a, 32 + 31 * segment++);
+        world.fx(point.x,point.y,16,color.Evocation,'fissure',point.z,origin.yaw,a);
         world.area(owner, point.x, point.y, 22, 14, color.Evocation, point.z);
       }, color.Evocation, p.z);
     }),
@@ -66,11 +70,21 @@ const damage = [
     bolt('Hexes', { style: 'cinder-brand', speed: 320, damage: 7, r: 5, life: 2.2,
       onHit(api, p, target) { if (target) api.status(target, 'burn', 4); } })),
   spell('Evocation', 'salamander-nest', 'Salamander Nest', '♨', 35, .8,
-    'Plant a furnace where the seed hits. It scorches nearby enemies and blocks every half second for three seconds.',
+    'Plant a mound that spits out five fire salamanders. They leap toward nearby enemies and explode for 9 splash damage each.',
     bolt('Evocation', { style: 'salamander-nest', speed: 270, gravity: 130, damage: 3, r: 6, life: 4,
       onHit(api, p, target, x, y, z) {
-        api.zone(p, x, y, 33, 3, .5, (world, owner, zx, zy, zz) =>
-          world.area(owner, zx, zy, 33, 7, color.Evocation, zz), color.Evocation, z);
+        const floor=api.surface(x,z,y-24)??y;
+        let hatch=0;
+        api.zone(p,x,floor,15,3.1,.6,(world,owner)=>{
+          const distance=q=>Math.hypot(q.x-x,q.y-12-floor,q.z-z);
+          const prey=world.enemies(owner).filter(q=>distance(q)<185).sort((a,b)=>distance(a)-distance(b))[0];
+          const yaw=prey?Math.atan2(prey.z-z,prey.x-x):hatch*2.4;
+          hatch++;
+          world.bolt(owner,-.56,{style:'nest-hatchling',yawOffset:yaw-owner.yaw,speed:135,
+            gravity:160,homing:prey?1.8:0,r:4,life:2,damage:9,blast:23,color:'#ff7334',
+            onExpire(w,o,bx,by,bz){w.area(o,bx,by,23,9,'#ff7334',bz)}
+          },{x,y:floor-13,z});
+        },color.Evocation,z,'nest');
       } })),
   spell('Evocation', 'sundial-mine', 'Sundial Mine', '☼', 26, .35,
     'Leave a sun rune at your feet. After 1.2 seconds it erupts for 37 damage in every direction.',
@@ -80,11 +94,13 @@ const damage = [
         if (fired) return;
         fired = true;
         world.area(owner, x, y, 52, 37, color.Evocation, z);
-      }, color.Evocation, p.z);
+      }, color.Evocation, p.z,'sundial');
     }),
   spell('Evocation', 'star-shears', 'Star Shears', '✂', 16, .18,
     'Snap two close-range blades across your aim. Their overlapping cuts can hit the same wizard twice.',
     (api, p, a) => {
+      const hinge=aimPoint(p,a,17);
+      api.fx(hinge.x,hinge.y,25,'#dbfaff','shears',hinge.z,p.yaw,a);
       for (const offset of [-.33, .33]) {
         const tip = aimPoint(p, a, 33, offset);
         api.area(p, tip.x, tip.y, 23, 12, color.Evocation, tip.z);
@@ -302,6 +318,7 @@ const evocationArts = [
     (api,p) => {
       let spoke=p.yaw;
       api.zone(p,p.x,p.y-12,10,1.63,.2,(world,owner)=>{
+        world.fx(owner.x,owner.y-12,34,color.Evocation,'firewheel',owner.z,spoke);
         world.area(owner,owner.x+38*Math.cos(spoke),owner.y-12,20,9,color.Evocation,owner.z+38*Math.sin(spoke));
         spoke+=Math.PI/4;
       },color.Evocation,p.z);
@@ -310,6 +327,7 @@ const evocationArts = [
     'A steam blast strikes in front of you. Enemies caught in it are shoved away and tossed into the air.',
     (api,p,a) => {
       const at=aimPoint(p,a,33);
+      api.fx(at.x,at.y,16,'#bdedf1','valve',at.z,p.yaw,a);
       api.area(p,at.x,at.y,29,9,color.Evocation,at.z);
       for(const q of nearby(api,p,at.x,at.y,at.z,38)){
         const dx=q.x-p.x,dz=q.z-p.z,len=Math.hypot(dx,dz)||1;
@@ -616,7 +634,7 @@ const grandSpells = [
       const at=aimPoint(p,0,120),surface=api.surface(at.x,at.z,0);if(surface===null)return;
       api.zone(p,at.x,surface,46,8,.1,(w,o,x,y,z)=>{
         for(const q of w.occupants())if(Math.hypot(q.x-x,q.z-z)<spellRadius(42)&&q.y>y-spellRadius(54)&&q.y<y+spellRadius(132))q.vy=-360;
-      },color.Movement,at.z);
+      },color.Movement,at.z,'wind');
       let step=0;
       api.zone(p,p.x,p.y-12,16,1.31,.25,(world,owner)=>{
         world.area(owner,at.x,surface+step*24,42,48,'#ffcd65',at.z);
@@ -661,7 +679,7 @@ const arsenal=[
       },color.Restoration,p.z)}),
   spell('Hexes','lead-bell','Lead Bell','🔔',38,.85,'Ground enemies within five blocks by rooting them for 1.4 seconds.',(a,p)=>{for(const q of localTargets(a,p,60))a.status(q,'root',1.4);mark(a,p,'Hexes',60)}),
   spell('Evocation','fault-cross','Fault Cross','╋',75,1.4,'Four blasts strike six blocks away in a cross around you, each dealing 27 damage.',
-    (a,p)=>{for(let i=0;i<4;i++){const at=aimPoint(p,0,72,i*Math.PI/2);a.area(p,at.x,at.y,36,27,'#ffbe72',at.z)}}),
+    (a,p)=>{for(let i=0;i<4;i++){const at=aimPoint(p,0,72,i*Math.PI/2);a.fx(at.x,at.y,30,'#ffbe72','fissure',at.z,p.yaw+i*Math.PI/2);a.area(p,at.x,at.y,36,27,'#ffbe72',at.z)}}),
   spell('Restoration','familiar-feast','Familiar Feast','🍖',95,1.6,'Heal yourself for 16 and restore 24 health to each of your living familiars.',
     (a,p)=>{a.heal(p,16);for(const f of a.allies(p))a.heal(f,24);mark(a,p,'Restoration')}),
   spell('Hexes','ward-tax','Ward Tax','⚖',145,2,'Overload enemy shields within eight blocks. Up to 30 shield per target discharges as a blast around that target, damaging its nearby allies.',

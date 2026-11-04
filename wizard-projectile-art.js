@@ -131,6 +131,10 @@ export function makeProjectileArt(THREE) {
       });
     }
     switch(style){
+      case 'quarry-volley': {
+        mesh(box,0xa88a67,0,0,0,2);
+        mesh(box,0xc1a27b,0,.99,0,2,.05,2);spin=1.4;break;
+      }
       case 'meteor-storm': {
         mesh(stone,0x433035,0,0,0,1.1,1,.94);
         band(0xff972c,0,1,.35);bright(gem,0xffbc5c,.54,.18,.52,.41);
@@ -158,6 +162,16 @@ export function makeProjectileArt(THREE) {
         bright(cached('brand-frame',()=>new THREE.TorusGeometry(.91,.12,4,4)),0xff7337,0,.03,0,.96,.96,.5);
         bright(zig,0xffe09c,0,.04,0,.53,.72,.8);bright(zig,0xef526d,0,.04,0,.47,.68,.8).rotation.y=Math.PI/2;
         stream('arc',0xef5d59);spin=3.6;break;
+      }
+      case 'nest-hatchling': {
+        mesh(ball,0xdf5629,0,0,0,.55,.92,.4);
+        mesh(ball,0xff8c3c,0,.78,0,.62,.48,.42);
+        mesh(shard,0xc74725,.12,-1,0,.32,1,.24).rotation.z=.23;
+        for(const side of [-1,1]){
+          bright(ball,0xffe585,side*.37,.98,.24,.15);
+          for(const y of [-.44,.38])mesh(ball,0xc94a26,side*.54,y,.03,.43,.15,.17).rotation.z=side*.36;
+        }
+        stream('flare',0xff7334);spin=.15;break;
       }
       case 'salamander-nest': {
         mesh(stone,0x683b32,0,0,0,.83,1.06,.83);band(0xff9d42,-.03,.81,.29);band(0xb86c39,-.45,.64,-.2);
