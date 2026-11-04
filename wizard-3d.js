@@ -1,4 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=distinct110';
+import {makeCastPainter} from './wizard-casting.js?v=grand-traps';
+import {SPELLS} from './wizard-spells.js?v=grand-traps';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -433,6 +434,7 @@ function makeSpellParts(scene){
     const a=j*2.4,d=j?.58:0,h=j?.84:1.18;
     part(b.spikes,shape.cone,mat(0xf1dfb1),Math.cos(a)*d,h/2,Math.sin(a)*d,.15,h,.15).rotation.z=.13*Math.sin(a);
    }}
+   if(spikes)b.spikes.scale.y=.55+.45*Math.max(0,z.hp??18)/18;
    for(const child of b.root.children)child.visible=child===b.spikes?spikes:!spikes;
    const r=Math.max(1,z.r||12);b.root.position.set(z.x,HEIGHT-z.y,z.z);b.root.scale.setScalar(r);b.m.color.copy(color(z));b.edge.color.copy(b.m.color);b.ring.scale.setScalar(.84+.08*Math.sin(t*3+i));
   });
@@ -482,6 +484,7 @@ export function makeRenderer(canvas){
  key.position.set(-250,530,210);scene.add(env,key);
  const rim=new THREE.DirectionalLight(0xa8e6ff,1.45);rim.position.set(80,130,-260);scene.add(rim);
  const title=makeTitle(scene),groundGroup=new THREE.Group();scene.add(groundGroup);
+ const paintCasting=makeCastPainter(THREE,scene,SPELLS,HEIGHT);
  const updateTerrain=makeTerrain(groundGroup),rigs=[],paintSpells=makeSpellParts(scene),paintFamiliars=makeFamiliars(scene);
  let palette=null,logicalW=0,logicalH=0,oldDPR=0;
  const look=new THREE.Vector3(),eye=new THREE.Vector3(),target=new THREE.Vector3(),offset=new THREE.Vector3(),desired=new THREE.Vector3(),pos=new THREE.Vector3(),sideVec=new THREE.Vector3();
@@ -558,6 +561,7 @@ export function makeRenderer(canvas){
    if(phase>=.81)titleBursts.push({x:titleEnd.x,y:HEIGHT-titleEnd.y,z:titleEnd.z,r:13,life:1-(phase-.81)/.19,maxLife:1,color:titleBolt.color});
    paintSpells(phase>.09&&phase<.81?[titleBolt]:[],titleBursts,[],clock,camera);
   }else paintSpells(state.shots||[],state.effects||[],state.zones||[],clock,camera);
+  paintCasting(demo?[]:players,state?.time??0,camera,me,hideLocal);
   renderer.render(scene,camera);
  }
  return {draw};

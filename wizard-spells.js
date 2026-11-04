@@ -544,10 +544,9 @@ const grandSpells = [
       api.zone(p,at.x,p.y-12,18,3.05,3,w=>{for(const rib of ribs)w.bone(...rib)},color.Warding,at.z);
     }),
   spell('Hexes','bone-spikes','Bone Floor Spikes','🩻',380,4,
-    'Raise seven clusters of bone spikes straight ahead for six seconds. Each cluster deals 12 damage every half second to enemies near the ground.',
+    'Plant seven single-use traps for 14 seconds. Step on one to vault upward. Enemies take 22 damage and are pinned for 1.4 seconds. Shoot a cluster for 18 damage or break the floor to disarm it.',
     (api,p)=>{for(let i=1;i<=7;i++){const at=aimPoint(p,0,i*42),y=api.surface(at.x,at.z,p.y-120);
-      if(y!==null)api.zone(p,at.x,y,24,6,.5,(a,o,x,y,z)=>{for(const q of a.enemies(o))
-        if(Math.hypot(q.x-x,q.z-z)<=24&&q.y>=y-26&&q.y<=y+6)a.hurt(q,12)},'#f3dfa7',at.z,'spikes')}
+      if(y!==null)api.spike(p,at.x,y,at.z)}
     }),
   spell('Evocation','fire-skull','Fire Skull','☠',650,5.5,
     'Launch a flaming skull that curves toward an enemy. It explodes for 40 damage; a direct hit deals 40 more and burns for three seconds.',
@@ -557,12 +556,13 @@ const grandSpells = [
     (api,p)=>{let spent=false;api.zone(p,p.x,p.y-12,20,10,.1,(a,o)=>{if(!spent&&o.hp>0&&o.hp<o.maxHp/2){
       spent=true;a.heal(o,55);a.area(o,o.x,o.y-12,90,45,'#ffac48',o.z)}},'#ffac48',p.z)}),
   spell('Movement','thunder-road','Thunder Road','⟿',50,1.8,
-    'Blink up to 24 blocks along your aim. Both ends erupt for 22 damage in a four-block radius.',
+    'Blink up to 24 blocks along your aim. For eight seconds, both ends become speed pads. Any wizard crossing one gains haste for two seconds.',
     (api,p,pitch)=>{
       const end=aimPoint(p,pitch,288);
-      api.area(p,p.x,p.y-12,48,22,color.Movement,p.z);
-      api.blink(p,end.x-p.x,end.y+12-p.y,end.z-p.z);
-      api.area(p,p.x,p.y-12,48,22,color.Movement,p.z);
+      const pad=()=>api.zone(p,p.x,p.y-12,32,8,.15,(world,o,x,y,z)=>{
+        for(const q of world.occupants())if(distanceFrom(q,x,y,z)<=32)world.status(q,'haste',2);
+      },color.Movement,p.z);
+      pad();api.blink(p,end.x-p.x,end.y+12-p.y,end.z-p.z);pad();
     }),
   spell('Warding','last-citadel','Last Citadel','♖',100,2.5,
     'Raise four destructible pillars around you, gain 65 shielding, and reflect incoming shots for three seconds.',
@@ -588,11 +588,12 @@ const grandSpells = [
       },color.Restoration,p.z);
     }),
   spell('Hexes','gravity-well','Gravity Well','◍',450,5,
-    'Open a well ten blocks straight ahead. Six pulses drag enemies toward its center, where a final blast deals 55 damage.',
+    'Open a well ten blocks straight ahead. Six pulses drag enemies toward its center, then reverse gravity and fling trapped enemies upward.',
     (api,p)=>{
       const at=aimPoint(p,0,120);let pulses=0;
       api.zone(p,at.x,at.y,120,3.55,.5,(world,owner,x,y,z)=>{
-        if(++pulses===7){world.area(owner,x,y,78,55,color.Hexes,z);return}
+        if(++pulses===7){for(const q of nearby(world,owner,x,y,z,78))q.vy=-480;
+          world.fx(x,y,78,color.Hexes,'ring',z);return}
         for(const target of nearby(world,owner,x,y,z,120)){
           const pull=Math.min(1,22/Math.max(1,distanceFrom(target,x,y,z)));
           world.blink(target,(x-target.x)*pull,(y+12-target.y)*pull,(z-target.z)*pull);
@@ -601,9 +602,12 @@ const grandSpells = [
       },color.Hexes,at.z);
     }),
   spell('Evocation','worldbreaker','Worldbreaker','✺',700,7,
-    'Collapse the ground ten blocks ahead. Five blasts dig straight down through the same column, cutting a deep shaft beneath anyone standing there.',
+    'Cut a deep shaft ten blocks ahead. An updraft rises from the shaft for eight seconds. Enter it to launch above the rim.',
     (api,p,pitch)=>{
       const at=aimPoint(p,0,120),surface=api.surface(at.x,at.z,0);if(surface===null)return;
+      api.zone(p,at.x,surface,46,8,.1,(w,o,x,y,z)=>{
+        for(const q of w.occupants())if(Math.hypot(q.x-x,q.z-z)<42&&q.y>y-54&&q.y<y+132)q.vy=-360;
+      },color.Movement,at.z);
       let step=0;
       api.zone(p,p.x,p.y-12,16,1.31,.25,(world,owner)=>{
         world.area(owner,at.x,surface+step*24,42,48,'#ffcd65',at.z);
