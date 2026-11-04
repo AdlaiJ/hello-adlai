@@ -609,5 +609,51 @@ const grandSpells = [
     })
 ];
 
+function armament(id,name,symbol,cost,time,form,tint,strikes,reach,arc,damage,delay,trait,extra){
+  const entry=spell('Summoning',id,name,symbol,cost,time,
+    'Summon for 12 seconds. Press this slot again to attack for free. '+strikes+' swings, '+damage+' damage each. '+extra,
+    (api,p)=>{p.weapon={id,until:api.now()+12,strikes,ready:api.now(),swing:-1}});
+  entry.melee={form,tint,reach,arc,damage,delay,trait};
+  return entry;
+}
+function localTargets(api,p,r){
+  return api.enemies(p).filter(q=>Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<=r);
+}
+const arsenal=[
+  armament('glass-knife','Glass Knife','†',8,.35,'knife',0x95fff1,4,25,1.8,9,.22,'','Quick cuts with a short reach.'),
+  armament('wisp-rapier','Wisp Rapier','⚔',32,.8,'rapier',0x9bccff,4,47,.8,17,.38,'','Long, narrow thrusts.'),
+  armament('rime-axe','Rime Axe','❄',85,1.5,'axe',0x78dfff,3,37,2.5,24,.8,'slow','Each sweep chills its targets for two seconds.'),
+  armament('ember-maul','Ember Maul','⚒',210,2.4,'hammer',0xff864b,3,38,2.1,30,1,'burn','Heavy overhead blows ignite targets for two seconds.'),
+  armament('harvest-scythe','Harvest Scythe','☾',520,4,'scythe',0xcaa0ff,4,49,3.5,33,.85,'drain','Wide sweeps heal you for 8 per enemy struck.'),
+  spell('Warding','spark-film','Spark Film','◌',6,.25,'Gain 9 energy shield instantly after casting and extinguish burning.',
+    (a,p)=>{ward(p,9);p.statuses.burn=0;mark(a,p,'Warding')}),
+  spell('Warding','capacitor-shell','Capacitor Shell','ϟ',48,1,'Gain 24 shield. For six seconds each point your shield absorbs restores one mana.',
+    (a,p)=>{ward(p,24);a.status(p,'capacitor',6)}),
+  spell('Warding','prism-parry','Prism Parry','◇',115,.45,'Gain 18 shield and reflect incoming projectiles for two seconds. Parry just before impact.',
+    (a,p)=>{ward(p,18);a.status(p,'reflect',2);mark(a,p,'Warding')}),
+  spell('Warding','polar-aegis','Polar Aegis','⬡',410,3.5,'Gain 65 shield. For eight seconds, enemies within six blocks are chilled whenever your shield absorbs damage.',
+    (a,p)=>{ward(p,65);a.status(p,'polar',8)}),
+  spell('Movement','vault-kick','Vault Kick','↟',12,.2,'Spring into the air and deal 10 damage to nearby enemies at takeoff.',
+    (a,p)=>{p.vy=-380;for(const q of localTargets(a,p,38))a.hurt(q,10);mark(a,p,'Movement')}),
+  spell('Movement','cross-step','Cross Step','⇥',24,.35,'Blink six blocks to your right and gain haste for one second.',
+    (a,p)=>{a.blink(p,-72*Math.sin(p.yaw),0,72*Math.cos(p.yaw));a.status(p,'haste',1)}),
+  spell('Restoration','field-dressing','Field Dressing','✚',14,.7,'Heal 12 health and remove slowing effects.',(a,p)=>{a.heal(p,12);p.statuses.slow=0;mark(a,p,'Restoration')}),
+  spell('Hexes','lead-bell','Lead Bell','♩',38,.85,'Ground enemies within five blocks by rooting them for 1.4 seconds.',(a,p)=>{for(const q of localTargets(a,p,60))a.status(q,'root',1.4);mark(a,p,'Hexes',60)}),
+  spell('Evocation','fault-cross','Fault Cross','✣',75,1.4,'Four blasts strike six blocks away in a cross around you, each dealing 27 damage.',
+    (a,p)=>{for(let i=0;i<4;i++){const at=aimPoint(p,0,72,i*Math.PI/2);a.area(p,at.x,at.y,36,27,'#ffbe72',at.z)}}),
+  spell('Restoration','familiar-feast','Familiar Feast','♧',95,1.6,'Heal yourself for 16 and restore 24 health to each of your living familiars.',
+    (a,p)=>{a.heal(p,16);for(const f of a.allies(p))a.heal(f,24);mark(a,p,'Restoration')}),
+  spell('Hexes','ward-tax','Ward Tax','♜',145,2,'Strip up to 30 shield from each enemy within eight blocks. Half the energy becomes your shield.',
+    (a,p)=>{for(const q of localTargets(a,p,96)){const n=Math.min(30,q.shield);q.shield-=n;ward(p,n/2)}mark(a,p,'Hexes',96)}),
+  spell('Movement','comet-retreat','Comet Retreat','☄',185,1.8,'Blast your starting point for 36 damage and blink ten blocks backwards.',
+    (a,p)=>{a.area(p,p.x,p.y-12,54,36,'#ff985b',p.z);a.blink(p,-120*Math.cos(p.yaw),0,-120*Math.sin(p.yaw))}),
+  spell('Summoning','winter-court','Winter Court','♛',295,3,'Call two frost familiars and slow enemies within eight blocks for three seconds.',
+    (a,p)=>{a.summon(p,'frost');a.summon(p,'frost');for(const q of localTargets(a,p,96))a.status(q,'slow',3);mark(a,p,'Summoning',96)}),
+  spell('Evocation','siege-clock','Siege Clock','◷',640,5,'Mark a point sixteen blocks along your aim. Three blasts hit it one second apart, each dealing 40 damage.',
+    (a,p,pitch)=>{const at=aimPoint(p,pitch,192);a.zone(p,at.x,at.y,70,3.05,1,(w,o,x,y,z)=>w.area(o,x,y,70,40,'#ffc563',z),'#ffc563',at.z)}),
+  spell('Restoration','dawn-coronation','Dawn Coronation','♕',850,6,'Restore 65 health, remove burning, root and silence, and gain one shield for every point of overhealing.',
+    (a,p)=>{const missing=p.maxHp-p.hp;a.heal(p,65);ward(p,Math.max(0,65-missing));for(const key of ['burn','root','silence'])p.statuses[key]=0;mark(a,p,'Restoration',72)})
+];
+
 export const SPELLS = [...damage, ...ranged, ...boost, ...healing, ...shields, ...evocationArts,
-  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells];
+  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal];

@@ -26,17 +26,19 @@ function readSettings(){const count=$('count').valueAsNumber,mana=$('mana').valu
 function book(){selected=[];locked=false;$('school').value='All';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?'Duel room · '+code:mode==='waves'?'Singleplayer · Waves':'Sandbox';
  $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Every 10 seconds, regain 10% mana. F then a spell banks 5% of your pool per second. Cast early for a discount or fully charge for a free cast.';drawBook()}
 function drawBook(){const list=$('cards');list.replaceChildren();
+ $('grandToggle').setAttribute('aria-pressed',String($('school').value==='grand'));
  for(const school of schools){
   const filter=$('school').value;
   if(filter!=='All'&&filter!=='grand'&&filter!==school)continue;
   const entries=SPELLS.filter(spell=>spell.category===school&&(filter!=='grand'||spell.cost>=50)),heading=document.createElement('h3');
-  heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
+  if(!entries.length)continue;heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
   for(const s of entries){
  const i=selected.indexOf(s.id),b=document.createElement('button');b.setAttribute('aria-pressed',String(i>=0));b.disabled=locked||(i<0&&selected.length>=settings.count);
  const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+((i+1)%10)+'] ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+s.cost+' mana · '+(s.time?s.time+'s':'Instant');desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
  }
  $('selection').textContent=selected.length+' / '+settings.count+' bound';$('ready').disabled=locked||selected.length!==settings.count}
 $('school').onchange=drawBook;
+$('grandToggle').onclick=()=>{$('school').value=$('school').value==='grand'?'All':'grand';drawBook();$('cards').scrollTop=0};
 function validIds(ids){return Array.isArray(ids)&&ids.length===settings.count&&new Set(ids).size===ids.length&&ids.every(id=>spells.has(id))}
 function notify(text){message=text;messageUntil=performance.now()+1600}
 function start(){show('hud');keys.clear();armed=false;yaw=me?Math.PI:0;angle=0;netClock=0;
@@ -63,7 +65,7 @@ function network(isHost,word=''){
 $('proceed').onclick=()=>{settings=readSettings();if(!settings)return;if(mode==='multi')network(true);else book()};
 $('join').onclick=()=>{const word=$('word').value.trim().toLowerCase();if(!/^[a-z]{4,6}$/.test(word)){$('setupStatus').textContent='Enter the 4–6 letter room word.';return}network(false,word)};
 $('copy').onclick=async()=>{const url=new URL(location.href);url.search='';url.searchParams.set('room',code);try{await navigator.clipboard.writeText(url.href);$('bookStatus').textContent='Invite link copied.'}catch{$('bookStatus').textContent='Share room word '+code}};
-function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
+function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:'cast',slot:i,store})}}
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  $('vitals').textContent=(me?'Red':'Blue')+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
@@ -76,7 +78,7 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   $('opponent').textContent+=' · Rival '+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
  $('signal').textContent=armed?'STORE · Choose a spell':p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing mana in '+spells.get(p.ids[p.store]).name:performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
- selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
+ selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
 function finish(){show('end');$('result').textContent=state.over;$('resultInfo').textContent=mode==='waves'?'Reached wave '+state.wave+' in '+Math.floor(state.time)+' seconds.':settings.map+' · '+Math.floor(state.time)+' seconds';keys.clear()}
 $('dummy').onclick=()=>{if(game&&game.state.players.length<24)game.spawn()};
 $('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana};$('restore').onclick=()=>{state.tiles=makeTiles(settings.map);state.terrainVersion++};$('change').onclick=()=>{game=state=null;book()};

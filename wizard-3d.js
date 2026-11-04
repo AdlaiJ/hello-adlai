@@ -1,3 +1,5 @@
+import {SPELLS} from './wizard-spells.js';
+const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
@@ -107,7 +109,37 @@ function makeWizard(parent,side){
  const grounding=part(parent,new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x282537,map:haloTexture(),transparent:true,opacity:.59,depthWrite:false}),0,0,0,21,17,1);grounding.rotation.x=-Math.PI/2;
  return {p,side,root,pelvis,chest,head,hat,cape,scarf,legs,arms,wand,crystal,light,shield,grounding,wisps,wispMat,gauge,hpBar};
 }
-function animateWizard(r,p,time,index,cast){
+function updateArmament(r,p,time){
+ const weapon=p.weapon,model=meleeModels.get(weapon?.id);
+ r.wand.visible=!model;
+ if(r.held)r.held.visible=false;
+ if(!model)return;
+ r.armory??=new Map();
+ let grip=r.armory.get(model.form);
+ if(!grip){
+  grip=joint(r.arms[1].hand,0,0,0);r.armory.set(model.form,grip);
+  const metal=mat(model.tint,true),shaft=mat(0x493953);
+  part(grip,shape.pole,shaft,0,2,0,1.4,8,1.4);
+  switch(model.form){
+   case 'knife':case 'rapier':{
+    const length=model.form==='knife'?8:18;
+    part(grip,shape.box,metal,0,5,0,5,.8,1);
+    part(grip,shape.gem,metal,0,5+length/2,0,model.form==='knife'?1.8:1,length/2,.65);break;}
+   case 'hammer':part(grip,shape.box,metal,0,8,0,10,5,5);break;
+   case 'axe':part(grip,shape.gem,metal,2.2,8,0,4.8,5,1.3);break;
+   case 'scythe':
+    part(grip,shape.pole,shaft,0,8,0,1.1,13,1.1);
+    part(grip,shape.gem,metal,4,14,0,6,1.8,.8);
+    part(grip,shape.cone,metal,9,12.5,0,1.3,5,.8).rotation.z=-2.7;break;
+  }
+ }
+ r.held=grip;grip.visible=true;
+ const progress=clamp((time-weapon.swing)/model.delay,0,1);
+ const stroke=weapon.swing<0?0:Math.sin(progress*Math.PI);
+ r.arms[1].shoulder.rotation.z+=stroke*1.35;
+ grip.rotation.z=-.6-stroke*1.6;grip.rotation.y=stroke*(model.form==='scythe'?2:.7);
+}
+function animateWizard(r,p,time,index,cast,matchTime){
  const moving=clamp(Math.hypot(p.vx||0,p.vz||0)/120,0,1),air=Math.abs(p.vy||0)>25,beat=time*10+index*1.9,sw=Math.sin(time*2.1+index),pitch=clamp(p.aim||0,-1.1,1.1);
  r.root.position.set(p.x,HEIGHT-p.y,p.z);r.root.rotation.y=-(p.yaw||0);
  r.pelvis.position.y=7+Math.abs(Math.sin(beat))*moving*.7+sw*.12;
@@ -125,9 +157,11 @@ function animateWizard(r,p,time,index,cast){
  left.elbow.rotation.z=.35+cast*.3;
  right.shoulder.rotation.set(-.25,0,.31+cast*(.88-.46*pitch));right.elbow.rotation.z=.54+cast*.18;
  r.wand.rotation.z=-right.shoulder.rotation.z-right.elbow.rotation.z-.13-cast*(1.14+pitch*.45);
+ updateArmament(r,p,matchTime);
  r.crystal.rotation.y=time*2;r.light.material.opacity=.4+cast*.45;
  const st=p.statuses||{};
  r.light.scale.setScalar(7+cast*7+Math.sin(time*6)*.6);r.shield.visible=p.shield>0||st.reflect>0||st.phased>0;
+ r.shield.material.color.set(st.polar>0?0x80edff:st.capacitor>0?0xffe85a:st.reflect>0?0xd6a2ff:r.p.point);
  r.shield.material.opacity=.14+.04*Math.sin(time*6);
  r.wisps.visible=p.store>=0||st.burn>0||st.regen>0;
  if(r.wisps.visible){
@@ -507,7 +541,7 @@ export function makeRenderer(canvas){
    r.gauge.visible=r.root.visible&&!demo&&i!==me&&a.hp<a.maxHp;
    if(!r.root.visible)continue;
    const cast=demo?(Math.cos((cycle-i*2)*Math.PI/2)*.5+.5):(a.cast>0?1:a.store>=0?.45:0);
-   animateWizard(r,a,clock,i,cast);r.root.scale.setScalar(demo?demoScale:1);
+   animateWizard(r,a,clock,i,cast,state?.time??clock);r.root.scale.setScalar(demo?demoScale:1);
    if(r.gauge.visible){const fraction=clamp(a.hp/a.maxHp,0,1);r.gauge.position.copy(r.root.position);r.gauge.position.y+=34;r.gauge.quaternion.copy(camera.quaternion);r.hpBar.scale.x=11.4*fraction;r.hpBar.position.x=(fraction-1)*5.7}
    let floor=HEIGHT-a.y;
    if(!demo){const jStart=clamp(Math.floor(a.y/TILE),0,Y-1),cx=clamp(Math.floor(a.x/TILE),0,X-1),cz=clamp(Math.floor(a.z/TILE),0,Z-1);

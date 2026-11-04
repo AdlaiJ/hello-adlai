@@ -31,6 +31,8 @@ export function createGame(settings,loadouts,mode){
   if(p.hp<=0||p.statuses.phased>0||n<=0)return;
   n*=p.statuses.armor>0?.5:1;
   const spent=Math.min(n,p.shield);p.shield-=spent;p.hp=Math.max(0,p.hp-n+spent);
+  if(spent&&p.statuses.capacitor>0)p.mana=Math.min(p.maxMana,p.mana+spent);
+  if(spent&&p.statuses.polar>0)for(const q of enemies(p))if(Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<=72)api.status(q,'slow',2);
  }
  const enemies=p=>s.players.concat(s.summons).filter(q=>q.side!==p.side&&q.hp>0);
  function tileDamage(x,y,r,n,z){
@@ -40,7 +42,7 @@ export function createGame(settings,loadouts,mode){
     if(Math.hypot(i*T+6-x,j*T+6-y,d*T+6-z)<=r+8){const k=(d*H+j)*W+i;const hp=Math.max(0,(s.tiles[k]&127)-n);setBlock(k,hp>0?(s.tiles[k]&128)+hp:0)}
    }
  }
- const api={enemies,fx,summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds)=>{p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
+ const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx,summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds)=>{p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,
   surface:(x,z,y)=>{for(let j=clamp(Math.floor(y/T),0,H-1);j<H;j++)if(solid(x,j*T,z)&&!solid(x,j*T-1,z))return j*T;return null},
   bone:(x,y,z)=>{if(x<0||x>=W*T||z<0||z>=D*T||y<0||y>=H*T||solid(x,y,z))return;
@@ -96,6 +98,28 @@ export function createGame(settings,loadouts,mode){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
   if(!Number.isInteger(slot)||!spell||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
+  const held=p.weapon;
+  if(held?.id===spell.id&&held.until>s.time&&held.strikes>0){
+   if(s.time<held.ready)return false;
+   const {reach,arc,damage:power,delay,trait}=spell.melee;
+   held.strikes--;held.ready=s.time+delay;held.swing=s.time;p.store=-1;
+   for(const q of enemies(p)){
+    const dx=q.x-p.x,dz=q.z-p.z,dy=q.y-p.y;
+    if(Math.hypot(dx,dy,dz)>reach||Math.abs(dy)>28)continue;
+    const angle=Math.atan2(dz,dx)-p.yaw;
+    if(Math.cos(angle)<Math.cos(arc/2))continue;
+    const steps=Math.ceil(Math.hypot(dx,dy,dz)/5);
+    let covered=false;
+    for(let i=1;i<steps;i++)if(solid(p.x+dx*i/steps,p.y-12+dy*i/steps,p.z+dz*i/steps)){covered=true;break}
+    if(covered)continue;
+    const before=q.hp;damage(q,power);
+    if(trait==='drain'&&q.hp<before)api.heal(p,8);
+    if(trait==='slow'||trait==='burn')api.status(q,trait,2);
+    fx(q.x,q.y-12,12,'#ffd691','burst',q.z);
+   }
+   return true;
+  }
+  if(held?.id===spell.id&&s.time<held.ready)return false;
   const price=Math.max(0,spell.cost-p.bank[slot]);if(p.mana+.00001<price)return false;
   p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castingAngle=p.aim;p.castYaw=p.yaw;p.cast=Math.max(.016,spell.time);return true;
  }
@@ -121,6 +145,7 @@ export function createGame(settings,loadouts,mode){
   const pulse=regen>=10;if(pulse)regen-=10;
   for(const [i,p] of s.players.entries()){
    if(p.hp<=0)continue;const st=p.statuses;
+   if(p.weapon&&(s.time>=p.weapon.until||(!p.weapon.strikes&&s.time>=p.weapon.ready)))p.weapon=null;
    for(const k of Object.keys(st))st[k]=Math.max(0,st[k]-dt);
    if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt);
    if(pulse)p.mana=Math.min(p.maxMana,p.mana+p.maxMana/10);
