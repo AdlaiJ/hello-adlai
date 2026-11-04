@@ -1,4 +1,4 @@
-import {bloodWeapons,SPELLS,spellRadius} from './wizard-spells.js?v=blood-arsenal';
+import {bloodWeapons,SPELLS,spellRadius} from './wizard-spells.js?v=named-magic';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));

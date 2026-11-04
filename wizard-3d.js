@@ -1,5 +1,6 @@
+import {makeSpellModels} from './wizard-spell-models.js?v=named-magic';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=blood-arsenal';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=named-magic';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -419,6 +420,7 @@ function makeFamiliars(scene){
  };
 }
 function makeSpellParts(scene){
+ const models=makeSpellModels({joint,part,shape,mat});
  const effects=[],zones=[];
  const buildProjectile=makeProjectileArt(THREE),projectiles=new Map();
  function paintShots(shots,time){
@@ -428,7 +430,11 @@ function makeSpellParts(scene){
    let pool=projectiles.get(style);
    if(!pool){pool={used:0,models:[]};projectiles.set(style,pool)}
    let model=pool.models[pool.used];
-   if(!model){model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
+   if(!model){if(models[style]){
+     const root=new THREE.Group(),body=joint(root,0,0,0);models[style](body);
+     body.rotation.z=Math.PI/2;body.scale.setScalar(2);
+     model={root,animate(time){body.rotation.y=style==='pinball-furnace'?time*6:0}};
+    }else model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
    pool.used++;
    model.root.visible=true;
    model.root.position.set(shot.x,HEIGHT-shot.y,shot.z);
@@ -442,6 +448,7 @@ function makeSpellParts(scene){
  const propKinds=new Set(['cleave','shears','bell','valve','firewheel','fissure']);
  function buildProp(root,kind){
   const g=joint(root,0,0,0),metal=mat(0xbacbd7),brass=mat(0xd99746),fire=mat(0xff9148,true);
+  if(models[kind]){g.userData.pose=models[kind](g);return g}
   if(kind==='cleave'){
    part(g,shape.gem,mat(0xe62046,true),0,0,0,1,.046,.027);
    part(g,shape.gem,mat(0xffe1dc,true),.06,.013,0,.94,.018,.032);
@@ -501,12 +508,14 @@ function makeSpellParts(scene){
    const life=clamp(e.life/(e.maxLife||.45),0,1),r=Math.max(1,e.r||10)*(1-life*.75);b.root.position.set(e.x,HEIGHT-e.y,e.z);
    b.props??=new Map();
    for(const prop of b.props.values())prop.visible=false;
-   const special=propKinds.has(e.kind);
+   const special=propKinds.has(e.kind)||!!models[e.kind];
    b.ring.visible=!special;b.beads.forEach(mesh=>mesh.visible=!special);
    if(special){
     if(!b.props.has(e.kind))b.props.set(e.kind,buildProp(b.root,e.kind));
     const prop=b.props.get(e.kind);prop.visible=true;prop.scale.setScalar(e.r*Math.min(1,life*5));
     prop.rotation.set(0,-(e.yaw||0),-(e.pitch||0),'YXZ');
+    if(models[e.kind])prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
+    if(typeof prop.userData.pose==='function')prop.userData.pose(1-life);
     if(e.kind==='shears')prop.userData.arms.forEach((arm,k)=>arm.rotation.y=(k?1:-1)*(.02+.57*Math.max(0,(life-.38)/.62)));
     if(e.kind==='bell')prop.rotation.z=.32*Math.sin(life*9);
     if(e.kind==='firewheel')prop.rotation.y+=life*2;
@@ -516,12 +525,13 @@ function makeSpellParts(scene){
    b.beads.forEach((m,j)=>{const a=j*TAU/5+i;m.position.set(Math.cos(a)*r,Math.sin(a)*r,Math.sin(a*2)*r*.5);m.scale.setScalar(Math.max(.01,life*r*.09))});
   });
   each(fields,zones,field,(z,b,i)=>{
-   if(['marsh','wind','lantern','clock','embers','cleaver-shrine','throne','nest','sundial'].includes(z.style)){
+   if(models[z.style]||['marsh','wind','lantern','clock','embers','cleaver-shrine','throne','nest','sundial'].includes(z.style)){
     b.scenery??=new Map();
     let patch=b.scenery.get(z.style);
     if(!patch){
      patch=joint(b.root,0,0,0);b.scenery.set(z.style,patch);patch.userData.zoneStyle=z.style;
-     if(z.style==='cleaver-shrine'){
+     if(models[z.style])models[z.style](patch);
+     else if(z.style==='cleaver-shrine'){
       const lacquer=mat(0x92192c),tile=mat(0x241e2b),bone=mat(0xe4cdaf);
       part(patch,shape.ring,mat(0xcc2442,true),0,.008,0,1,1,.12).rotation.x=Math.PI/2;
       part(patch,shape.box,tile,0,.05,0,.48,.10,.40);

@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=fifty-spells';
+import {extraSpells} from './wizard-extra-spells.js?v=named-magic';
 export const spellRadius = radius => radius * 1.12;
 
 const color = {
