@@ -1,4 +1,4 @@
-import {SPELLS,spellRadius} from './wizard-spells.js?v=undead';
+import {SPELLS,spellRadius} from './wizard-spells.js?v=stored-time';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -140,7 +140,8 @@ export function createGame(settings,loadouts,mode){
   }
   if(held?.id===spell.id&&s.time<held.ready)return false;
   const price=Math.max(0,spell.cost-p.bank[slot]);if(p.mana+.00001<price)return false;
-  p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castVisual=spell.id;p.castStarted=s.time;p.castingAngle=p.aim;p.castYaw=p.yaw;p.cast=Math.max(.016,spell.time);return true;
+  p.castDuration=spell.cost>0?spell.time*price/spell.cost:spell.time;
+  p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castVisual=spell.id;p.castStarted=s.time;p.castingAngle=p.aim;p.castYaw=p.yaw;p.cast=Math.max(.016,p.castDuration);return true;
  }
  function input(i,forward,jump,pitch,strafe=0,yaw=0){
   const p=s.players[i];if(!p||![forward,pitch,strafe,yaw].every(Number.isFinite))return;

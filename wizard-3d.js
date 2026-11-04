@@ -1,5 +1,5 @@
-import {makeCastPainter} from './wizard-casting.js?v=undead';
-import {SPELLS} from './wizard-spells.js?v=undead';
+import {makeCastPainter} from './wizard-casting.js?v=stored-time';
+import {SPELLS} from './wizard-spells.js?v=stored-time';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=undead';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';

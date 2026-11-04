@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=undead';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=undead';
+import {SPELLS} from './wizard-spells.js?v=stored-time';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=stored-time';
 
 import {markChangedChunk,T} from './wizard-world.js';
 import {openRoom} from './wizard-room.js';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=undead');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=stored-time');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,connected=false,code='',selected=[],locked=false,other=null,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -24,7 +24,7 @@ function home(){clean();show('home')}
 document.querySelectorAll('.back').forEach(b=>b.onclick=home);$('leave').onclick=home;
 function readSettings(){const count=$('count').valueAsNumber,mana=$('mana').valueAsNumber;if(!Number.isInteger(count)||count<1||count>10||!Number.isInteger(mana)||mana<10||mana>5000){$('setupStatus').textContent='Choose 1–10 spells and 10–5000 mana.';return null}return {count,mana,map:$('map').value}}
 function book(){selected=[];locked=false;$('school').value='All';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?'Duel room · '+code:mode==='waves'?'Singleplayer · Waves':'Sandbox';
- $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Every 10 seconds, regain 10% mana. F then a spell banks 5% of your pool per second. Cast early for a discount or fully charge for a free cast.';drawBook()}
+ $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Every 10 seconds, regain 10% mana. F then a spell banks 5% of your pool per second. Storing half the cost halves both the mana due and the cast time. Fully stored spells cast instantly for free.';drawBook()}
 const starterKits={
  'All-rounder':{tip:'Use Witchspark for quick shots.',order:'witchspark pocket-poultice thimble-ward fold-step glass-fan rampart foxstep north-star iron-choir crater-bell'},
  'Close combat':{tip:'Summon Glass Knife, then press its slot again to swing. Aim for the back.',order:'glass-knife foxstep thimble-ward pocket-poultice vault-kick undertow rime-axe iron-choir winter-ring smoke-skin'},
@@ -98,7 +98,7 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   const bearing=['ahead','ahead right','right','behind right','behind','behind left','left','ahead left'][(Math.round(turn/(Math.PI/4))%8+8)%8];
   $('opponent').textContent+=' · Rival '+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
- $('signal').textContent=armed?'STORE · Choose a spell':p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing mana in '+spells.get(p.ids[p.store]).name:performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
+ $('signal').textContent=armed?'STORE · Choose a spell':p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
  selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
 function finish(){show('end');$('result').textContent=state.over;$('resultInfo').textContent=mode==='waves'?'Reached wave '+state.wave+' in '+Math.floor(state.time)+' seconds.':settings.map+' · '+Math.floor(state.time)+' seconds';keys.clear()}
 $('dummy').onclick=()=>{if(game&&game.state.players.length<24)game.spawn()};

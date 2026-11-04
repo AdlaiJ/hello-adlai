@@ -91,12 +91,14 @@ export function makeCastPainter(THREE,scene,spells,worldHeight){
     let used=0;
     for(const [index,p] of players.entries()){
       const d=catalog.get(p.castVisual),age=now-p.castStarted;
-      if(!d||p.hp<=0||age<0||age>d.duration+.28)continue;
+      if(!d||p.hp<=0||age<0)continue;
+      const duration=Math.max(.016,p.castDuration??d.duration);
+      if(age>duration+.28)continue;
       const slot=pool[used]??(pool[used]=make());used++;
-      const progress=Math.min(1,age/d.duration),frame=Math.floor(age*30);
+      const progress=Math.min(1,age/duration),frame=Math.floor(age*30);
       if(slot.frame!==frame||slot.id!==p.castVisual){paint(slot,d,age,progress);slot.frame=frame;slot.id=p.castVisual}
       const sprite=slot.sprite;sprite.visible=true;
-      sprite.material.opacity=Math.min(1,(d.duration+.28-age)/.28);
+      sprite.material.opacity=Math.min(1,(duration+.28-age)/.28);
       const size=d.size*(.72+.28*progress);
       if(closeView&&index===me){
         sprite.position.set(2,-1.2,-7).applyQuaternion(camera.quaternion).add(camera.position);
