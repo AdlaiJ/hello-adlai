@@ -19,8 +19,8 @@ export function openRoom(host,word,events){
  }
  function start(){
   if(closed)return;const code=host?words[crypto.getRandomValues(new Uint32Array(1))[0]%words.length]:word;
-  const instance=peer=new Peer(host?'wizardwars-3d-'+code:undefined,{secure:true});
-  instance.on('open',()=>{if(closed||peer!==instance)return;if(host)events.code(code);else attach(peer.connect('wizardwars-3d-'+code,{reliable:true,serialization:'json'}))});
+  const instance=peer=new Peer(host?'wizardwars-schools-'+code:undefined,{secure:true});
+  instance.on('open',()=>{if(closed||peer!==instance)return;if(host)events.code(code);else attach(peer.connect('wizardwars-schools-'+code,{reliable:true,serialization:'json'}))});
   instance.on('connection',c=>{if(host&&!closed)attach(c);else c.on('open',()=>c.close())});
   instance.on('error',err=>{if(closed||peer!==instance)return;if(host&&err.type==='unavailable-id'&&++tries<12){instance.destroy();start()}else fail(err.type==='peer-unavailable'?'Room not found. Check the word and that the host is still online.':'Room connection failed. Try creating another room or changing networks.')});
  }

@@ -1,6 +1,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
-const X=80,Y=45,Z=32,TILE=12,HEIGHT=540,TAU=Math.PI*2;
+const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
 const frac=n=>n-Math.floor(n);
 const noise=n=>frac(Math.sin(n*127.1+311.7)*43758.5453);
@@ -144,20 +145,30 @@ function scenery(scene){
  }));sky.renderOrder=-20;scene.add(sky);
  const peaks=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,5),new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),54);
  const obj=new THREE.Object3D(),tint=new THREE.Color();
- for(let i=0;i<54;i++){
-  const a=i*TAU/54,dist=850+noise(i+4)*200,h=160+noise(i+19)*230;
-  obj.position.set(480+Math.cos(a)*dist,h/2-47,192+Math.sin(a)*dist);
-  obj.scale.set(160+noise(i+90)*160,h,125+noise(i+52)*150);obj.rotation.set(0,noise(i+8)*TAU,0);obj.updateMatrix();peaks.setMatrixAt(i,obj.matrix);
-  tint.setScalar(.66+.32*noise(i));peaks.setColorAt(i,tint);
- }
  scene.add(peaks);
  const ruins=new THREE.Group(),brick=new THREE.MeshStandardMaterial({roughness:.98,flatShading:true});
- for(const [x,z,s] of [[-192,-98,1.25],[200,-285,.9],[844,-236,1.25],[1130,9,1],[320,740,.95]]){
+ const towers=[[-192,-98,1.25],[200,-285,.9],[844,-236,1.25],[1130,9,1],[320,740,.95]];
+ for(const [x,z,s] of towers){
   const root=joint(ruins,x,19,z);root.scale.setScalar(s);
   part(root,shape.pole,brick,0,52,0,53,106,53);part(root,shape.pole,brick,0,107,0,64,12,64);
   for(let i=0;i<8;i++){const a=i*TAU/8;part(root,shape.box,brick,Math.cos(a)*27,118,Math.sin(a)*27,12,15,11).rotation.y=-a}
  }
  scene.add(ruins);
+ let titleLayout;
+ function layout(demo){
+  if(titleLayout===demo)return;titleLayout=demo;
+  const halfX=X*TILE/2,halfZ=Z*TILE/2;
+  for(let i=0;i<54;i++){
+   const a=i*TAU/54,dx=Math.cos(a),dz=Math.sin(a),h=160+noise(i+19)*230;
+   // The whole mountain base sits outside the playable rectangle.
+   const distance=(demo?850:Math.min((halfX+370)/Math.abs(dx),(halfZ+370)/Math.abs(dz)))+noise(i+4)*200;
+   obj.position.set((demo?480:halfX)+dx*distance,h/2-47,(demo?192:halfZ)+dz*distance);
+   obj.scale.set(160+noise(i+90)*160,h,125+noise(i+52)*150);obj.rotation.set(0,noise(i+8)*TAU,0);obj.updateMatrix();peaks.setMatrixAt(i,obj.matrix);
+   tint.setScalar(.66+.32*noise(i));peaks.setColorAt(i,tint);
+  }
+  peaks.instanceMatrix.needsUpdate=true;peaks.instanceColor.needsUpdate=true;peaks.computeBoundingSphere();
+  for(let i=0;i<towers.length;i++){const [x,z]=towers[i];ruins.children[i].position.set(demo?x:x*X*TILE/960,19,demo?z:z*Z*TILE/384)}
+ }
  const stars=new Float32Array(390*3);
  for(let i=0;i<390;i++){
   const y=.09+noise(i+1)*.84,a=noise(i+522)*TAU,r=Math.sqrt(1-y*y);
@@ -165,7 +176,7 @@ function scenery(scene){
  }
  const points=new THREE.BufferGeometry();points.setAttribute('position',new THREE.BufferAttribute(stars,3));
  const glitter=new THREE.Points(points,new THREE.PointsMaterial({color:0xfff4d4,size:2.8,transparent:true,opacity:.78,sizeAttenuation:true,fog:false,depthWrite:false}));scene.add(glitter);
- return {sky,glitter,update(p){sky.material.uniforms.zenith.value.setHex(p.sky);sky.material.uniforms.horizon.value.setHex(p.haze);peaks.material.color.setHex(p.ridge);brick.color.setHex(p.ruin)}};
+ return {sky,glitter,layout,update(p){sky.material.uniforms.zenith.value.setHex(p.sky);sky.material.uniforms.horizon.value.setHex(p.haze);peaks.material.color.setHex(p.ridge);brick.color.setHex(p.ruin)}};
 }
 function makeTitle(parent){
  const stage=new THREE.Group();parent.add(stage);
@@ -187,26 +198,152 @@ function makeTitle(parent){
  stage.add(blocks);stage.position.set(480,120,192);
  return stage;
 }
-function makeTerrain(scene){
- const mesh=new THREE.InstancedMesh(shape.box,new THREE.MeshStandardMaterial({roughness:.97,flatShading:true}),X*Y*Z);
- mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
- let last=null,version=-1;
- const o=new THREE.Object3D(),c=new THREE.Color(),layer=X*Y;o.scale.set(11.87,11.87,11.87);
- return (tiles,ver,p)=>{
-  if(tiles===last&&ver===version)return;
-  last=tiles;version=ver;let k=0;
-  for(let z=0;z<Z;z++)for(let y=0;y<Y;y++)for(let x=0;x<X;x++){
-   const i=x+X*y+layer*z,hp=tiles[i];if(!(hp>0))continue;
-   const top=y===0||!tiles[i-X];
-   if(!top&&y<Y-1&&tiles[i+X]&&x>0&&tiles[i-1]&&x<X-1&&tiles[i+1]&&z>0&&tiles[i-layer]&&z<Z-1&&tiles[i+layer])continue;
-   o.position.set(x*TILE+6,HEIGHT-y*TILE-6,z*TILE+6);o.updateMatrix();mesh.setMatrixAt(k,o.matrix);
-   const grain=((i*13+(i>>3)*7)%43)/43;
-   c.setHex(top?p.top:p.rock).multiplyScalar((.87+grain*.14)*(hp<8?.68:hp<14?.84:1));
-   mesh.setColorAt(k++,c);
+const CHUNK=16,chunkWidth=CHUNK*TILE,chunkCols=Math.ceil(X/CHUNK),chunkRows=Math.ceil(Z/CHUNK);
+const faces=[
+ {n:[1,0,0],v:[1,0,0, 1,1,0, 1,1,1, 1,0,1]}, {n:[-1,0,0],v:[0,0,1, 0,1,1, 0,1,0, 0,0,0]},
+ {n:[0,1,0],v:[0,1,1, 1,1,1, 1,1,0, 0,1,0]}, {n:[0,-1,0],v:[0,0,0, 1,0,0, 1,0,1, 0,0,1]},
+ {n:[0,0,1],v:[0,0,1, 1,0,1, 1,1,1, 0,1,1]}, {n:[0,0,-1],v:[1,0,0, 0,0,0, 0,1,0, 1,1,0]}
+];
+const bitCounts=Uint8Array.from({length:64},(_,i)=>i.toString(2).replaceAll('0','').length);
+function chunkSurface(tiles,xc,zc,palette,masks){
+ const x0=xc*CHUNK,z0=zc*CHUNK,x1=Math.min(X,x0+CHUNK),z1=Math.min(Z,z0+CHUNK),layer=X*Y;
+ let count=0,slot=0;
+ for(let z=z0;z<z1;z++)for(let y=0;y<Y;y++)for(let x=x0;x<x1;x++){
+  const i=x+X*y+layer*z;let mask=0;
+  if(tiles[i]){
+   if(x===X-1||!tiles[i+1])mask|=1;if(x===0||!tiles[i-1])mask|=2;
+   if(y===0||!tiles[i-X])mask|=4;if(y===Y-1||!tiles[i+X])mask|=8;
+   if(z===Z-1||!tiles[i+layer])mask|=16;if(z===0||!tiles[i-layer])mask|=32;
   }
-  mesh.count=k;
-  mesh.instanceMatrix.clearUpdateRanges();mesh.instanceMatrix.addUpdateRange(0,k*16);mesh.instanceMatrix.needsUpdate=true;
-  if(mesh.instanceColor){mesh.instanceColor.clearUpdateRanges();mesh.instanceColor.addUpdateRange(0,k*3);mesh.instanceColor.needsUpdate=true}
+  masks[slot++]=mask;count+=bitCounts[mask];
+ }
+ if(!count)return null;
+ const position=new Float32Array(count*12),normal=new Int8Array(count*12),color=new Uint8Array(count*12),uv=new Uint8Array(count*8);
+ const index=count*4>65535?new Uint32Array(count*6):new Uint16Array(count*6);
+ const top=new THREE.Color(palette.top),stone=new THREE.Color(palette.rock);
+ let quad=0;slot=0;
+ for(let z=z0;z<z1;z++)for(let y=0;y<Y;y++)for(let x=x0;x<x1;x++){
+  const mask=masks[slot++];if(!mask)continue;
+  const i=x+X*(y+Y*z),hp=tiles[i],tint=(.87+((i*13+(i>>3)*7)%43)/43*.14)*(hp<8?.68:hp<14?.84:1);
+  for(let f=0;f<6;f++){
+   if(!(mask&(1<<f)))continue;
+   const {n,v}=faces[f],base=f===2?top:stone,r=Math.round(base.r*tint*255),g=Math.round(base.g*tint*255),b=Math.round(base.b*tint*255),k=quad*4;
+   for(let j=0;j<4;j++){
+    const a=(k+j)*3,j3=j*3;position[a]=(x+v[j3])*TILE;position[a+1]=HEIGHT+(v[j3+1]-y-1)*TILE;position[a+2]=(z+v[j3+2])*TILE;
+    normal[a]=n[0]*127;normal[a+1]=n[1]*127;normal[a+2]=n[2]*127;color[a]=r;color[a+1]=g;color[a+2]=b;
+    uv[(k+j)*2]=j===1||j===2?255:0;uv[(k+j)*2+1]=j>=2?255:0;
+   }
+   const ii=quad*6;index[ii]=k;index[ii+1]=k+1;index[ii+2]=k+2;index[ii+3]=k;index[ii+4]=k+2;index[ii+5]=k+3;quad++;
+  }
+ }
+ const geo=new THREE.BufferGeometry();
+ geo.setAttribute('position',new THREE.BufferAttribute(position,3));geo.setAttribute('normal',new THREE.BufferAttribute(normal,3,true));
+ geo.setAttribute('color',new THREE.BufferAttribute(color,3,true));geo.setAttribute('uv',new THREE.BufferAttribute(uv,2,true));geo.setIndex(new THREE.BufferAttribute(index,1));
+ geo.boundingSphere=new THREE.Sphere(new THREE.Vector3((x0+x1)*TILE/2,HEIGHT/2,(z0+z1)*TILE/2),Math.hypot((x1-x0)*TILE,HEIGHT,(z1-z0)*TILE)/2);
+ return geo;
+}
+function makeTerrain(scene){
+ const textureCanvas=document.createElement('canvas');textureCanvas.width=textureCanvas.height=32;
+ const c=textureCanvas.getContext('2d');c.fillStyle='#d7d7d7';c.fillRect(0,0,32,32);c.fillStyle='#fff';c.fillRect(1,1,30,30);
+ const map=new THREE.CanvasTexture(textureCanvas);map.colorSpace=THREE.SRGBColorSpace;
+ const material=new THREE.MeshStandardMaterial({map,vertexColors:true,roughness:.97});
+ const chunks=new Map(),masks=new Uint8Array(CHUNK*CHUNK*Y),radius=5,queue=[];
+ let previousTiles=null,previousPalette=null;
+ function discard(chunk){if(chunk.mesh){scene.remove(chunk.mesh);chunk.mesh.geometry.dispose()}}
+ return (state,p,camera)=>{
+  if(previousTiles!==state.tiles||previousPalette!==p){
+   for(const chunk of chunks.values())discard(chunk);
+   chunks.clear();previousTiles=state.tiles;previousPalette=p;
+  }
+  const cx=clamp(Math.floor(camera.position.x/chunkWidth),0,chunkCols-1),cz=clamp(Math.floor(camera.position.z/chunkWidth),0,chunkRows-1);
+  for(const [key,chunk] of chunks)if(Math.hypot(chunk.x-cx,chunk.z-cz)>radius+1){discard(chunk);chunks.delete(key)}
+  queue.length=0;
+  for(let z=Math.max(0,cz-radius);z<=Math.min(chunkRows-1,cz+radius);z++)for(let x=Math.max(0,cx-radius);x<=Math.min(chunkCols-1,cx+radius);x++){
+   const distance=(x-cx)**2+(z-cz)**2;if(distance>radius*radius)continue;
+   const key=x+chunkCols*z,version=state.changedChunks?.get(key)||0,old=chunks.get(key);
+   if(old&&old.version===version)continue;
+   queue.push({key,x,z,version,priority:distance-(old?.mesh?2:0)});
+  }
+  queue.sort((a,b)=>a.priority-b.priority);
+  // Complete the camera's neighborhood first. Empty cells and distant chunks can wait for another frame.
+  const start=performance.now();
+  for(let i=0;i<queue.length;i++){
+   const chunk=queue[i],old=chunks.get(chunk.key);if(old)discard(old);
+   const geo=chunkSurface(state.tiles,chunk.x,chunk.z,p,masks);
+   if(geo){chunk.mesh=new THREE.Mesh(geo,material);scene.add(chunk.mesh)}
+   chunks.set(chunk.key,chunk);
+   if(i>=2&&(performance.now()-start>5||i>=9))break;
+  }
+ };
+}
+function makeFamiliars(scene){
+ const pools=new Map(),palette={ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
+ function create(kind){
+  const root=joint(scene,0,0,0),body=joint(root,0,0,0),glow=mat(palette[kind],true),fins=[];
+  const badge=part(body,shape.ring,mat(0x8febff,true),0,-3.7,0,2.05);badge.rotation.x=Math.PI/2;
+  switch(kind){
+   case 'ember':{
+    part(body,shape.ball,mat(0xc95c35),0,0,0,4.4,2.8,2.8);part(body,shape.ball,mat(0xff9c55),2.7,1.2,0,2.3,2.6,2.45);
+    for(let i=0;i<3;i++){const spike=part(body,shape.cone,glow,1.6-i*2.15,3.15-i*.35,0,.85,2.8,1.12);spike.rotation.z=.45}
+    const tail=joint(body,-3.1,0,0);part(tail,shape.gem,glow,-2.2,.28,0,3.52,1.35,1.3);fins.push(tail);break;
+   }
+   case 'frost':{
+    part(body,shape.gem,mat(0x608ec6),0,0,0,3.7,1.6,1.45);part(body,shape.facet,mat(0x93d9ec),2.7,.5,0,1.75);
+    for(const side of [-1,1]){
+     const wing=joint(body,0,.7,side);fins.push(wing);
+     const front=part(wing,shape.gem,mat(0x7eccf0),.65,1,side*2.43,3.75,.45,3.6);front.rotation.y=-side*.43;
+     part(wing,shape.gem,glow,-2.2,.66,side*1.96,2.2,.4,2.6);
+    }break;
+   }
+   case 'medic':{
+    part(body,shape.ball,mat(0x69cb94),0,.7,0,3.7,3,3.35);part(body,shape.ring,glow,0,2.85,0,3.2).rotation.x=Math.PI/2;
+    part(body,shape.box,mat(0xfffbe1,true),3.55,1.2,0,.3,2.17,.7);part(body,shape.box,mat(0xfffbe1,true),3.56,1.2,0,.32,.7,2.04);
+    for(let i=0;i<4;i++){const a=i*TAU/4,leg=joint(body,Math.cos(a)*1.65,-1.32,Math.sin(a)*1.65);part(leg,shape.gem,glow,0,-1.61,0,.51,2.13,.51);fins.push(leg)}break;
+   }
+   case 'bastion':{
+    part(body,shape.facet,mat(0x7c6d9e),-.6,0,0,4.6,3.9,3.9);part(body,shape.ball,mat(0xb5b79e),3.38,-.21,0,2.45,1.75,2.03);
+    for(const side of [-1,1]){part(body,shape.gem,glow,-.2,1.12,side*2.88,1.72,1.9,.7);
+     const flipper=joint(body,.45,-1.24,side*2.85);part(flipper,shape.facet,mat(0xa0aa96),.85,-.25,side*1.14,1.82,.7,1.95);fins.push(flipper)}
+    part(body,shape.facet,mat(0xe2bd89),-.76,3,0,2.7,1.28,2.5);break;
+   }
+   case 'storm':{
+    part(body,shape.ball,mat(0x8587b4),0,.5,0,3.65,2.35,2.7);
+    for(const side of [-1,1])part(body,shape.ball,mat(0xb6aecb),.35,.37,side*1.95,2.51,1.63,1.82);
+    for(const [x,y,angle] of [[-.55,-1.92,.35],[-.3,-3.1,-.85],[-.13,-4.2,.41]])part(body,shape.box,glow,x,y,0,1.07,1.94,1.02).rotation.z=angle;
+    const ring=part(body,shape.ring,glow,0,.6,0,4.75);fins.push(ring);break;
+   }
+   case 'burrow':{
+    part(body,shape.ball,mat(0x846457),0,0,0,3.7,2.65,2.8);part(body,shape.ball,mat(0xba876b),2.43,.48,0,2.45,2.25,2.06);
+    const drill=joint(body,4.2,.13,0);part(drill,shape.cone,mat(0xe0be83),1.27,0,0,1.59,3.8,1.59).rotation.z=-Math.PI/2;fins.push(drill);
+    for(const side of [-1,1]){const claw=joint(body,.42,-.55,side*2.13);part(claw,shape.ball,mat(0xc5a184),.9,0,side*.65,2.58,.75,1.3);fins.push(claw)}break;
+   }
+  }
+  for(const sign of [-1,1]){
+   const x=kind==='bastion'?4.7:kind==='medic'?2.15:kind==='storm'?2.67:kind==='frost'?3.51:3.73;
+   const z=kind==='medic'?2.45:1.43;
+   part(body,shape.ball,mat(0xfff5da),x,1.05,sign*z,.62,.74,.6);
+   part(body,shape.ball,mat(0x1e2535),x+.42,1.1,sign*(z+.15),.26,.39,.28);
+  }
+  return {root,body,fins,badge};
+ }
+ return (familiars,players,t)=>{
+  for(const pool of pools.values())pool.used=0;
+  for(const f of familiars){
+   if(!(f.kind in palette))continue;
+   if(!pools.has(f.kind))pools.set(f.kind,{used:0,rigs:[]});const pool=pools.get(f.kind),i=pool.used++;
+   const rig=pool.rigs[i]??(pool.rigs[i]=create(f.kind)),phase=t*4+(f.id||0)*1.89;
+   const support=f.kind==='medic'||f.kind==='bastion';
+   let yaw=f.yaw;
+   if(!Number.isFinite(yaw)){let closest=Infinity;yaw=0;
+    for(const p of players){if(p.hp<=0||(p.side===f.side)!==support)continue;const dx=p.x-f.x,dz=p.z-f.z,d=dx*dx+dz*dz;if(d<closest){closest=d;yaw=Math.atan2(dz,dx)}}}
+   rig.root.visible=true;rig.root.position.set(f.x,HEIGHT-f.y+8+Math.sin(phase)*1.3,f.z);rig.root.rotation.y=-yaw;
+   rig.body.rotation.z=Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side?0xff9d93:0x8febff,true);
+   if(f.kind==='frost'||f.kind==='bastion')rig.fins.forEach((fin,j)=>{fin.rotation.x=(j?1:-1)*Math.sin(phase*(f.kind==='frost'?2.8:1.1))*.57});
+   else if(f.kind==='storm')rig.fins[0].rotation.set(.9,phase,phase*.27);
+   else if(f.kind==='burrow'){rig.fins[0].rotation.x=phase*2;rig.fins[1].rotation.z=Math.sin(phase)*.4;rig.fins[2].rotation.z=-Math.sin(phase)*.4}
+   else rig.fins.forEach((fin,j)=>{fin.rotation.y=Math.sin(phase+j)*.34;fin.rotation.z=Math.cos(phase+j)*.17});
+  }
+  for(const pool of pools.values())for(let i=pool.used;i<pool.rigs.length;i++)pool.rigs[i].root.visible=false;
  };
 }
 function makeSpellParts(scene){
@@ -291,7 +428,7 @@ export function makeRenderer(canvas){
  key.position.set(-250,530,210);scene.add(env,key);
  const rim=new THREE.DirectionalLight(0xa8e6ff,1.45);rim.position.set(80,130,-260);scene.add(rim);
  const title=makeTitle(scene),groundGroup=new THREE.Group();scene.add(groundGroup);
- const updateTerrain=makeTerrain(groundGroup),rigs=[],paintSpells=makeSpellParts(scene);
+ const updateTerrain=makeTerrain(groundGroup),rigs=[],paintSpells=makeSpellParts(scene),paintFamiliars=makeFamiliars(scene);
  let palette=null,logicalW=0,logicalH=0,oldDPR=0;
  const look=new THREE.Vector3(),eye=new THREE.Vector3(),target=new THREE.Vector3(),offset=new THREE.Vector3(),desired=new THREE.Vector3(),pos=new THREE.Vector3(),sideVec=new THREE.Vector3();
  const titleStart=new THREE.Vector3(),titleEnd=new THREE.Vector3(),titleBolt={},titleBursts=[];
@@ -334,7 +471,7 @@ export function makeRenderer(canvas){
   }
   const p=worlds[state?.map]||worlds['Bellfall Keep'];
   if(p!==palette){sky.update(p);scene.fog.color.setHex(p.haze);palette=p}
-  const demo=!state||!state.players?.length;title.visible=demo;groundGroup.visible=!demo;
+  const demo=!state||!state.players?.length;title.visible=demo;groundGroup.visible=!demo;sky.layout(demo);
   const players=demo?[{x:395,y:420,z:192,side:0,hp:100,yaw:.27,aim:-.1},{x:565,y:420,z:192,side:1,hp:100,yaw:Math.PI-.27,aim:-.1}]:state.players;
   const clock=demo?time*.52:time,cycle=clock%4,hideLocal=demo?false:moveCamera(state,players[me]||players[0],yaw,pitch);
   const demoScale=1.74;
@@ -342,7 +479,8 @@ export function makeRenderer(canvas){
    const framing=Math.max(1,1.55/camera.aspect),distance=141*framing;
    camera.position.set(480+Math.sin(clock*.17)*9,152+29*framing,192+distance);
    camera.lookAt(480,143,192);
-  }else updateTerrain(state.tiles,state.terrainVersion,p);
+  }else updateTerrain(state,p,camera);
+  paintFamiliars(demo?[]:state.summons||[],players,clock);
   sky.sky.position.copy(camera.position);sky.glitter.position.copy(camera.position);
   for(let i=0;i<players.length;i++){
    const a=players[i],r=getRig(i,a.side||0);r.root.visible=a.hp>0&&!(hideLocal&&i===me);r.grounding.visible=r.root.visible;
