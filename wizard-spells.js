@@ -1,6 +1,7 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=eight-summons';
+import {extraSpells} from './wizard-extra-spells.js?v=companions';
+export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity']);
 export const spellRadius = radius => radius * 1.12;
 
 const color = {
@@ -406,7 +407,7 @@ const familiars = [
   ['quarry-mole','Quarry Mole','⛰',31,.7,'burrow','Chases enemies, chewing through blocks and hurting enemies with close-range pulses.']
 ].map(([id,name,symbol,cost,time,kind,behavior])=>
   spell('Summoning',id,name,symbol,cost,time,
-    behavior+' Your familiar has 28 health and lasts '+(cost>=50?14:12)+' seconds. You can keep three familiars at once.',
+    behavior+' This creature has 28 health and lasts '+(cost>=50?14:12)+' seconds.',
     (api,p)=>api.summon(p,kind,cost>=50?14:12)));
 
 const hexArts = [
@@ -739,8 +740,19 @@ const arsenal=[
     (a,p)=>{a.status(p,'crowned',10);mark(a,p,'Restoration',72)})
 ];
 
+const creatureSpells = new Map([
+ ['grave-squire','summon'],['crypt-bow','summon'],['soul-wraith','summon'],
+ ['bone-pincer','summon'],['fletchers-roost','summon'],['grave-relay','summon'],
+ ['last-battalion','mixed'],['summon-purple-wurm','summon'],['summon-void-entity','summon'],
+ ...['ember-newt','rime-owl','balm-beetle','bastion-crab','storm-finch','quarry-mole','wild-hunt','winter-court','frost-kennel','traveling-infirmary','ember-courier','mole-survey','thunder-brood'].map(id=>[id,'familiar'])
+]);
 export const SPELLS = [...damage, ...ranged, ...boost, ...healing, ...shields, ...evocationArts,
   ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal, ...extraSpells()]
-  .map(entry => entry.cost >= 50
-    ? { ...entry, grand: true }
-    : entry);
+  .map(entry => {
+   const type=creatureSpells.get(entry.id);
+   const cost=type&&type!=='familiar'?Math.ceil(entry.cost*1.25):entry.cost;
+   const rules=type==='summon'?' Summon: hunts enemies, can be killed, and has no number limit.'
+     :type==='familiar'?' Familiar: stays near you, with at most three familiars at once.'
+     :type==='mixed'?' The squire and archer are uncapped summons. The medic stays near you and uses one of your three familiar slots.':'';
+   return {...entry,cost,grand:cost>=50,description:entry.description+rules};
+ });
