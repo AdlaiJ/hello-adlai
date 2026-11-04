@@ -1,7 +1,7 @@
-import {makeCastPainter} from './wizard-casting.js?v=quarry-cast';
-import {SPELLS} from './wizard-spells.js?v=quarry-cast';
+import {makeCastPainter} from './wizard-casting.js?v=monster-outfits';
+import {SPELLS} from './wizard-spells.js?v=monster-outfits';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
-import {makeProjectileArt} from './wizard-projectile-art.js?v=quarry-cast';
+import {makeProjectileArt} from './wizard-projectile-art.js?v=monster-outfits';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
@@ -59,7 +59,7 @@ function halo(parent,color,size,x=0,y=0,z=0){
  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({color,map:haloTexture(),transparent:true,opacity:.7,depthWrite:false,blending:THREE.AdditiveBlending}));
  sprite.position.set(x,y,z);sprite.scale.set(size,size,1);parent.add(sprite);return sprite;
 }
-function makeWizard(parent,side){
+function makeWizard(parent,side,outfit){
  const p=themes[side?1:0],root=joint(parent,0,0,0),pelvis=joint(root,0,7,0),chest=joint(pelvis,0,1,0);
  part(chest,shape.robe,mat(p.cloth),0,-2.4,0,4.2,9.7,5.05);
  part(chest,shape.robe,mat(p.hem),0,-2.6,0,4.27,.85,5.14);
@@ -82,7 +82,7 @@ function makeWizard(parent,side){
  part(head,shape.ball,mat(p.skin),3.1,-.15,0,1.04,.82,.94);
  const beard=part(head,shape.cone,mat(p.hair),1.8,-2.52,0,2.5,4.8,2.25);beard.rotation.z=Math.PI+.22;
  for(const z of [-1,1]){const moustache=part(head,shape.ball,mat(p.hair),2.93,-1.05,z,1.05,.47,1.35);moustache.rotation.x=z*.17}
- const hat=costume(head,chest,side),legs=[],arms=[];
+ const hat=costume(head,chest,outfit),legs=[],arms=[];
  for(const sign of [-1,1]){
   const hip=joint(pelvis,0,-.7,sign*2.2);
   part(hip,shape.pole,mat(p.dark),0,-1.8,0,1.85,3.8,2.1);
@@ -108,7 +108,7 @@ function makeWizard(parent,side){
  part(gauge,shape.box,mat(0x252435,true),0,0,0,12,1.4,.18);
  const hpBar=part(gauge,shape.box,mat(side?0xffa695:0x8ef3e3,true),0,0,.13,11.4,.8,.13);
  const grounding=part(parent,new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x282537,map:haloTexture(),transparent:true,opacity:.59,depthWrite:false}),0,0,0,21,17,1);grounding.rotation.x=-Math.PI/2;
- return {p,side,root,pelvis,chest,head,hat,cape,scarf,legs,arms,wand,crystal,light,shield,grounding,wisps,wispMat,gauge,hpBar};
+ return {p,side,outfit,root,pelvis,chest,head,hat,cape,scarf,legs,arms,wand,crystal,light,shield,grounding,wisps,wispMat,gauge,hpBar};
 }
 function updateArmament(r,p,time){
  const weapon=p.weapon,model=meleeModels.get(weapon?.id);
@@ -385,10 +385,10 @@ function makeFamiliars(scene){
   }
   return {root,body,fins,badge};
  }
- return (familiars,players,t)=>{
+ return (familiars,players,t,camera)=>{
   for(const pool of pools.values())pool.used=0;
   for(const f of familiars){
-   if(!(f.kind in palette))continue;
+   if(f.hp<=0||!(f.kind in palette))continue;
    if(!pools.has(f.kind))pools.set(f.kind,{used:0,rigs:[]});const pool=pools.get(f.kind),i=pool.used++;
    const rig=pool.rigs[i]??(pool.rigs[i]=create(f.kind)),phase=t*4+(f.id||0)*1.89;
    const support=f.kind==='medic'||f.kind==='bastion';
@@ -396,6 +396,17 @@ function makeFamiliars(scene){
    if(!Number.isFinite(yaw)){let closest=Infinity;yaw=0;
     for(const p of players){if(p.hp<=0||(p.side===f.side)!==support)continue;const dx=p.x-f.x,dz=p.z-f.z,d=dx*dx+dz*dz;if(d<closest){closest=d;yaw=Math.atan2(dz,dx)}}}
    rig.root.visible=true;rig.root.position.set(f.x,HEIGHT-f.y+8+Math.sin(phase)*1.3,f.z);rig.root.rotation.y=-yaw;
+   rig.root.scale.setScalar(f.monster?2.15:1);
+   rig.root.position.y+=f.monster?4:0;
+   if(!rig.health){
+    rig.health=joint(rig.root,0,9,0);part(rig.health,shape.box,mat(0x282538,true),0,0,0,9,1,.2);
+    rig.fill=part(rig.health,shape.box,mat(0xff8273,true),0,0,.15,8.7,.7,.15);
+   }
+   rig.health.visible=f.hp<f.maxHp;
+   if(rig.health.visible){
+    rig.health.rotation.y=yaw;rig.health.quaternion.multiply(camera.quaternion);
+    const ratio=f.hp/f.maxHp;rig.fill.scale.x=8.7*ratio;rig.fill.position.x=4.35*(ratio-1);
+   }
    rig.body.rotation.z=Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side?0xff9d93:0x8febff,true);
    if(f.kind==='frost'||f.kind==='bastion')rig.fins.forEach((fin,j)=>{fin.rotation.x=(j?1:-1)*Math.sin(phase*(f.kind==='frost'?2.8:1.1))*.57});
    else if(f.kind==='storm')rig.fins[0].rotation.set(.9,phase,phase*.27);
@@ -556,9 +567,9 @@ function makeSpellParts(scene){
   });
  };
 }
-function costume(head,chest,side){
+function costume(head,chest,outfit){
  const hat=joint(head,-.22,2.5,0);
- if(!side){
+ if(outfit%3===0){
   const metal=new THREE.MeshStandardMaterial({color:0xb9ccd1,metalness:.55,roughness:.33});
   part(hat,new THREE.SphereGeometry(1,18,9,0,TAU,0,Math.PI/2),metal,0,0,0,4.1,3.35,4.35);
   const rim=part(hat,shape.ring,metal,0,.02,0,4.3);rim.rotation.x=Math.PI/2;
@@ -569,19 +580,33 @@ function costume(head,chest,side){
   }
   const spoon=joint(hat,-1.4,2.3,-.1);spoon.rotation.z=.39;
   part(spoon,shape.pole,metal,0,2.4,0,.45,5,.45);part(spoon,shape.ball,metal,0,5.9,0,1.02,1.73,.34);
+ }else if(outfit%3===2){
+  part(hat,shape.pole,mat(0xf1dfac),0,1,0,6,3,6);
+  for(let j=0;j<7;j++){const a=j*TAU/7;part(hat,shape.ball,mat(0xfff3cf),2.1*Math.cos(a),3.6,2.1*Math.sin(a),2,2.7,2)}
+ }
+ if(Math.floor(outfit/3)===0){
   const duck=joint(chest,0,.18,0),gold=mat(0xffcd3e);
   const tube=part(duck,new THREE.TorusGeometry(4.65,1.32,8,20),gold,0,0,0,1.04,1,1.12);tube.rotation.x=Math.PI/2;
   part(duck,shape.ball,gold,4.38,1.25,0,1.65,2.05,1.65);
   part(duck,shape.ball,gold,4.78,2.48,0,2.15,1.83,1.98);
   part(duck,shape.ball,mat(0xfc7c35),6.65,2.16,0,1.43,.52,1.4);
   for(const z of [-1,1])part(duck,shape.ball,mat(0x34283b),5.48,2.96,z*1.64,.33);
- }else{
+ }
+ if(outfit%3===1){
   const orange=mat(0xff7b3c),ivory=mat(0xffe1b4);
   part(hat,shape.box,orange,0,.2,0,8.85,.75,8.5);
   for(const [low,high,r0,r1,m] of [[.5,3.9,3.6,2.53,orange],[3.9,5.8,2.53,1.99,ivory],[5.8,7.7,1.99,1.4,orange],[7.7,8.8,1.4,1.06,ivory],[8.8,11,1.06,.38,orange]]){
    part(hat,new THREE.CylinderGeometry(r1,r0,high-low,16),m,0,(low+high)/2,0,1);
   }
   hat.rotation.z=.095;
+ }
+ if(Math.floor(outfit/3)===2){
+  for(const sign of [-1,1]){
+   const bow=part(chest,shape.cone,mat(0x9dea55),3.9,5.8,sign*1.9,2,3.6,2);
+   bow.rotation.x=-sign*Math.PI/2;
+  }
+  part(chest,shape.ball,mat(0xe155b9),4,5.8,0,1.1);
+ }else if(Math.floor(outfit/3)===1){
   for(let j=0;j<2;j++)for(let i=0;i<13;i++){
    const a=i*TAU/13+j*.19;
    const petal=part(chest,shape.ball,mat((i+j)%2?0xff81b8:0xdb61ac),Math.cos(a)*(4.08+j*.75),-.25-j*.62,Math.sin(a)*(4.78+j*.65),2.7,.64,1.88);
@@ -605,10 +630,10 @@ export function makeRenderer(canvas){
  let palette=null,logicalW=0,logicalH=0,oldDPR=0;
  const look=new THREE.Vector3(),eye=new THREE.Vector3(),target=new THREE.Vector3(),offset=new THREE.Vector3(),desired=new THREE.Vector3(),pos=new THREE.Vector3(),sideVec=new THREE.Vector3();
  const titleStart=new THREE.Vector3(),titleEnd=new THREE.Vector3(),titleBolt={},titleBursts=[];
- function getRig(index,side){
-  if(!rigs[index]||rigs[index].side!==side){
+ function getRig(index,side,outfit){
+  if(!rigs[index]||rigs[index].side!==side||rigs[index].outfit!==outfit){
    if(rigs[index]){scene.remove(rigs[index].root,rigs[index].grounding,rigs[index].gauge)}
-   rigs[index]=makeWizard(scene,side);
+   rigs[index]=makeWizard(scene,side,outfit);
   }
   return rigs[index];
  }
@@ -622,7 +647,7 @@ export function makeRenderer(canvas){
   // Converge the crosshair on the first surface intersected by the actual cast ray.
   let range=480;
   for(let d=8;d<range;d+=4){pos.copy(eye).addScaledVector(look,d);if(blocked(tiles,pos.x,pos.y,pos.z)){range=d;break}}
-  for(const q of state.players){
+  for(const q of state.players.concat(state.summons||[])){
    if(q===p||q.hp<=0)continue;
    pos.set(q.x,HEIGHT-q.y+13,q.z).sub(eye);const along=pos.dot(look);
    if(along<0||along>range)continue;pos.addScaledVector(look,-along);
@@ -653,10 +678,14 @@ export function makeRenderer(canvas){
    camera.position.set(480+Math.sin(clock*.17)*9,152+29*framing,192+distance);
    camera.lookAt(480,143,192);
   }else updateTerrain(state,p,camera);
-  paintFamiliars(demo?[]:state.summons||[],players,clock);
+  const creatures=demo?[]:[...(state.summons||[])];
+  for(const a of players)if(a.monster&&a.hp>0)creatures.push({...a,kind:a.monster});
+  paintFamiliars(creatures,players,clock,camera);
   sky.sky.position.copy(camera.position);sky.glitter.position.copy(camera.position);
   for(let i=0;i<players.length;i++){
-   const a=players[i],r=getRig(i,a.side||0);r.root.visible=a.hp>0&&!(hideLocal&&i===me);r.grounding.visible=r.root.visible;
+   const a=players[i];
+   if(a.monster){if(rigs[i]){rigs[i].root.visible=false;rigs[i].grounding.visible=false;rigs[i].gauge.visible=false}continue}
+   const r=getRig(i,a.side||0,a.outfit??(a.side?4:0));r.root.visible=a.hp>0&&!(hideLocal&&i===me);r.grounding.visible=r.root.visible;
    r.gauge.visible=r.root.visible&&!demo&&i!==me&&a.hp<a.maxHp;
    if(!r.root.visible)continue;
    const cast=demo?(Math.cos((cycle-i*2)*Math.PI/2)*.5+.5):(a.cast>0?1:a.store>=0?.45:0);
@@ -667,7 +696,7 @@ export function makeRenderer(canvas){
     let j=jStart;while(j<Y&&!state.tiles[cx+X*(j+Y*cz)])j++;r.grounding.visible=j<Y&&j-jStart<9;floor=HEIGHT-j*TILE;}
    r.grounding.position.set(a.x,floor+.28,a.z);r.grounding.scale.set(demo?42:20,demo?32:16,1);
   }
-  for(let i=players.length;i<rigs.length;i++){rigs[i].root.visible=false;rigs[i].grounding.visible=false;rigs[i].gauge.visible=false}
+  for(let i=players.length;i<rigs.length;i++){if(!rigs[i])continue;rigs[i].root.visible=false;rigs[i].grounding.visible=false;rigs[i].gauge.visible=false}
   if(demo){
    const from=cycle<2?0:1,to=1-from,phase=(cycle%2)/2,progress=clamp((phase-.09)/.72,0,1);
    rigs[from].crystal.getWorldPosition(titleStart);rigs[to].chest.getWorldPosition(titleEnd);titleEnd.y+=10;

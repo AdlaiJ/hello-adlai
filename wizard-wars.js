@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=quarry-cast';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=quarry-cast';
+import {SPELLS} from './wizard-spells.js?v=monster-outfits';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=monster-outfits';
 
 import {markChangedChunk,T} from './wizard-world.js';
 import {openRoom} from './wizard-room.js';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=quarry-cast');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=monster-outfits');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,connected=false,code='',selected=[],locked=false,other=null,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -97,7 +97,7 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   const distance=q=>Math.hypot(q.x-p.x,q.z-p.z),rival=rivals.reduce((a,b)=>distance(a)<distance(b)?a:b);
   const turn=Math.atan2(rival.z-p.z,rival.x-p.x)-yaw;
   const bearing=['ahead','ahead right','right','behind right','behind','behind left','left','ahead left'][(Math.round(turn/(Math.PI/4))%8+8)%8];
-  $('opponent').textContent+=' · Rival '+Math.round(distance(rival)/T)+' blocks '+bearing;
+  $('opponent').textContent+=' · '+(rival.monster?'Monster ':'Rival ')+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
  $('signal').textContent=armed?'STORE · Choose a spell':p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
  selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='quarry-volley'&&p.blocks?.length)b.textContent='Click to fire · '+p.blocks.length+' blocks';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}

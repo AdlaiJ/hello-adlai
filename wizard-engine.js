@@ -9,7 +9,7 @@ export function createGame(settings,loadouts,mode){
  const dirty=new Set();s.terrainVersion=0;
  const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
  function actor(side,x,ids,bot=false){
-  const p={side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,castingAngle:0,statuses:{},bot,ground:false,brain:1};
+  const p={outfit:Math.floor(Math.random()*9),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,castingAngle:0,statuses:{},bot,ground:false,brain:1};
   inputs.push({strafe:0,move:0,jump:false});s.players.push(p);return p;
  }
  actor(0,midX-300,loadouts[0]);
@@ -32,6 +32,7 @@ export function createGame(settings,loadouts,mode){
   n*=p.statuses.armor>0?.5:1;
   const spent=Math.min(n,p.shield);p.shield-=spent;p.hp=Math.max(0,p.hp-n+spent);
   if(p.hp===0&&p.statuses.crowned>0){p.hp=1;p.statuses.crowned=0;api.status(p,'phased',1);fx(p.x,p.y-12,48,'#ffdd75','burst',p.z)}
+  if(p.kind&&n>spent)fx(p.x,p.y-10,p.hp===0?21:6,p.hp===0?'#ffbb66':'#fff2c5','burst',p.z);
   if(n>spent)p.lastInjury=(p.lastInjury||0)+1;
   if(spent&&p.statuses.capacitor>0)p.mana=Math.min(p.maxMana,p.mana+spent);
   if(spent&&p.statuses.polar>0)for(const q of enemies(p))if(Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<=spellRadius(72))api.status(q,'slow',2);
@@ -62,7 +63,7 @@ export function createGame(settings,loadouts,mode){
    p.liftedAt=s.time;
   },
   spike:(owner,x,y,z)=>s.zones.push({p:owner,x,y,z,r:spellRadius(24),life:14,hp:18,style:'spikes',color:'#f3dfa7'}),
-  occupants:()=>s.players.filter(q=>q.hp>0),
+  occupants:()=>s.players.concat(s.summons).filter(q=>q.hp>0),
   surface:(x,z,y)=>{for(let j=clamp(Math.floor(y/T),0,H-1);j<H;j++)if(solid(x,j*T,z)&&!solid(x,j*T-1,z))return j*T;return null},
   bone:(x,y,z)=>{if(x<0||x>=W*T||z<0||z>=D*T||y<0||y>=H*T||solid(x,y,z))return;
    if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-x)<17&&Math.abs(q.z-z)<17&&Math.abs(q.y-12-y)<24))setBlock(index(x,y,z),176)},
@@ -92,6 +93,7 @@ export function createGame(settings,loadouts,mode){
    f.time+=dt;f.pulse-=dt;
    for(const k of Object.keys(f.statuses))f.statuses[k]=Math.max(0,f.statuses[k]-dt);
    if(f.statuses.burn>0)damage(f,dt*6);
+   if(f.hp<=0)continue;
    const dist=q=>Math.hypot(q.x-f.x,q.y-f.y,q.z-f.z);
    const foe=enemies(f).reduce((best,q)=>!best||dist(q)<dist(best)?q:best,null);
    const support=f.kind==='medic'||f.kind==='bastion',chasing=!support&&foe&&dist(foe)<400;
@@ -175,7 +177,8 @@ export function createGame(settings,loadouts,mode){
  function spawn(){
   const pool=SPELLS.filter(sp=>['glass-fan','north-star','corner-pocket','root-needle'].includes(sp.id)&&sp.cost<=maxMana);
   const wizard=s.players[0],bearing=wizard.yaw+(Math.random()-.5)*1.8,range=mode==='sandbox'?150:340+Math.random()*110;
-  const p=actor(1,clamp(wizard.x+range*Math.cos(bearing),18,W*T-18),[SPELLS[0].id,...pool.slice(0,Math.min(4,s.wave)).map(v=>v.id)],true);
+  const p=actor(1,clamp(wizard.x+range*Math.cos(bearing),18,W*T-18),['witchspark',...pool.slice(0,Math.min(4,s.wave)).map(v=>v.id)],true);
+  if(mode==='waves')p.monster=['ember','burrow','wraith','bastion'][(s.players.length+s.wave)%4];
   p.z=clamp(wizard.z+range*Math.sin(bearing),18,D*T-18);
   p.y=120;
   while(p.y<480&&!blocked(p.x,p.y+4,p.z))p.y+=4;
@@ -258,6 +261,6 @@ export function createGame(settings,loadouts,mode){
   else if(mode==='multi'&&s.players[1].hp<=0)s.over='Blue wizard wins';
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
  }
- function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time})=>({id,kind,side,x,y,z,time})),players:s.players.map(({brain,castingAngle,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp})=>({x,y,z,r,color,style,hp})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time,hp,maxHp,yaw})=>({id,kind,side,x,y,z,time,hp,maxHp,yaw})),players:s.players.map(({brain,castingAngle,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp})=>({x,y,z,r,color,style,hp})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlock,input,tick,snapshot,spawn};
 }
