@@ -1,7 +1,7 @@
-import {makeCastPainter} from './wizard-casting.js?v=quarry-volley';
-import {SPELLS} from './wizard-spells.js?v=quarry-volley';
+import {makeCastPainter} from './wizard-casting.js?v=quarry-cast';
+import {SPELLS} from './wizard-spells.js?v=quarry-cast';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
-import {makeProjectileArt} from './wizard-projectile-art.js?v=quarry-volley';
+import {makeProjectileArt} from './wizard-projectile-art.js?v=quarry-cast';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 

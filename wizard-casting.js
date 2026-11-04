@@ -8,7 +8,7 @@ function formation(motion, entries) {
 }
 formation('fountain', 'witchspark:ffe36c bottle-rocket:ff964a thermal-font:87ffeb roman-candle:ff6375 vault-kick:dcff72 second-sun:ffc453');
 formation('orbit', 'north-star:9acfff corner-pocket:75f7be catherine-wheel:ff8171 winter-ring:9feaff moonwalk:c1baff wild-hunt:c3f583 dawn-coronation:ffdb72');
-formation('fault', 'fault-stitch:f5d95f fork-lightning:9cefff quarry-auger:d89963 worldbreaker:ffb554 fault-cross:f48356 unlace:c0a4ff');
+formation('fault', 'fault-stitch:f5d95f fork-lightning:9cefff quarry-volley:bf9e72 quarry-auger:d89963 worldbreaker:ffb554 fault-cross:f48356 unlace:c0a4ff');
 formation('bloom', 'kiln-heart:ff783b crater-bell:eeb971 airburst:fff4a0 overbloom:f789dd heartwood:95dc71 aegis-break:be90ff phoenix-vigil:ffaf38');
 formation('ribs', 'grave-squire:d3e4a8 rampart:bdadff bone-wall:f6deb1 bone-spikes:e4d5c5 hedge-hospice:81c76f rising-stair:ffc870 sky-shutter:a4e8f8 last-citadel:d8acff');
 formation('weave', 'green-thread:80efb8 last-stitch:b4ffbb glass-graft:9af9ea root-needle:99d981 safety-net:f7b8ff field-dressing:f9c9ad tripwire:ff9bd9');

@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=quarry-volley';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=quarry-volley';
+import {SPELLS} from './wizard-spells.js?v=quarry-cast';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=quarry-cast';
 
 import {markChangedChunk,T} from './wizard-world.js';
 import {openRoom} from './wizard-room.js';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=quarry-volley');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=quarry-cast');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,connected=false,code='',selected=[],locked=false,other=null,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
