@@ -83,5 +83,42 @@ export function makeSpellModels({joint,part,shape,mat}){
  'unholy-exchange':g=>{shield(g,red,-.42,.14);shield(g,ice,.42,-.14);box(g,gold,0,.44,.76,.05,.08);piece(g,'cone',gold,.4,.44,0,.09,.22,.09,-Math.PI/2)},
  'court-of-thorns':g=>{crown(g,0x6c4054);for(let i=-3;i<=3;i++)piece(g,'cone',pink,i*.19,-.20,0,.07,.40,.07,i*.26+Math.PI)}
  };
+
+ models['cone-of-cold']=g=>{cluster(g,5,(_,a)=>{const shard=joint(g,0,0,0);shard.rotation.z=a;gem(shard,ice,.3,0,.11,.8)});return u=>g.rotation.x=u*3};
+ models['cone-of-fire']=g=>{for(let i=0;i<4;i++)fire(g,i*.22-.3,Math.sin(i)*.16);return u=>g.scale.y=1+u*.5};
+ models['incendiary-volley']=g=>{oval(g,red,0,0,.55,.4,.4);for(let i=0;i<4;i++)fire(g,-i*.22,0)};
+ models['comet']=g=>{oval(g,ice,0,0,.7,.65,.65);for(let i=1;i<6;i++)gem(g,i%2?0x757dff:white,-i*.3,0,.3-i*.035,.7-i*.07)};
+ models['void-orb']=g=>{oval(g,ink,0,0,.7,.7,.7);rim(g,0xa787ff,0,0,.8,.8)};
+ models['comet-crater']=g=>{const ring=rim(g,ice,0,0,1,1);ring.rotation.x=Math.PI/2;cluster(g,10,(_,a)=>gem(g,ice,.8*Math.cos(a),.12,.08,.3));};
+ models['tentacle-field']=g=>{
+  const tips=[];
+  cluster(g,9,(i,a)=>{
+   const tentacle=joint(g,Math.cos(a)*.7,.02,Math.sin(a)*.7);tips.push(tentacle);
+   for(let j=0;j<5;j++)piece(tentacle,'ball',0x7843a6,Math.sin(j*.6)*.1,j*.12,0,.10-j*.014,.17-j*.015,.10-j*.014);
+  });
+  return u=>tips.forEach((tip,i)=>{tip.rotation.z=Math.sin(u*9+i)*.3;tip.rotation.x=Math.cos(u*8+i)*.2});
+ };
+ models['demon-arm']=g=>{
+  const portal=joint(g,0,.65,-.65);piece(portal,'ring',0xb14eff,0,0,0,.64,.64,.1,0,true);
+  const arm=joint(g,0,.6,-.55);
+  piece(arm,'ball',0x8e273a,0,0,.35,.30,.32,.75);
+  piece(arm,'ball',0xc34648,0,-.04,.85,.32,.30,.5);
+  piece(arm,'box',0xa33145,0,-.08,1.10,.48,.28,.37);
+  for(let i=-2;i<=2;i++)piece(arm,'cone',bone,i*.10,-.20,1.27,.05,.30,.06,.15);
+  return u=>{arm.scale.z=Math.min(1,u*4);arm.rotation.x=-.8+Math.min(1,u*2)*1.2;portal.rotation.z=u*2};
+ };
+ models['purple-wurm']=g=>{
+  const segments=[];
+  for(let i=0;i<7;i++){const seg=joint(g,-i*.42,Math.sin(i*.5)*.15,0);segments.push(seg);oval(seg,0x8751bb,0,0,.48-i*.035,.5-i*.04,.5-i*.04)}
+  const jaw=rim(g,bone,.42,0,.45,.45);jaw.rotation.y=Math.PI/2;
+  cluster(g,9,(_,a)=>piece(g,'cone',bone,.55,Math.sin(a)*.3,Math.cos(a)*.3,.07,.22,.07,-Math.PI/2));
+  return u=>segments.forEach((seg,i)=>seg.position.z=Math.sin(u*7-i*.7)*.17);
+ };
+ models['void-entity']=g=>{
+  oval(g,0x191129,0,.5,.6,.8,.6);gem(g,0xc7a4ff,.49,.6,.12,.27);
+  const orbit=joint(g,0,.5,0);
+  cluster(orbit,6,(_,a)=>piece(orbit,'gem',0x8855bd,Math.cos(a)*.9,Math.sin(a)*.4,Math.sin(a)*.8,.15,.5,.17,0,true));
+  return u=>{orbit.rotation.y=u*4;g.position.y=Math.sin(u*3)*.18};
+ };
  return models;
 }

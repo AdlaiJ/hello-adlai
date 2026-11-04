@@ -1,6 +1,6 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=named-magic';
+import {makeSpellModels} from './wizard-spell-models.js?v=eight-summons';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=grand-power';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=eight-summons';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -318,11 +318,16 @@ function makeTerrain(scene){
  };
 }
 function makeFamiliars(scene){
- const pools=new Map(),palette={squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
+ const creatureModels=makeSpellModels({joint,part,shape,mat});
+ const pools=new Map(),palette={'purple-wurm':0xb983ef,'void-entity':0x9a8bff,squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
  function create(kind){
   const root=joint(scene,0,0,0),body=joint(root,0,0,0),glow=mat(palette[kind],true),fins=[];
   const badge=part(body,shape.ring,mat(0x8febff,true),0,-3.7,0,2.05);badge.rotation.x=Math.PI/2;
   switch(kind){
+   case 'purple-wurm':case 'void-entity':{
+    const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='purple-wurm'?16:19);
+    body.userData.pose=creatureModels[kind](creature);break;
+   }
    case 'squire':case 'archer':case 'wraith':{
     const bone=mat(0xe1d4ae),shade=mat(0x293348);
     part(body,shape.ball,bone,0,5,0,2.5,2.45,2.4);
@@ -411,7 +416,7 @@ function makeFamiliars(scene){
     rig.health.rotation.y=yaw;rig.health.quaternion.multiply(camera.quaternion);
     const ratio=f.hp/f.maxHp;rig.fill.scale.x=8.7*ratio;rig.fill.position.x=4.35*(ratio-1);
    }
-   rig.body.rotation.z=Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
+   rig.body.userData.pose?.(t);rig.body.rotation.z=Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
    if(f.kind==='frost'||f.kind==='bastion')rig.fins.forEach((fin,j)=>{fin.rotation.x=(j?1:-1)*Math.sin(phase*(f.kind==='frost'?2.8:1.1))*.57});
    else if(f.kind==='storm')rig.fins[0].rotation.set(.9,phase,phase*.27);
    else if(f.kind==='burrow'){rig.fins[0].rotation.x=phase*2;rig.fins[1].rotation.z=Math.sin(phase)*.4;rig.fins[2].rotation.z=-Math.sin(phase)*.4}
@@ -531,7 +536,7 @@ function makeSpellParts(scene){
     let patch=b.scenery.get(z.style);
     if(!patch){
      patch=joint(b.root,0,0,0);b.scenery.set(z.style,patch);patch.userData.zoneStyle=z.style;
-     if(models[z.style])models[z.style](patch);
+     if(models[z.style])patch.userData.pose=models[z.style](patch);
      else if(z.style==='cleaver-shrine'){
       const lacquer=mat(0x92192c),tile=mat(0x241e2b),bone=mat(0xe4cdaf);
       part(patch,shape.ring,mat(0xcc2442,true),0,.008,0,1,1,.12).rotation.x=Math.PI/2;
@@ -599,6 +604,7 @@ function makeSpellParts(scene){
       if(tile)pool.position.set((tile.x-z.x)/z.r,(z.y-tile.y+.5)/z.r,(tile.z-z.z)/z.r);
      });
     }
+    patch.userData.pose?.(z.style==='demon-arm'?(2.4-z.life)/2.4:t);
     if(z.style==='nest')patch.scale.y=1+.09*Math.sin(t*TAU/.6);
     if(z.style==='wind')patch.rotation.y=t*2;
     if(patch.userData.hand)patch.userData.hand.rotation.y=-t*TAU;

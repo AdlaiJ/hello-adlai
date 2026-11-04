@@ -82,5 +82,50 @@ export function extraSpells(){
  add('Echo Tax','♬',78,1,'Mark nearby enemies. After two seconds, each surviving marked enemy takes damage equal to its distance traveled, up to 38.',(a,p)=>{const marks=near(a,p,104).map(q=>[q,q.x,q.z]);timer(a,p,2,2,()=>{for(const [q,x,z] of marks)if(q.hp>0)a.hurt(q,Math.min(38,Math.hypot(q.x-x,q.z-z)))},'#fc91bf','echo-tax')});
  add('Unholy Exchange','⇄',98,1.1,'Trade your current shield amount with the closest enemy within 127 units.',(a,p)=>{const dist=q=>Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z);const q=near(a,p,127).sort((x,y)=>dist(x)-dist(y))[0];if(q)[p.shield,q.shield]=[q.shield,p.shield]});
  add('Court of Thorns','♰',365,3.2,'For six seconds, enemies within 115 units of the original court take 6 damage per second, or 16 if rooted.',(a,p)=>timer(a,p,6,1,(w,o,x,y,z)=>{for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<=115)w.hurt(q,q.statuses.root>0?16:6)},'#ff779e','court-of-thorns'));
+
+ function cone(a,p,pitch,cold){
+  const reach=125,spread=.6,dx=Math.cos(pitch)*Math.cos(p.yaw),dy=Math.sin(pitch),dz=Math.cos(pitch)*Math.sin(p.yaw);
+  for(const q of a.enemies(p)){
+   const x=q.x-p.x,y=q.y-p.y,z=q.z-p.z,d=Math.hypot(x,y,z);
+   if(d>reach||d>0&&(x*dx+y*dy+z*dz)/d<Math.cos(spread)||!a.clearLine(p,q))continue;
+   a.hurt(q,cold?24:30);a.status(q,cold?'slow':'burn',cold?4:3);
+  }
+  for(let i=0;i<16;i++){
+   const yaw=p.yaw+Math.sin(i*2.4)*spread*.75,tilt=pitch+Math.cos(i*2.4)*spread*.45,d=25+i*6;
+   a.fx(p.x+Math.cos(tilt)*Math.cos(yaw)*d,p.y-12+Math.sin(tilt)*d,8+i*.6,cold?'#a1eaff':'#ff7335',cold?'cone-of-cold':'cone-of-fire',p.z+Math.cos(tilt)*Math.sin(yaw)*d,yaw,tilt);
+  }
+ }
+ school('Evocation','fountain','#9eeaff');
+ add('Cone of Cold','❄',38,.65,'Sweep a 125-unit cone for 24 damage and slow enemies for four seconds. Cover blocks the frost.',(a,p,t)=>cone(a,p,t,true));
+ school('Evocation','fountain','#ff863f');
+ add('Cone of Fire','♨',42,.8,'Sweep a 125-unit cone for 30 damage and ignite enemies for three seconds. Cover blocks the flames.',(a,p,t)=>cone(a,p,t,false));
+ add('Incendiary Volley','⁂',88,1.3,'Launch five explosive firebolts in a spread. Each deals 10 impact and 10 splash damage, and ignites direct hits for three seconds.',(a,p,t)=>{
+  for(let i=-2;i<=2;i++)shot(a,p,t,'incendiary-volley',{speed:290,damage:10,blast:24,yawOffset:i*.12,onHit:(w,o,q)=>{if(q)w.status(q,'burn',3)}});
+ });
+ school('Evocation','fall','#a1cfff');
+ add('Comet','☄',260,2.6,'Launch a blazing ice comet. It deals 35 impact and 35 splash damage, then leaves a freezing crater for four seconds.',(a,p,t)=>shot(a,p,t,'comet',{
+  speed:260,r:10,life:6,damage:35,blast:70,onHit:(w,o,q,x,y,z)=>w.zone(o,x,y,70,4.05,1,(v,owner,cx,cy,cz)=>{
+   for(const enemy of v.enemies(owner))if(Math.hypot(enemy.x-cx,enemy.y-12-cy,enemy.z-cz)<78){v.hurt(enemy,6);v.status(enemy,'slow',1.3)}
+  },'#8dafff',z,'comet-crater')
+ }));
+ school('Hexes','vortex','#ac72df');
+ add('Tentacle Field','≋',180,2,'Raise a field of writhing tentacles ahead for eight seconds. Every second they lash enemies for 9 damage and briefly root them.',(a,p)=>{
+  const x=p.x+110*Math.cos(p.yaw),z=p.z+110*Math.sin(p.yaw),y=a.surface(x,z,0);if(y===null)return;
+  a.zone(p,x,y,85,8.05,1,(w,o,cx,cy,cz)=>{
+   for(const q of w.enemies(o))if(Math.hypot(q.x-cx,q.z-cz)<95&&Math.abs(q.y-cy)<60){w.hurt(q,9);w.status(q,'root',.65)}
+  },'#985acb',z,'tentacle-field');
+ });
+ school('Summoning','gate','#eb6556');
+ add('Demon Arm','✊',320,3,'Open a portal ahead. A massive clawed arm reaches out, slams for 55 damage, and launches nearby enemies upward.',(a,p)=>{
+  const x=p.x+110*Math.cos(p.yaw),z=p.z+110*Math.sin(p.yaw),y=a.surface(x,z,0);if(y===null)return;
+  let hit=false;a.zone(p,x,y,80,2.4,1.2,(w,o,cx,cy,cz)=>{
+   if(hit)return;hit=true;w.area(o,cx,cy,80,55,'#ff6954',cz);
+   for(const q of w.enemies(o))if(Math.hypot(q.x-cx,q.z-cz)<90&&Math.abs(q.y-cy)<90){q.vy=-390;q.ground=false}
+  },'#c74563',z,'demon-arm');
+ });
+ school('Summoning','flock','#b983ef');
+ add('Summon Purple Wurm','♜',360,3.5,'Summon a giant purple wurm with 110 health for 20 seconds. It pursues enemies and bites for 24 damage, chewing nearby terrain.',(a,p)=>a.summon(p,'purple-wurm',20));
+ school('Summoning','vortex','#9a8bff');
+ add('Summon Void Entity','◈',480,4,'Summon a floating void entity with 85 health for 20 seconds. It pulls nearby enemies inward and fires slowing void orbs for 18 damage.',(a,p)=>a.summon(p,'void-entity',20));
  return book;
 }
