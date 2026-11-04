@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=six-arenas';
+import {makeSpellModels} from './wizard-spell-models.js?v=void-wurm';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=six-arenas';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=void-wurm';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=six-arenas';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=void-wurm';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -328,7 +328,7 @@ function makeFamiliars(scene){
   const badge=part(body,shape.ring,mat(0x8febff,true),0,-3.7,0,2.05);badge.rotation.x=Math.PI/2;
   switch(kind){
    case 'purple-wurm':case 'void-entity':{
-    const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='purple-wurm'?16:19);
+    const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='purple-wurm'?42:19);
     body.userData.pose=creatureModels[kind](creature);break;
    }
    case 'squire':case 'archer':case 'wraith':{
@@ -389,7 +389,7 @@ function makeFamiliars(scene){
     for(const side of [-1,1]){const claw=joint(body,.42,-.55,side*2.13);part(claw,shape.ball,mat(0xc5a184),.9,0,side*.65,2.58,.75,1.3);fins.push(claw)}break;
    }
   }
-  for(const sign of [-1,1]){
+  for(const sign of kind==='void-entity'?[]:[-1,1]){
    const x=kind==='bastion'?4.7:kind==='medic'?2.15:kind==='storm'?2.67:kind==='frost'?3.51:3.73;
    const z=kind==='medic'?2.45:1.43;
    part(body,shape.ball,mat(0xfff5da),x,1.05,sign*z,.62,.74,.6);
@@ -419,7 +419,7 @@ function makeFamiliars(scene){
     rig.health.rotation.y=yaw;rig.health.quaternion.multiply(camera.quaternion);
     const ratio=f.hp/f.maxHp;rig.fill.scale.x=8.7*ratio;rig.fill.position.x=4.35*(ratio-1);
    }
-   rig.body.userData.pose?.(t);rig.body.rotation.z=Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
+   rig.body.userData.pose?.(t);rig.body.rotation.z=f.kind==='purple-wurm'?(((f.time||0)%5)>3.3?Math.sin(((f.time||0)%5-3.3)/1.7*Math.PI)*.75:0):Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
    if(f.kind==='frost'||f.kind==='bastion')rig.fins.forEach((fin,j)=>{fin.rotation.x=(j?1:-1)*Math.sin(phase*(f.kind==='frost'?2.8:1.1))*.57});
    else if(f.kind==='storm')rig.fins[0].rotation.set(.9,phase,phase*.27);
    else if(f.kind==='burrow'){rig.fins[0].rotation.x=phase*2;rig.fins[1].rotation.z=Math.sin(phase)*.4;rig.fins[2].rotation.z=-Math.sin(phase)*.4}

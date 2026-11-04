@@ -124,7 +124,7 @@ export function extraSpells(){
   },'#c74563',z,'demon-arm');
  });
  school('Summoning','flock','#b983ef');
- add('Summon Purple Wurm','♜',360,3.5,'Summon a giant purple wurm with 110 health for 20 seconds. It pursues enemies and bites for 24 damage, chewing nearby terrain.',(a,p)=>a.summon(p,'purple-wurm',20));
+ add('Summon Purple Wurm','♜',360,3.5,'Summon a massive purple wurm with 220 health for 20 seconds. It tunnels through blocks, erupts every five seconds for 32 area damage and launches enemies upward, then bites for 24 damage.',(a,p)=>a.summon(p,'purple-wurm',20));
  school('Summoning','vortex','#9a8bff');
  add('Summon Void Entity','◈',480,4,'Summon a floating void entity with 85 health for 20 seconds. It pulls nearby enemies inward and fires slowing void orbs for 18 damage.',(a,p)=>a.summon(p,'void-entity',20));
  school('Summoning','ribs','#b6e4b0');

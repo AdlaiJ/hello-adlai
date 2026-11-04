@@ -1,13 +1,13 @@
-import {SPELLS} from './wizard-spells.js?v=six-arenas';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=six-arenas';
+import {SPELLS} from './wizard-spells.js?v=void-wurm';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=void-wurm';
 
-import {markChangedChunk,T} from './wizard-world.js?v=six-arenas';
-import {openRoom} from './wizard-room.js?v=six-arenas';
+import {markChangedChunk,T} from './wizard-world.js?v=void-wurm';
+import {openRoom} from './wizard-room.js?v=void-wurm';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=six-arenas');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=void-wurm');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;

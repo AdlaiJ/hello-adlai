@@ -1,6 +1,6 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=six-arenas';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=six-arenas';
-export {MAPS,makeTiles} from './wizard-world.js?v=six-arenas';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=void-wurm';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=void-wurm';
+export {MAPS,makeTiles} from './wizard-world.js?v=void-wurm';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -118,9 +118,38 @@ export function createGame(settings,loadouts,mode){
   if(familiar&&active.length>=3)s.summons.splice(s.summons.indexOf(active[0]),1);
   const f={id:++nextSummon,kind,familiar,owner,side:owner.side,x:owner.x,y:owner.y,z:owner.z,hp:28,maxHp:28,
    shield:0,statuses:{},vx:0,vy:0,vz:0,yaw:owner.yaw,time:0,duration,pulse:.35};
-  if(kind==='purple-wurm'){f.hp=f.maxHp=110}
+  if(kind==='purple-wurm'){f.hp=f.maxHp=220;f.burrowFloor=api.surface(f.x,f.z,0)??440;f.digClock=0;f.erupted=false}
   if(kind==='void-entity'){f.hp=f.maxHp=85}
   move(f,Math.cos(owner.yaw)*20,-12,Math.sin(owner.yaw)*20);s.summons.push(f);return f;
+ }
+ function stepWurm(f,foe,dt){
+  const phase=f.time%5;
+  const target=foe||{x:f.owner.x+110*Math.cos(f.time*.5),z:f.owner.z+110*Math.sin(f.time*.5)};
+  const dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
+  const speed=(f.statuses.root>0?0:f.statuses.slow>0?75:170)*dt;
+  const step=Math.min(d,phase<3.3?speed:speed*.2);
+  if(d>1){f.yaw=Math.atan2(dz,dx);f.x=clamp(f.x+dx/d*step,30,W*T-30);f.z=clamp(f.z+dz/d*step,30,D*T-30)}
+  // Preserve a usable depth when the tunnel has removed the local floor.
+  const ground=api.surface(f.x,f.z,0);
+  if(ground!==null&&ground<520)f.burrowFloor=ground;
+  const rise=phase<3.3?0:Math.sin((phase-3.3)/1.7*Math.PI);
+  f.y=clamp(f.burrowFloor+26-rise*90,35,520);
+  f.digClock-=dt;
+  if(f.digClock<=0){
+   f.digClock=.12;tileDamage(f.x,f.y-12,32,100,f.z);
+   fx(f.x,f.burrowFloor-2,16,'#ad87bb','burst',f.z);
+  }
+  if(phase<3.3)f.erupted=false;
+  else if(!f.erupted){
+   f.erupted=true;
+   if(!(f.statuses.silence>0)){
+    api.area(f,f.x,f.burrowFloor-12,65,32,'#c27cf0',f.z);
+    for(const q of enemies(f))if(Math.hypot(q.x-f.x,q.z-f.z)<73&&Math.abs(q.y-f.burrowFloor)<90){q.vy=-310;q.ground=false}
+   }
+  }
+  if(rise>.5&&foe&&f.pulse<=0&&!(f.statuses.silence>0)&&Math.hypot(foe.x-f.x,foe.y-f.y,foe.z-f.z)<65&&api.clearLine(f,foe)){
+   damage(foe,24);f.pulse=1.2;
+  }
  }
  function stepFamiliars(dt){
   s.summons=s.summons.filter(f=>f.hp>0&&f.time<f.duration&&f.owner.hp>0);
@@ -134,10 +163,11 @@ export function createGame(settings,loadouts,mode){
     f.x=f.owner.x;f.y=f.owner.y;f.z=f.owner.z;f.vx=f.vy=f.vz=0;
    }
    const foe=enemies(f).reduce((best,q)=>!best||dist(q)<dist(best)?q:best,null);
+   if(f.kind==='purple-wurm'){stepWurm(f,foe,dt);continue}
    const support=f.kind==='medic'||f.kind==='bastion';
    const chasing=!support&&foe&&dist(foe)<400;
    const target=chasing&&!f.familiar?foe:f.owner,dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
-   const contact=f.kind==='squire'||f.kind==='wraith'||f.kind==='purple-wurm';
+   const contact=f.kind==='squire'||f.kind==='wraith';
    const hold=chasing&&!f.familiar?(contact?14:f.kind==='archer'?165:105):22;
    const speed=(f.statuses.root>0?0:f.statuses.slow>0?65:125)*dt;
    const approach=Math.min(Math.max(0,d-hold),speed)/Math.max(1,d);
@@ -154,10 +184,6 @@ export function createGame(settings,loadouts,mode){
     if(f.kind==='void-entity'){
      for(const q of enemies(f))if(dist(q)<100&&api.clearLine(f,q))move(q,(f.x-q.x)*.12,0,(f.z-q.z)*.12);
      api.bolt(f,pitch,{style:'void-orb',speed:210,damage:18,r:6,color:'#a38aff',onHit:(a,o,q)=>{if(q)a.status(q,'slow',2)}});
-    }else if(f.kind==='purple-wurm'){
-     tileDamage(f.x+Math.cos(f.yaw)*24,f.y-10,18,26,f.z+Math.sin(f.yaw)*24);
-     if(dist(foe)<48&&api.clearLine(f,foe)){damage(foe,24);fx(foe.x,foe.y-12,22,'#bd83f0','burst',foe.z)}
-     else f.pulse=.2;
     }else if(contact){
      if(dist(foe)>32){f.pulse=.1;continue}
      const blockedStrike=[.25,.5,.75].some(t=>solid(f.x+dx*t,f.y-12+(foe.y-f.y)*t,f.z+dz*t));
@@ -299,8 +325,10 @@ export function createGame(settings,loadouts,mode){
    const n=Math.max(1,Math.ceil(Math.hypot(b.vx,b.vy,b.vz)*dt/4));
    for(let i=0;i<n&&!b.dead;i++){
     const ox=b.x,oy=b.y,oz=b.z;b.z+=b.vz*dt/n;b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
-    const reach=8+b.r;
-    const target=candidates.find(q=>q.hp>0&&Math.abs(q.y-13-b.y)<14+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q));
+    const target=candidates.find(q=>{
+     const size=q.kind==='purple-wurm'?30:8,reach=size+b.r;
+     return q.hp>0&&Math.abs(q.y-13-b.y)<size+6+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q);
+    });
     const wall=solid(b.x,b.y,b.z),hitX=wall&&solid(b.x,oy,oz),hitZ=wall&&solid(ox,oy,b.z);
     if(!wall&&!target&&!(b.impactY!==undefined&&oy<b.impactY&&b.y>=b.impactY)){
      const spike=s.zones.find(t=>t.style==='spikes'&&t.hp>0&&Math.hypot(t.x-b.x,t.z-b.z)<spellRadius(16)+b.r&&b.y>=t.y-t.r-b.r&&b.y<=t.y+b.r);

@@ -115,10 +115,32 @@ export function makeSpellModels({joint,part,shape,mat}){
   return u=>segments.forEach((seg,i)=>seg.position.z=Math.sin(u*7-i*.7)*.17);
  };
  models['void-entity']=g=>{
-  oval(g,0x191129,0,.5,.6,.8,.6);gem(g,0xc7a4ff,.49,.6,.12,.27);
-  const orbit=joint(g,0,.5,0);
-  cluster(orbit,6,(_,a)=>piece(orbit,'gem',0x8855bd,Math.cos(a)*.9,Math.sin(a)*.4,Math.sin(a)*.8,.15,.5,.17,0,true));
-  return u=>{orbit.rotation.y=u*4;g.position.y=Math.sin(u*3)*.18};
+  const eye=joint(g,0,.5,0),tentacles=[];
+  oval(eye,0x342044,0,0,.72,.79,.79);
+  oval(eye,0xd9cfed,.25,0,.55,.63,.63);
+  piece(eye,'ball',0xab65ff,.72,0,0,.09,.43,.43,0,true);
+  piece(eye,'ball',0x100b22,.81,0,0,.04,.32,.13);
+  piece(eye,'ball',white,.85,.19,-.12,.03,.09,.09,0,true);
+  for(let i=0;i<8;i++){
+   const angle=i*Math.PI/4,base=joint(g,-.15,.5,0),segments=[];
+   base.rotation.x=angle;
+   let parent=joint(base,0,.58,0);
+   for(let j=0;j<6;j++){
+    const segment=joint(parent,0,j? .27:0,0),width=.15-j*.02;
+    piece(segment,'ball',j%2?0x68408c:0x4c2b70,0,.14,0,width,.23,width);
+    piece(segment,'ball',0xc992ef,width,.13,0,.035,.06,.06,0,true);
+    segments.push(segment);parent=segment;
+   }
+   tentacles.push(segments);
+  }
+  return u=>{
+   g.position.y=Math.sin(u*2)*.15;
+   eye.rotation.y=Math.sin(u*.7)*.08;
+   tentacles.forEach((segments,i)=>segments.forEach((segment,j)=>{
+    segment.rotation.z=.2+Math.sin(u*2.2-i*.8+j*.65)*.3;
+    segment.rotation.x=Math.cos(u*1.7+i+j*.4)*.16;
+   }));
+  };
  };
  models['undead-army']=g=>{
   for(let i=-1;i<=1;i++){
