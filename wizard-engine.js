@@ -1,4 +1,4 @@
-import {bloodWeapons,SPELLS,spellRadius} from './wizard-spells.js?v=named-magic';
+import {bloodWeapons,SPELLS,spellRadius} from './wizard-spells.js?v=team-rooms';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -12,8 +12,15 @@ export function createGame(settings,loadouts,mode){
   const p={outfit:Math.floor(Math.random()*9),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,statuses:{},bot,ground:false,brain:1};
   inputs.push({strafe:0,move:0,jump:false});s.players.push(p);return p;
  }
- actor(0,midX-300,loadouts[0]);
- if(mode==='multi')actor(1,midX+300,loadouts[1]);
+ if(mode==='multi'){
+  loadouts.forEach((ids,i)=>{
+   const free=settings.format==='1v1v1',side=free?i:i%2;
+   const theta=free?Math.PI+i*2*Math.PI/3:side?0:Math.PI;
+   const p=actor(side,midX+300*Math.cos(theta),ids);
+   p.z=midZ+(free?300*Math.sin(theta):(Math.floor(i/2)-(loadouts.length/2-1)/2)*70);
+   p.yaw=Math.atan2(midZ-p.z,midX-p.x);
+  });
+ }else actor(0,midX-300,loadouts[0]);
  function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0){s.effects.push({x,y,z,r,color,kind,yaw,pitch,life:.45,maxLife:.45})}
  const index=(x,y,z)=>Math.floor(x/T)+W*(Math.floor(y/T)+H*Math.floor(z/T));
  function solid(x,y,z){return x>=0&&x<W*T&&y>=0&&y<540&&z>=0&&z<D*T&&s.tiles[index(x,y,z)]>0}
@@ -306,8 +313,10 @@ export function createGame(settings,loadouts,mode){
    }
    z.tick-=dt;if(z.tick<=0){z.cb(api,z.p,z.x,z.y,z.z);z.tick+=z.interval}}
   s.zones=s.zones.filter(z=>z.life>0);for(const e of s.effects)e.life-=dt;s.effects=s.effects.filter(e=>e.life>0);
-  if(s.players[0].hp<=0)s.over=mode==='multi'?'Red wizard wins':'The tower falls';
-  else if(mode==='multi'&&s.players[1].hp<=0)s.over='Blue wizard wins';
+  if(mode==='multi'){
+   const alive=new Set(s.players.filter(p=>p.hp>0).map(p=>p.side));
+   if(alive.size<=1)s.over=alive.size?['Blue','Red','Gold'][[...alive][0]]+(loadouts.length>3?' team wins':' wizard wins'):'Draw';
+  }else if(s.players[0].hp<=0)s.over='The tower falls';
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
  }
  function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,side,x,y,z,time,hp,maxHp,yaw})=>({id,kind,side,x,y,z,time,hp,maxHp,yaw})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers})=>({x,y,z,r,color,style,hp,yaw,rivers})),...(includeTiles?{tiles:s.tiles}:{})}}

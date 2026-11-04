@@ -1,29 +1,31 @@
-import {SPELLS} from './wizard-spells.js?v=named-magic';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=named-magic';
+import {SPELLS} from './wizard-spells.js?v=team-rooms';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=team-rooms';
 
 import {markChangedChunk,T} from './wizard-world.js';
-import {openRoom} from './wizard-room.js';
+import {openRoom} from './wizard-room.js?v=team-rooms';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=named-magic');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=team-rooms');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
-let mode='waves',page='',settings,room=null,host=false,connected=false,code='',selected=[],locked=false,other=null,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
+let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
+const seats=new Map(),sizes={'1v1':2,'1v1v1':3,'2v2':4,'3v3':6,'4v4':8};
+const colors=['Blue','Red','Gold'];
 const keys=new Set();
 for(const map of MAPS)$('map').add(new Option(map,map));
 const schools=[...new Set(SPELLS.map(s=>s.category))].sort();
 for(const cat of schools)$('school').add(new Option(cat,cat));
 function show(id){page=id;if(id!=='hud'&&windowAim)setWindowAim(false);if(id!=='hud'&&document.pointerLockElement===canvas)document.exitPointerLock();document.body.classList.toggle('playing',id==='hud');for(const x of ['home','setup','book','end','hud'])$(x).hidden=x!==id;document.querySelector('main').style.display=id==='hud'?'none':''}
-function clean(){room?.stop();room=null;game=state=null;code='';connected=locked=false;other=null;me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
-function setup(m){clean();mode=m;show('setup');$('modeName').textContent={waves:'Singleplayer · Waves',multi:'Multiplayer · Two wizards',sandbox:'Sandbox · Training grounds'}[m];
- $('proceed').textContent=m==='multi'?'Create room':'Choose spells';$('joining').hidden=m!=='multi';$('setupStatus').textContent=m==='multi'?'The host sets the rules. Share the room word with one friend.':'Choose how many spells you want to bring.';$('join').disabled=$('proceed').disabled=false}
+function clean(){room?.stop();room=null;game=state=null;code='';locked=false;seats.clear();me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
+function setup(m){clean();mode=m;show('setup');$('formatLabel').hidden=m!=='multi';$('modeName').textContent={waves:'Singleplayer · Waves',multi:'Multiplayer · Room match',sandbox:'Sandbox · Training grounds'}[m];
+ $('proceed').textContent=m==='multi'?'Create room':'Choose spells';$('joining').hidden=m!=='multi';$('setupStatus').textContent=m==='multi'?'The host sets the rules. Choose a match format and share the room word with your friends.':'Choose how many spells you want to bring.';$('join').disabled=$('proceed').disabled=false}
 $('multiplayer').onclick=()=>setup('multi');$('waves').onclick=()=>setup('waves');$('sandbox').onclick=()=>setup('sandbox');
 function home(){clean();show('home')}
 document.querySelectorAll('.back').forEach(b=>b.onclick=home);$('leave').onclick=home;
-function readSettings(){const count=$('count').valueAsNumber,mana=$('mana').valueAsNumber;if(!Number.isInteger(count)||count<1||count>10||!Number.isInteger(mana)||mana<10||mana>5000){$('setupStatus').textContent='Choose 1–10 spells and 10–5000 mana.';return null}return {count,mana,map:$('map').value}}
-function book(){selected=[];locked=false;$('school').value='All';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?'Duel room · '+code:mode==='waves'?'Singleplayer · Waves':'Sandbox';
+function readSettings(){const count=$('count').valueAsNumber,mana=$('mana').valueAsNumber;if(!Number.isInteger(count)||count<1||count>10||!Number.isInteger(mana)||mana<10||mana>5000){$('setupStatus').textContent='Choose 1–10 spells and 10–5000 mana.';return null}return {count,mana,format:$('format').value,map:$('map').value}}
+function book(){selected=[];locked=false;$('school').value='All';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?settings.format+' room · '+code:mode==='waves'?'Singleplayer · Waves':'Sandbox';
  $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Regain 0.5% of your maximum mana every second, plus 10% every 10 seconds. F then a spell banks 5% of your pool per second. Storing half the cost halves both the mana due and the cast time. Fully stored spells cast instantly for free.';drawBook()}
 const starterKits={
  'All-rounder':{tip:'Use Witchspark for quick shots.',order:'witchspark pocket-poultice thimble-ward fold-step glass-fan rampart foxstep north-star iron-choir crater-bell'},
@@ -62,29 +64,42 @@ $('school').onchange=drawBook;
 $('grandToggle').onclick=()=>{$('school').value=$('school').value==='grand'?'All':'grand';drawBook();$('cards').scrollTop=0};
 function validIds(ids){return Array.isArray(ids)&&ids.length===settings.count&&new Set(ids).size===ids.length&&ids.every(id=>spells.has(id))}
 function notify(text){message=text;messageUntil=performance.now()+1600}
-function start(){show('hud');keys.clear();armed=false;yaw=me?Math.PI:0;angle=0;netClock=0;
+function start(){show('hud');keys.clear();armed=false;yaw=state.players[me].yaw;angle=0;netClock=0;
  $('practice').hidden=mode!=='sandbox';$('slots').replaceChildren();
  selected.forEach((id,i)=>{const b=document.createElement('button');b.onclick=()=>act(i);b.title=spells.get(id).description;$('slots').append(b)});hud()}
-function tryStart(){if(!host||!connected||!locked||!other||game)return;game=createGame(settings,[selected,other],'multi');state=game.state;room.send({t:'start',state:game.snapshot(false)});start()}
-$('ready').onclick=()=>{if(!validIds(selected))return;locked=true;drawBook();
- if(mode==='multi'){if(!host)room.send({t:'ready',ids:selected});$('bookStatus').textContent='Spellbook locked. Waiting for the other wizard…';tryStart()}else{game=createGame(settings,[selected],mode);state=game.state;start()}};
+function lobby(){
+ const total=sizes[settings.format],joined=1+seats.size,ready=Number(locked)+[...seats.values()].filter(Boolean).length;
+ const text=joined+' / '+total+' wizards joined · '+ready+' ready';
+ $('bookStatus').textContent=text;room.send({t:'lobby',text});
+ if(game||!locked||ready!==total)return;
+ const loadouts=[selected,...Array.from({length:total-1},(_,i)=>seats.get(i+1))];
+ game=createGame(settings,loadouts,'multi');state=game.state;
+ room.send({t:'start',state:game.snapshot(false)});start()
+}
+$('ready').onclick=()=>{if(locked||!validIds(selected))return;locked=true;drawBook();
+ if(mode==='multi'){if(host)lobby();else room.send({t:'ready',ids:selected})}else{game=createGame(settings,[selected],mode);state=game.state;start()}};
 function network(isHost,word=''){
  host=isHost;me=host?0:1;code=word;$('join').disabled=$('proceed').disabled=true;$('setupStatus').textContent='Contacting the room service…';
- room=openRoom(host,word,{code(c){code=c;book()},connected(){connected=true;if(host){room.send({t:'rules',settings});$('bookStatus').textContent=locked?'Friend connected. Waiting for their spellbook…':'Your friend joined. Bind your spells and lock in.'}},
+ room=openRoom(host,word,{code(c){code=c;book();lobby()},started:()=>!!game,
+ connected(seat){if(host){seats.set(seat,null);room.send({t:'rules',settings,seat},seat);lobby()}},
+ left(seat){if(!seats.delete(seat))return;if(game)game.state.players[seat].hp=0;else lobby()},
  error(msg){if(page==='end')return;setup('multi');$('setupStatus').textContent=msg},
- data(m){
+ data(m,seat){
   if(host){
-   if(m.t==='ready'&&!other&&validIds(m.ids)){other=m.ids;tryStart();if(!game)$('bookStatus').textContent='Your friend is ready. Lock in your own spellbook to start.'}
+   if(!seats.has(seat))return;
+   if(m.t==='ready'&&!game&&!seats.get(seat)&&validIds(m.ids)){seats.set(seat,m.ids);lobby();return}
    if(!game||game.state.over)return;
-   if(m.t==='input')game.input(1,m.move,m.jump===true,m.angle,m.strafe,m.yaw);
-   if(m.t==='blood')game.fireBlood(1);
-   if(m.t==='sword')game.fireSword(1);
-   if(m.t==='block')game.fireBlock(1);
-   if(m.t==='cast')game.command(1,m.slot,m.store===true);
-  }else if(m.t==='rules'&&page==='setup'&&MAPS.includes(m.settings?.map)&&Number.isInteger(m.settings.count)&&m.settings.count>=1&&m.settings.count<=10&&Number.isInteger(m.settings.mana)&&m.settings.mana>=10&&m.settings.mana<=5000){settings=m.settings;book()}
+   if(m.t==='input')game.input(seat,m.move,m.jump===true,m.angle,m.strafe,m.yaw);
+   if(m.t==='blood')game.fireBlood(seat);
+   if(m.t==='sword')game.fireSword(seat);
+   if(m.t==='block')game.fireBlock(seat);
+   if(m.t==='cast')game.command(seat,m.slot,m.store===true);
+  }else if(m.t==='full'){setup('multi');$('setupStatus').textContent='That room is full or already playing.'}
+  else if(m.t==='lobby'&&page==='book')$('bookStatus').textContent=m.text;
+  else if(m.t==='rules'&&page==='setup'&&Object.hasOwn(sizes,m.settings?.format)&&Number.isInteger(m.seat)&&m.seat>0&&m.seat<sizes[m.settings.format]&&MAPS.includes(m.settings?.map)&&Number.isInteger(m.settings.count)&&m.settings.count>=1&&m.settings.count<=10&&Number.isInteger(m.settings.mana)&&m.settings.mana>=10&&m.settings.mana<=5000){settings=m.settings;me=m.seat;book()}
   else if(m.t==='start'&&locked&&page==='book'&&m.state?.map===settings.map){state={...m.state,tiles:makeTiles(settings.map),terrainVersion:0,changedChunks:new Map()};start()}
   else if(m.t==='frame'&&page==='hud'&&m.state&&Array.isArray(m.tiles)){for(const [i,v] of m.tiles){state.tiles[i]=v;markChangedChunk(state.changedChunks,i)}state={...m.state,tiles:state.tiles,changedChunks:state.changedChunks,terrainVersion:state.terrainVersion+Number(m.tiles.length>0)};if(state.over)finish()}
- }});
+ }},isHost?sizes[settings.format]:2);
 }
 $('proceed').onclick=()=>{settings=readSettings();if(!settings)return;if(mode==='multi')network(true);else book()};
 $('join').onclick=()=>{const word=$('word').value.trim().toLowerCase();if(!/^[a-z]{4,6}$/.test(word)){$('setupStatus').textContent='Enter the 4–6 letter room word.';return}network(false,word)};
@@ -92,8 +107,8 @@ $('copy').onclick=async()=>{const url=new URL(location.href);url.search='';url.s
 function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="blood-arsenal"&&p.bloodAmmo)&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:'cast',slot:i,store})}}
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
- $('vitals').textContent=(me?'Red':'Blue')+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
- $('opponent').textContent=mode==='waves'?'Wave '+state.wave:mode==='multi'?'Rival HP '+Math.ceil(state.players[1-me].hp):'Sandbox';
+ $('vitals').textContent=colors[p.side]+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
+ $('opponent').textContent=mode==='waves'?'Wave '+state.wave:mode==='multi'?settings.format+' · '+(p.hp<=0?'Eliminated · ':'')+state.players.filter(q=>q.side!==p.side&&q.hp>0).length+' rivals alive':'Sandbox';
  const rivals=state.players.filter(q=>q.side!==p.side&&q.hp>0);
  if(rivals.length){
   const distance=q=>Math.hypot(q.x-p.x,q.z-p.z),rival=rivals.reduce((a,b)=>distance(a)<distance(b)?a:b);

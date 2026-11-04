@@ -5,25 +5,33 @@ function loadPeer(){
  if(window.Peer)return Promise.resolve();
  return loading??=new Promise((resolve,reject)=>{const tag=document.createElement('script');tag.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js';tag.onload=resolve;tag.onerror=()=>{loading=null;tag.remove();reject(Error('Could not load the room service.'))};document.head.append(tag)});
 }
-export function openRoom(host,word,events){
- let peer,link,closed=false,timer,tries=0;
+export function openRoom(host,word,events,capacity=2){
+ const links=new Map();
+ let peer,closed=false,timer,tries=0;
  const stop=()=>{closed=true;clearTimeout(timer);peer?.destroy()};
  function fail(msg){if(!closed){stop();events.error(msg)}}
  function attach(c){
-  if(link){c.on('open',()=>c.close());return}link=c;
-  timer=setTimeout(()=>fail('Could not reach the other player. Check the room word or try another network.'),25000);
-  c.on('open',()=>{if(closed)return;clearTimeout(timer);events.connected()});
-  c.on('data',data=>{if(!closed&&data&&typeof data==='object')events.data(data)});
-  c.on('close',()=>fail('The other wizard left the room.'));
-  c.on('error',()=>fail('The room connection was lost.'));
+  let seat=host?1:0;
+  while(links.has(seat))seat++;
+  if(host&&(seat>=capacity||events.started())){c.on('open',()=>{c.send({t:'full'});setTimeout(()=>c.close(),250)});return}
+  links.set(seat,c);
+  function drop(){
+   if(closed||links.get(seat)!==c)return;
+   links.delete(seat);clearTimeout(deadline);
+   if(host)events.left(seat);else fail('Disconnected from the host.');
+  }
+  const deadline=setTimeout(()=>{drop();c.close()},25000);
+  c.on('open',()=>{if(closed||links.get(seat)!==c)return;clearTimeout(deadline);events.connected(seat)});
+  c.on('data',data=>{if(!closed&&links.get(seat)===c&&data&&typeof data==='object')events.data(data,seat)});
+  c.on('close',drop);c.on('error',drop);
  }
  function start(){
   if(closed)return;const code=host?words[crypto.getRandomValues(new Uint32Array(1))[0]%words.length]:word;
-  const instance=peer=new Peer(host?'wizardwars-schools-'+code:undefined,{secure:true});
-  instance.on('open',()=>{if(closed||peer!==instance)return;if(host)events.code(code);else attach(peer.connect('wizardwars-schools-'+code,{reliable:true,serialization:'json'}))});
+  const instance=peer=new Peer(host?'wizardwars-teams-'+code:undefined,{secure:true});
+  instance.on('open',()=>{if(closed||peer!==instance)return;if(host)events.code(code);else attach(peer.connect('wizardwars-teams-'+code,{reliable:true,serialization:'json'}))});
   instance.on('connection',c=>{if(host&&!closed)attach(c);else c.on('open',()=>c.close())});
   instance.on('error',err=>{if(closed||peer!==instance)return;if(host&&err.type==='unavailable-id'&&++tries<12){instance.destroy();start()}else fail(err.type==='peer-unavailable'?'Room not found. Check the word and that the host is still online.':'Room connection failed. Try creating another room or changing networks.')});
  }
  loadPeer().then(start).catch(e=>fail(e.message));
- return {stop,send:m=>{if(link?.open)link.send(m)}};
+ return {stop,send:(m,to)=>{for(const [seat,c] of links)if(c.open&&(to===undefined||seat===to))c.send(m)}};
 }

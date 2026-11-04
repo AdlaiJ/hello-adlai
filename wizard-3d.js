@@ -1,6 +1,6 @@
 import {makeSpellModels} from './wizard-spell-models.js?v=named-magic';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=named-magic';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=team-rooms';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -17,7 +17,8 @@ const worlds={
 };
 const themes=[
  {dark:0x293d70,cloth:0x4879b5,hem:0x69abbc,point:0x84eedd,trim:0xffca79,skin:0x6399df,hair:0xffe2bf},
- {dark:0x672b43,cloth:0xb95867,hem:0xe58d80,point:0xffa177,trim:0xffd386,skin:0xda6f78,hair:0xe1d8e0}
+ {dark:0x672b43,cloth:0xb95867,hem:0xe58d80,point:0xffa177,trim:0xffd386,skin:0xda6f78,hair:0xe1d8e0},
+ {dark:0x644319,cloth:0xc89330,hem:0xffce61,point:0xfff199,trim:0xffe7a1,skin:0xd2a653,hair:0xffefd3}
 ];
 const boneTint=new THREE.Color(0xf1dfb1);
 const shape={
@@ -61,7 +62,7 @@ function halo(parent,color,size,x=0,y=0,z=0){
  sprite.position.set(x,y,z);sprite.scale.set(size,size,1);parent.add(sprite);return sprite;
 }
 function makeWizard(parent,side,outfit){
- const p=themes[side?1:0],root=joint(parent,0,0,0),pelvis=joint(root,0,7,0),chest=joint(pelvis,0,1,0);
+ const p=themes[side],root=joint(parent,0,0,0),pelvis=joint(root,0,7,0),chest=joint(pelvis,0,1,0);
  part(chest,shape.robe,mat(p.cloth),0,-2.4,0,4.2,9.7,5.05);
  part(chest,shape.robe,mat(p.hem),0,-2.6,0,4.27,.85,5.14);
  part(chest,shape.pole,mat(p.dark),0,1.8,0,7.2,.95,8.65);
@@ -107,7 +108,7 @@ function makeWizard(parent,side,outfit){
  for(let i=0;i<5;i++)part(wisps,shape.gem,wispMat,0,0,0,.52,.9,.52);
  const gauge=joint(parent,0,0,0);
  part(gauge,shape.box,mat(0x252435,true),0,0,0,12,1.4,.18);
- const hpBar=part(gauge,shape.box,mat(side?0xffa695:0x8ef3e3,true),0,0,.13,11.4,.8,.13);
+ const hpBar=part(gauge,shape.box,mat(side===2?0xffce61:side?0xffa695:0x8ef3e3,true),0,0,.13,11.4,.8,.13);
  const grounding=part(parent,new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x282537,map:haloTexture(),transparent:true,opacity:.59,depthWrite:false}),0,0,0,21,17,1);grounding.rotation.x=-Math.PI/2;
  return {p,side,outfit,root,pelvis,chest,head,hat,cape,scarf,legs,arms,wand,crystal,light,shield,grounding,wisps,wispMat,gauge,hpBar};
 }
@@ -410,7 +411,7 @@ function makeFamiliars(scene){
     rig.health.rotation.y=yaw;rig.health.quaternion.multiply(camera.quaternion);
     const ratio=f.hp/f.maxHp;rig.fill.scale.x=8.7*ratio;rig.fill.position.x=4.35*(ratio-1);
    }
-   rig.body.rotation.z=Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side?0xff9d93:0x8febff,true);
+   rig.body.rotation.z=Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
    if(f.kind==='frost'||f.kind==='bastion')rig.fins.forEach((fin,j)=>{fin.rotation.x=(j?1:-1)*Math.sin(phase*(f.kind==='frost'?2.8:1.1))*.57});
    else if(f.kind==='storm')rig.fins[0].rotation.set(.9,phase,phase*.27);
    else if(f.kind==='burrow'){rig.fins[0].rotation.x=phase*2;rig.fins[1].rotation.z=Math.sin(phase)*.4;rig.fins[2].rotation.z=-Math.sin(phase)*.4}
