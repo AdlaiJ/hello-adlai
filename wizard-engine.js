@@ -1,4 +1,4 @@
-import {SPELLS,spellRadius} from './wizard-spells.js?v=fifty-spells';
+import {SPELLS,spellRadius} from './wizard-spells.js?v=grounded-rocket';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -164,6 +164,7 @@ export function createGame(settings,loadouts,mode){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
   if(!Number.isInteger(slot)||!spell||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
+  if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
   if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
   if(spell.id==='quarry-volley'&&p.blocks?.length)return fireBlock(index);
   const held=p.weapon;
@@ -249,18 +250,23 @@ export function createGame(settings,loadouts,mode){
     }
    }
    if(p.y>580){damage(p,22);p.x=midX+(p.side?300:-300);p.z=midZ;p.y=40;p.vy=0}
+   if(p.rocketSpent&&p.ground)p.rocketSpent=false;
    if(p.pending>=0){p.cast=Math.max(0,p.cast-dt);if(!p.cast){const sp=byId.get(p.ids[p.pending]);p.pending=-1;fx(p.x,p.y-14,14,'#ffdc94','cast',p.z);const look=p.yaw;p.yaw=p.castYaw;sp.cast(api,p,p.castingAngle);p.yaw=look}}
   }
   stepFamiliars(dt);
+  const targetsBySide=new Map();
   for(const b of [...s.shots]){
-   if(b.homing){const distance=q=>Math.hypot(q.x-b.x,q.y-12-b.y,q.z-b.z),t=enemies(b.p).sort((a,c)=>distance(a)-distance(c))[0];
+   if(!targetsBySide.has(b.p.side))targetsBySide.set(b.p.side,enemies(b.p));
+   const candidates=targetsBySide.get(b.p.side);
+   if(b.homing){const distance=q=>Math.hypot(q.x-b.x,q.y-12-b.y,q.z-b.z),t=candidates.reduce((best,q)=>q.hp>0&&(!best||distance(q)<distance(best))?q:best,null);
     if(t){const blend=1-Math.exp(-b.homing*dt),f=b.speed/Math.max(1,distance(t));
      b.vx+=((t.x-b.x)*f-b.vx)*blend;b.vy+=((t.y-12-b.y)*f-b.vy)*blend;b.vz+=((t.z-b.z)*f-b.vz)*blend}}
    b.life-=dt;b.vy+=(b.gravity||0)*dt;
    const n=Math.max(1,Math.ceil(Math.hypot(b.vx,b.vy,b.vz)*dt/4));
    for(let i=0;i<n&&!b.dead;i++){
     const ox=b.x,oy=b.y,oz=b.z;b.z+=b.vz*dt/n;b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
-    const target=enemies(b.p).find(q=>!b.hit.has(q)&&Math.hypot(q.x-b.x,q.z-b.z)<8+b.r&&Math.abs(q.y-13-b.y)<14+b.r);
+    const reach=8+b.r;
+    const target=candidates.find(q=>q.hp>0&&Math.abs(q.y-13-b.y)<14+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q));
     const wall=solid(b.x,b.y,b.z),hitX=wall&&solid(b.x,oy,oz),hitZ=wall&&solid(ox,oy,b.z);
     if(!wall&&!target&&!(b.impactY!==undefined&&oy<b.impactY&&b.y>=b.impactY)){
      const spike=s.zones.find(t=>t.style==='spikes'&&t.hp>0&&Math.hypot(t.x-b.x,t.z-b.z)<spellRadius(16)+b.r&&b.y>=t.y-t.r-b.r&&b.y<=t.y+b.r);

@@ -1,5 +1,5 @@
 import {makeCastPainter} from './wizard-casting.js?v=fifty-spells';
-import {SPELLS} from './wizard-spells.js?v=fifty-spells';
+import {SPELLS} from './wizard-spells.js?v=grounded-rocket';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=fifty-spells';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -285,14 +285,15 @@ function makeTerrain(scene){
  const map=new THREE.CanvasTexture(textureCanvas);map.colorSpace=THREE.SRGBColorSpace;
  const material=new THREE.MeshStandardMaterial({map,vertexColors:true,roughness:.97});
  const chunks=new Map(),masks=new Uint8Array(CHUNK*CHUNK*Y),radius=5,queue=[];
- let previousTiles=null,previousPalette=null;
+ let previousTiles=null,previousPalette=null,lastX=-1,lastZ=-1,lastRevision=-1;
  function discard(chunk){if(chunk.mesh){scene.remove(chunk.mesh);chunk.mesh.geometry.dispose()}}
  return (state,p,camera)=>{
   if(previousTiles!==state.tiles||previousPalette!==p){
    for(const chunk of chunks.values())discard(chunk);
-   chunks.clear();previousTiles=state.tiles;previousPalette=p;
+   chunks.clear();lastX=-1;previousTiles=state.tiles;previousPalette=p;
   }
   const cx=clamp(Math.floor(camera.position.x/chunkWidth),0,chunkCols-1),cz=clamp(Math.floor(camera.position.z/chunkWidth),0,chunkRows-1);
+  if(lastX===cx&&lastZ===cz&&lastRevision===state.terrainVersion)return;
   for(const [key,chunk] of chunks)if(Math.hypot(chunk.x-cx,chunk.z-cz)>radius+1){discard(chunk);chunks.delete(key)}
   queue.length=0;
   for(let z=Math.max(0,cz-radius);z<=Math.min(chunkRows-1,cz+radius);z++)for(let x=Math.max(0,cx-radius);x<=Math.min(chunkCols-1,cx+radius);x++){
@@ -309,8 +310,9 @@ function makeTerrain(scene){
    const geo=chunkSurface(state.tiles,chunk.x,chunk.z,p,masks);
    if(geo){chunk.mesh=new THREE.Mesh(geo,material);scene.add(chunk.mesh)}
    chunks.set(chunk.key,chunk);
-   if(i>=2&&(performance.now()-start>5||i>=9))break;
+   if(i+1<queue.length&&(performance.now()-start>2.5||i>=5)){lastX=-1;return}
   }
+  lastX=cx;lastZ=cz;lastRevision=state.terrainVersion;
  };
 }
 function makeFamiliars(scene){
@@ -662,6 +664,7 @@ export function makeRenderer(canvas){
  const title=makeTitle(scene),groundGroup=new THREE.Group();scene.add(groundGroup);
  const paintCasting=makeCastPainter(THREE,scene,SPELLS,HEIGHT);
  const updateTerrain=makeTerrain(groundGroup),rigs=[],paintSpells=makeSpellParts(scene),paintFamiliars=makeFamiliars(scene);
+ let pixelScale=1,frames=0,frameSeconds=0,lastDraw=0;
  let palette=null,logicalW=0,logicalH=0,oldDPR=0;
  const look=new THREE.Vector3(),eye=new THREE.Vector3(),target=new THREE.Vector3(),offset=new THREE.Vector3(),desired=new THREE.Vector3(),pos=new THREE.Vector3(),sideVec=new THREE.Vector3();
  const titleStart=new THREE.Vector3(),titleEnd=new THREE.Vector3(),titleBolt={},titleBursts=[];
@@ -676,7 +679,7 @@ export function makeRenderer(canvas){
   const i=Math.floor(x/12),j=Math.floor((HEIGHT-y)/12),k=Math.floor(z/12);
   return i>=0&&i<X&&j>=0&&j<Y&&k>=0&&k<Z&&tiles[i+X*(j+Y*k)]>0;
  }
- function moveCamera(state,p,yaw,pitch){
+ function moveCamera(state,p,yaw,pitch,distance){
   const tiles=state.tiles;look.set(Math.cos(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.sin(yaw)*Math.cos(pitch));
   eye.set(p.x,HEIGHT-p.y+14,p.z);sideVec.set(-Math.sin(yaw),0,Math.cos(yaw));
   // Converge the crosshair on the first surface intersected by the actual cast ray.
@@ -689,7 +692,8 @@ export function makeRenderer(canvas){
    if(Math.abs(pos.y)<=12&&Math.hypot(pos.x,pos.z)<7)range=along;
   }
   target.copy(eye).addScaledVector(look,range);
-  desired.copy(eye).addScaledVector(look,-65).addScaledVector(sideVec,9);desired.y+=14;
+  const shoulder=Math.min(1,distance/65);
+  desired.copy(eye).addScaledVector(look,-distance).addScaledVector(sideVec,9*shoulder);desired.y+=14*shoulder;
   offset.copy(desired).sub(eye);const length=offset.length();offset.normalize();
   for(let d=2;d<length;d+=2){
    pos.copy(eye).addScaledVector(offset,d);
@@ -697,8 +701,18 @@ export function makeRenderer(canvas){
   }
   camera.position.copy(desired);camera.lookAt(target);return camera.position.distanceTo(eye)<12;
  }
- function draw(state,me=0,yaw=0,pitch=0,time=0){
-  const width=canvas.clientWidth||canvas.width||960,height=canvas.clientHeight||canvas.height||540,dpr=Math.min(window.devicePixelRatio||1,1.65);
+ function draw(state,me=0,yaw=0,pitch=0,time=0,distance=65){
+  const elapsed=time-lastDraw;lastDraw=time;
+  if(state&&elapsed>0&&elapsed<.25){
+   frames++;frameSeconds+=elapsed;
+   if(frameSeconds>=2){
+    const fps=frames/frameSeconds;
+    if(fps<45)pixelScale=Math.max(.65,pixelScale-.1);
+    else if(fps>58)pixelScale=Math.min(1,pixelScale+.05);
+    frames=0;frameSeconds=0;
+   }
+  }
+  const width=canvas.clientWidth||canvas.width||960,height=canvas.clientHeight||canvas.height||540,dpr=Math.min(window.devicePixelRatio||1,1.5)*pixelScale;
   if(width!==logicalW||height!==logicalH||dpr!==oldDPR){
    logicalW=width;logicalH=height;oldDPR=dpr;renderer.setPixelRatio(dpr);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();
   }
@@ -706,7 +720,7 @@ export function makeRenderer(canvas){
   if(p!==palette){sky.update(p);scene.fog.color.setHex(p.haze);palette=p}
   const demo=!state||!state.players?.length;title.visible=demo;groundGroup.visible=!demo;sky.layout(demo);
   const players=demo?[{x:395,y:420,z:192,side:0,hp:100,yaw:.27,aim:-.1},{x:565,y:420,z:192,side:1,hp:100,yaw:Math.PI-.27,aim:-.1}]:state.players;
-  const clock=demo?time*.52:time,cycle=clock%4,hideLocal=demo?false:moveCamera(state,players[me]||players[0],yaw,pitch);
+  const clock=demo?time*.52:time,cycle=clock%4,hideLocal=demo?false:moveCamera(state,players[me]||players[0],yaw,pitch,distance);
   const demoScale=1.74;
   if(demo){
    const framing=Math.max(1,1.55/camera.aspect),distance=141*framing;

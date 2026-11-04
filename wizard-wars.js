@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=fifty-spells';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=fifty-spells';
+import {SPELLS} from './wizard-spells.js?v=grounded-rocket';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=grounded-rocket';
 
 import {markChangedChunk,T} from './wizard-world.js';
 import {openRoom} from './wizard-room.js';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=fifty-spells');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=grounded-rocket');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,connected=false,code='',selected=[],locked=false,other=null,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -88,7 +88,7 @@ function network(isHost,word=''){
 $('proceed').onclick=()=>{settings=readSettings();if(!settings)return;if(mode==='multi')network(true);else book()};
 $('join').onclick=()=>{const word=$('word').value.trim().toLowerCase();if(!/^[a-z]{4,6}$/.test(word)){$('setupStatus').textContent='Enter the 4–6 letter room word.';return}network(false,word)};
 $('copy').onclick=async()=>{const url=new URL(location.href);url.search='';url.searchParams.set('room',code);try{await navigator.clipboard.writeText(url.href);$('bookStatus').textContent='Invite link copied.'}catch{$('bookStatus').textContent='Share room word '+code}};
-function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
+function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:'cast',slot:i,store})}}
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  $('vitals').textContent=(me?'Red':'Blue')+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
@@ -111,11 +111,30 @@ function jumping(){return keys.has(' ')}
 function turn(dx,dy){yaw+=dx;angle=Math.max(-1.35,Math.min(1.35,angle+dy))}
 addEventListener('keydown',e=>{if(page!=='hud'||e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key.toLowerCase();if(k===' '||k.startsWith('arrow'))e.preventDefault();keys.add(k);if(e.repeat)return;
  if(k==='escape'&&windowAim){setWindowAim(false);return}
+ if(k==='+'||k==='='||k==='-'){e.preventDefault();zoomBy(k==='-'?1:-1);return}
  if(k==='shift'){toggleShiftLock();return}
  if(k==='f')armed=!armed;else if(/^\d$/.test(k))act((Number(k)+9)%10);
 });addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));addEventListener('blur',()=>keys.clear());
 document.querySelectorAll('[data-control]').forEach(b=>{b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);keys.add(b.dataset.control)};b.onlostpointercapture=()=>keys.delete(b.dataset.control)});$('touchStore').onclick=()=>armed=!armed;
 let drag=null;
+const distances=[0,18,32,47,65,86,110,140,175];
+let zoomLevel=4,cameraDistance=65;
+function zoomBy(step){
+ zoomLevel=Math.max(0,Math.min(distances.length-1,zoomLevel+step));
+ $('zoomIn').disabled=zoomLevel===0;
+ $('zoomOut').disabled=zoomLevel===distances.length-1;
+}
+$('zoomIn').onclick=()=>zoomBy(-1);
+$('zoomOut').onclick=()=>zoomBy(1);
+let wheelTravel=0,wheelTime=0;
+canvas.addEventListener('wheel',e=>{
+ if(page!=='hud'||e.ctrlKey||!e.deltaY)return;
+ e.preventDefault();
+ if(e.timeStamp-wheelTime>180||Math.sign(e.deltaY)!==Math.sign(wheelTravel))wheelTravel=0;
+ wheelTime=e.timeStamp;
+ wheelTravel+=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?100:1);
+ if(Math.abs(wheelTravel)>=32){zoomBy(Math.sign(wheelTravel));wheelTravel=0}
+},{passive:false});
 const lockButton=$('shiftLock');
 let windowAim=false;
 function setWindowAim(on){
@@ -162,7 +181,8 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)
   if(host){const tiles=[];for(const k of game.dirty){tiles.push([k,state.tiles[k]]);game.dirty.delete(k);if(tiles.length===160)break}room.send({t:'frame',state:game.snapshot(false),tiles})}
   else room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw})}
  if(!state||page!=='hud')return;
- draw(state,me,yaw,angle,now/1000);uiClock+=dt;if(uiClock>.1){hud();uiClock=0}if(state.over)finish();
+ cameraDistance+=(distances[zoomLevel]-cameraDistance)*(1-Math.exp(-14*dt));
+ draw(state,me,yaw,angle,now/1000,cameraDistance);uiClock+=dt;if(uiClock>.1){hud();uiClock=0}if(state.over)finish();
 }
 window.addEventListener('pagehide',()=>room?.stop());
 home();const invite=new URL(location.href).searchParams.get('room');if(invite&&/^[a-z]{4,6}$/.test(invite)){setup('multi');$('word').value=invite}

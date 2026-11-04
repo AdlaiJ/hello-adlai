@@ -184,8 +184,8 @@ const boost = [
       mark(api, p, 'Movement', 25);
     }),
   spell('Movement', 'bottle-rocket', 'Bottle Rocket', '⇧', 18, .16,
-    'Burst upward, even in midair. The backblast deals 12 damage to the ground and opponents below you.',
-    (api, p) => { api.area(p, p.x, p.y + 3, 23, 12, color.Movement, p.z); p.vy = -410; }),
+    'Boost upward once, from the ground or midair. Land to recharge. The backblast deals 12 damage to the ground and opponents below you.',
+    (api, p) => { api.area(p, p.x, p.y + 3, 23, 12, color.Movement, p.z); p.vy = -410; p.ground=false; p.rocketSpent=true; }),
   spell('Movement', 'comet-train', 'Comet Train', '⌁', 32, .5,
     'Sprint for three seconds while sparks burst at your current position every half second.',
     (api, p) => {
