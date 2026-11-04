@@ -1,4 +1,4 @@
-import {SPELLS} from './wizard-spells.js?v=armory110';
+import {SPELLS} from './wizard-spells.js?v=distinct110';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js';
 export {MAPS,makeTiles} from './wizard-world.js';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -31,6 +31,8 @@ export function createGame(settings,loadouts,mode){
   if(p.hp<=0||p.statuses.phased>0||n<=0)return;
   n*=p.statuses.armor>0?.5:1;
   const spent=Math.min(n,p.shield);p.shield-=spent;p.hp=Math.max(0,p.hp-n+spent);
+  if(p.hp===0&&p.statuses.crowned>0){p.hp=1;p.statuses.crowned=0;api.status(p,'phased',1);fx(p.x,p.y-12,48,'#ffdd75','burst',p.z)}
+  if(n>spent)p.lastInjury=(p.lastInjury||0)+1;
   if(spent&&p.statuses.capacitor>0)p.mana=Math.min(p.maxMana,p.mana+spent);
   if(spent&&p.statuses.polar>0)for(const q of enemies(p))if(Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<=72)api.status(q,'slow',2);
  }
@@ -63,7 +65,7 @@ export function createGame(settings,loadouts,mode){
   if(active.length>=3)s.summons.splice(s.summons.indexOf(active[0]),1);
   const f={id:++nextSummon,kind,owner,side:owner.side,x:owner.x,y:owner.y,z:owner.z,hp:28,maxHp:28,
    shield:0,statuses:{},vx:0,vy:0,vz:0,yaw:owner.yaw,time:0,pulse:.35};
-  move(f,Math.cos(owner.yaw)*20,-12,Math.sin(owner.yaw)*20);s.summons.push(f);
+  move(f,Math.cos(owner.yaw)*20,-12,Math.sin(owner.yaw)*20);s.summons.push(f);return f;
  }
  function stepFamiliars(dt){
   s.summons=s.summons.filter(f=>f.hp>0&&f.time<12&&f.owner.hp>0);
@@ -89,7 +91,7 @@ export function createGame(settings,loadouts,mode){
     const pitch=Math.atan2(foe.y-f.y,Math.max(1,d));
     if(f.kind==='burrow')api.area(f,f.x+Math.cos(f.yaw)*15,f.y-7,23,12,'#e3a669',f.z+Math.sin(f.yaw)*15);
     else if(f.kind==='storm'){for(const yawOffset of [-.09,0,.09])api.bolt(f,pitch,{speed:310,damage:4,r:2,yawOffset,color:'#ffe784'})}
-    else if(f.kind==='frost')api.bolt(f,pitch,{speed:265,damage:6,r:3,color:'#86e9ff',onHit:(a,c,q)=>{if(q)a.status(q,'slow',2)}});
+    else if(f.kind==='frost')api.bolt(f,pitch,{speed:265,damage:6,r:3,color:'#86e9ff',onHit:(a,c,q)=>{if(q){if(c.statuses.court>0&&q.statuses.slow>0)a.status(q,'root',1);a.status(q,'slow',2)}}});
     else api.bolt(f,pitch,{speed:240,damage:6,blast:18,r:4,color:'#ff894e'});
    }
   }
@@ -103,6 +105,7 @@ export function createGame(settings,loadouts,mode){
    if(s.time<held.ready)return false;
    const {reach,arc,damage:power,delay,trait}=spell.melee;
    held.strikes--;held.ready=s.time+delay;held.swing=s.time;p.store=-1;
+   if(trait==='lunge')move(p,24*Math.cos(p.yaw),0,24*Math.sin(p.yaw));
    for(const q of enemies(p)){
     const dx=q.x-p.x,dz=q.z-p.z,dy=q.y-p.y;
     if(Math.hypot(dx,dy,dz)>reach||Math.abs(dy)>28)continue;
@@ -112,7 +115,8 @@ export function createGame(settings,loadouts,mode){
     let covered=false;
     for(let i=1;i<steps;i++)if(solid(p.x+dx*i/steps,p.y-12+dy*i/steps,p.z+dz*i/steps)){covered=true;break}
     if(covered)continue;
-    const before=q.hp;damage(q,power);
+    const behind=dx*Math.cos(q.yaw)+dz*Math.sin(q.yaw)>Math.hypot(dx,dz)*.5;
+    const before=q.hp;damage(q,trait==='backstab'&&behind?power*3:power);
     if(trait==='drain'&&q.hp<before)api.heal(p,8);
     if(trait==='slow'||trait==='burn')api.status(q,trait,2);
     fx(q.x,q.y-12,12,'#ffd691','burst',q.z);
@@ -177,6 +181,10 @@ export function createGame(settings,loadouts,mode){
     const target=enemies(b.p).find(q=>!b.hit.has(q)&&Math.hypot(q.x-b.x,q.z-b.z)<8+b.r&&Math.abs(q.y-13-b.y)<14+b.r);
     const wall=solid(b.x,b.y,b.z),hitX=wall&&solid(b.x,oy,oz),hitZ=wall&&solid(ox,oy,b.z);
     if(!target&&!wall)continue;
+    if(target?.statuses.prism>0){
+     target.statuses.prism=0;target.shield=Math.min(100,target.shield+Math.min(45,b.damage||0));
+     fx(b.x,b.y,26,'#f7aaff','burst',b.z);b.dead=true;continue;
+    }
     if(target?.statuses.reflect>0){b.p=target;b.vx*=-1;b.vy*=-1;b.vz*=-1;b.hit.clear();break}
     if(target){damage(target,b.damage||0);b.hit.add(target)}else tileDamage(b.x,b.y,5,b.damage||0,b.z);
     if(b.blast)api.area(b.p,b.x,b.y,b.blast,b.damage||0,b.color,b.z);

@@ -1,4 +1,4 @@
-import {SPELLS} from './wizard-spells.js?v=armory110';
+import {SPELLS} from './wizard-spells.js?v=distinct110';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -160,8 +160,8 @@ function animateWizard(r,p,time,index,cast,matchTime){
  updateArmament(r,p,matchTime);
  r.crystal.rotation.y=time*2;r.light.material.opacity=.4+cast*.45;
  const st=p.statuses||{};
- r.light.scale.setScalar(7+cast*7+Math.sin(time*6)*.6);r.shield.visible=p.shield>0||st.reflect>0||st.phased>0;
- r.shield.material.color.set(st.polar>0?0x80edff:st.capacitor>0?0xffe85a:st.reflect>0?0xd6a2ff:r.p.point);
+ r.light.scale.setScalar(7+cast*7+Math.sin(time*6)*.6);r.shield.visible=p.shield>0||st.prism>0||st.reflect>0||st.phased>0;
+ r.shield.material.color.set(st.polar>0?0x80edff:st.capacitor>0?0xffe85a:(st.prism>0||st.reflect>0)?0xd6a2ff:r.p.point);
  r.shield.material.opacity=.14+.04*Math.sin(time*6);
  r.wisps.visible=p.store>=0||st.burn>0||st.regen>0;
  if(r.wisps.visible){
