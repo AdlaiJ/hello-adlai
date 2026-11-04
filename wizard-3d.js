@@ -1,7 +1,7 @@
-import {makeCastPainter} from './wizard-casting.js?v=grand-traps';
-import {SPELLS} from './wizard-spells.js?v=grand-traps';
+import {makeCastPainter} from './wizard-casting.js?v=undead';
+import {SPELLS} from './wizard-spells.js?v=undead';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
-import {makeProjectileArt} from './wizard-projectile-art.js';
+import {makeProjectileArt} from './wizard-projectile-art.js?v=undead';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js';
 
@@ -314,11 +314,33 @@ function makeTerrain(scene){
  };
 }
 function makeFamiliars(scene){
- const pools=new Map(),palette={ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
+ const pools=new Map(),palette={squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
  function create(kind){
   const root=joint(scene,0,0,0),body=joint(root,0,0,0),glow=mat(palette[kind],true),fins=[];
   const badge=part(body,shape.ring,mat(0x8febff,true),0,-3.7,0,2.05);badge.rotation.x=Math.PI/2;
   switch(kind){
+   case 'squire':case 'archer':case 'wraith':{
+    const bone=mat(0xe1d4ae),shade=mat(0x293348);
+    part(body,shape.ball,bone,0,5,0,2.5,2.45,2.4);
+    for(const sign of [-1,1]){
+     part(body,shape.ball,shade,2,5.3,sign, .68,.82,.82);
+     part(body,shape.ball,glow,2.58,5.35,sign,.28);
+    }
+    if(kind==='wraith'){
+     part(body,shape.cone,mat(0x456178),-.75,.5,0,4.3,8,4);
+     for(const side of [-1,1]){const tail=joint(body,-1,-2,side*2);part(tail,shape.gem,glow,-1,-2,0,.62,3,.6);fins.push(tail)}
+    }else{
+     part(body,shape.pole,bone,0,.2,0,.85,6,.85);
+     for(const y of [0,1.2,2.4])part(body,shape.ring,bone,0,y,0,1.5,2.25,1).rotation.x=Math.PI/2;
+     for(const side of [-1,1]){
+      const leg=joint(body,0,-2,side);part(leg,shape.pole,bone,0,-2.2,0,.8,4.5,.8);fins.push(leg);
+      part(body,shape.pole,bone,1,1,side*2.4,.75,3,.75).rotation.z=.5;
+     }
+     if(kind==='squire'){part(body,shape.gem,mat(0xa3bbb9),2.8,2.3,2.6,.8,4.6,.45);part(body,shape.box,bone,2.8,-.3,2.6,2.3,.55,.7)}
+     else{part(body,shape.hoop,mat(0xa78063),2.3,1,2.7,1.5,4,.8);part(body,shape.box,bone,2.3,1,2.7,.16,8,.16)}
+    }
+    return {root,body,fins,badge};
+   }
    case 'ember':{
     part(body,shape.ball,mat(0xc95c35),0,0,0,4.4,2.8,2.8);part(body,shape.ball,mat(0xff9c55),2.7,1.2,0,2.3,2.6,2.45);
     for(let i=0;i<3;i++){const spike=part(body,shape.cone,glow,1.6-i*2.15,3.15-i*.35,0,.85,2.8,1.12);spike.rotation.z=.45}

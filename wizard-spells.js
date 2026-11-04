@@ -1,5 +1,7 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
+export const spellRadius = radius => radius * 1.12;
+
 const color = {
   Evocation: '#ff905b', Movement: '#eac767', Summoning: '#87da75',
   Restoration: '#8aefd1', Warding: '#bdabff', Hexes: '#ee88c9'
@@ -192,7 +194,7 @@ const healing = [
   spell('Restoration', 'lantern-well', 'Lantern Well', '⚘', 28, .75,
     'Plant a healing lantern. Stay within its circle to recover 5 health every second for six seconds.',
     (api, p) => api.zone(p, p.x, p.y - 12, 41, 6.1, 1, (world, owner, x, y, z) => {
-      if (distanceFrom(owner, x, y, z) <= 41) world.heal(owner, 5);
+      if (distanceFrom(owner, x, y, z) <= spellRadius(41)) world.heal(owner, 5);
     }, color.Restoration, p.z)),
   spell('Restoration', 'vampire-moth', 'Vampire Moth', 'ʚ', 19, .45,
     'Send out a seeking moth. A hit deals 9 damage and restores 12 health to its caster.',
@@ -240,13 +242,13 @@ const shields = [
   spell('Warding', 'winter-ring', 'Winter Ring', '❄', 21, .35,
     'Surround yourself with frost. Every nearby enemy is slowed for three seconds as you gain 8 shielding.',
     (api, p) => {
-      for (const target of api.enemies(p)) if (distanceFrom(target, p.x, p.y - 12, p.z) <= 74) api.status(target, 'slow', 3);
+      for (const target of api.enemies(p)) if (distanceFrom(target, p.x, p.y - 12, p.z) <= spellRadius(74)) api.status(target, 'slow', 3);
       ward(p, 8); mark(api, p, 'Warding', 74);
     }),
   spell('Warding', 'tithe-dome', 'Tithe Dome', '⌒', 30, .75,
     'Raise a ward circle. Every second you remain inside grants 6 shielding, for up to five seconds.',
     (api, p) => api.zone(p, p.x, p.y - 12, 35, 5.1, 1, (world, owner, x, y, z) => {
-      if (distanceFrom(owner, x, y, z) <= 35) { ward(owner, 6); mark(world, owner, 'Warding', 22); }
+      if (distanceFrom(owner, x, y, z) <= spellRadius(35)) { ward(owner, 6); mark(world, owner, 'Warding', 22); }
     }, color.Warding, p.z)),
   spell('Warding', 'aegis-break', 'Aegis Break', '✷', 18, .3,
     'Shatter up to 35 of your shield points. Each point increases the damage and reach of the outward blast.',
@@ -257,7 +259,7 @@ const shields = [
 ];
 
 function nearby(api, owner, x, y, z, radius) {
-  return api.enemies(owner).filter(target => distanceFrom(target, x, y, z) <= radius);
+  return api.enemies(owner).filter(target => distanceFrom(target, x, y, z) <= spellRadius(radius));
 }
 
 const evocationArts = [
@@ -337,7 +339,7 @@ const movementArts = [
   spell('Movement','thermal-font','Thermal Font','♒',19,.3,
     'Place a five-second updraft at your feet. Any wizard in its core is repeatedly lifted.',
     (api,p)=>api.zone(p,p.x,p.y-12,38,5,.28,(world,owner,x,y,z)=>{
-      for(const q of [owner,...world.enemies(owner)])if(distanceFrom(q,x,y,z)<=38)q.vy=-255;
+      for(const q of [owner,...world.enemies(owner)])if(distanceFrom(q,x,y,z)<=spellRadius(38))q.vy=-255;
     },color.Movement,p.z)),
   spell('Movement','moonwalk','Moonwalk','☽',18,.16,
     'Blink sideways and briefly become mist. Your aim stays pointed at the same opponent.',
@@ -348,6 +350,9 @@ const movementArts = [
 ];
 
 const familiars = [
+  ['grave-squire','Grave Squire','🗡',18,.65,'squire','Raise a sword-wielding skeleton. It closes to melee range and chops for 11 damage every 0.85 seconds.'],
+  ['crypt-bow','Crypt Bow','🏹',55,1.3,'archer','Raise a skeletal archer. Its bone arrows deal 13 damage and can pierce two enemies in a line.'],
+  ['soul-wraith','Soul Wraith','👻',160,2.7,'wraith','Call a shrouded spirit. Its touch drains 8 health and returns the health actually taken to you.'],
   ['ember-newt','Ember Newt','♆',29,.65,'ember','Spits explosive fireballs at enemies.'],
   ['rime-owl','Rime Owl','❅',27,.55,'frost','Fires shards that slow its targets.'],
   ['balm-beetle','Balm Beetle','⚕',26,.55,'medic','While near you, restores 5 of your health every 1.5 seconds.'],
@@ -460,7 +465,7 @@ const restorationArts = [
   spell('Restoration','root-tea','Root Tea','☕',18,.42,
     'Brew for three seconds. Stay still at the cup for all three sips to heal 27 health and refill 12 mana. Missing a sip spoils the pot.',
     (api,p)=>{let sips=0;api.zone(p,p.x,p.y-12,12,3.05,1,(world,owner,x,y,z)=>{
-      if(owner.hp>0&&distanceFrom(owner,x,y,z)<=12&&Math.hypot(owner.vx,owner.vz)<8&&++sips===3){
+      if(owner.hp>0&&distanceFrom(owner,x,y,z)<=spellRadius(12)&&Math.hypot(owner.vx,owner.vz)<8&&++sips===3){
         world.heal(owner,27);owner.mana=Math.min(owner.maxMana,owner.mana+12);mark(world,owner,'Restoration');
       }
     },color.Restoration,p.z)}),
@@ -522,7 +527,7 @@ const wardingArts = [
   spell('Warding','mirror-post','Mirror Post','♙',27,.57,
     'Plant a mirror post. Every second for four seconds, standing within two blocks grants a short reflection window.',
     (api,p)=>api.zone(p,p.x,p.y-12,24,4.05,1,(world,owner,x,y,z)=>{
-      if(distanceFrom(owner,x,y,z)<=24){world.status(owner,'reflect',.45);mark(world,owner,'Warding');}
+      if(distanceFrom(owner,x,y,z)<=spellRadius(24)){world.status(owner,'reflect',.45);mark(world,owner,'Warding');}
     },color.Warding,p.z)),
   spell('Warding','safety-net','Safety Net','▨',19,.2,
     'If you begin falling quickly within four seconds, a platform forms beneath you and your descent slows.',
@@ -560,7 +565,7 @@ const grandSpells = [
     (api,p,pitch)=>{
       const end=aimPoint(p,pitch,288);
       const pad=()=>api.zone(p,p.x,p.y-12,32,8,.15,(world,o,x,y,z)=>{
-        for(const q of world.occupants())if(distanceFrom(q,x,y,z)<=32)world.status(q,'haste',2);
+        for(const q of world.occupants())if(distanceFrom(q,x,y,z)<=spellRadius(32))world.status(q,'haste',2);
       },color.Movement,p.z);
       pad();api.blink(p,end.x-p.x,end.y+12-p.y,end.z-p.z);pad();
     }),
@@ -584,7 +589,7 @@ const grandSpells = [
     (api,p)=>{
       api.heal(p,60);
       api.zone(p,p.x,p.y-12,96,8.05,1,(world,owner,x,y,z)=>{
-        if(owner.hp>0&&distanceFrom(owner,x,y,z)<=96){world.heal(owner,10);ward(owner,4);mark(world,owner,'Restoration',36)}
+        if(owner.hp>0&&distanceFrom(owner,x,y,z)<=spellRadius(96)){world.heal(owner,10);ward(owner,4);mark(world,owner,'Restoration',36)}
       },color.Restoration,p.z);
     }),
   spell('Hexes','gravity-well','Gravity Well','◍',450,5,
@@ -606,7 +611,7 @@ const grandSpells = [
     (api,p,pitch)=>{
       const at=aimPoint(p,0,120),surface=api.surface(at.x,at.z,0);if(surface===null)return;
       api.zone(p,at.x,surface,46,8,.1,(w,o,x,y,z)=>{
-        for(const q of w.occupants())if(Math.hypot(q.x-x,q.z-z)<42&&q.y>y-54&&q.y<y+132)q.vy=-360;
+        for(const q of w.occupants())if(Math.hypot(q.x-x,q.z-z)<spellRadius(42)&&q.y>y-spellRadius(54)&&q.y<y+spellRadius(132))q.vy=-360;
       },color.Movement,at.z);
       let step=0;
       api.zone(p,p.x,p.y-12,16,1.31,.25,(world,owner)=>{
@@ -624,7 +629,7 @@ function armament(id,name,symbol,cost,time,form,tint,strikes,reach,arc,damage,de
   return entry;
 }
 function localTargets(api,p,r){
-  return api.enemies(p).filter(q=>Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<=r);
+  return api.enemies(p).filter(q=>Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<=spellRadius(r));
 }
 const arsenal=[
   armament('glass-knife','Glass Knife','†',8,.35,'knife',0x95fff1,4,25,1.8,9,.22,'backstab','Backstabs deal triple damage.'),

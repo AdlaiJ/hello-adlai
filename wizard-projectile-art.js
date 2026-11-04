@@ -290,6 +290,12 @@ export function makeProjectileArt(THREE) {
         bright(gem,0xaceab8,-.38,-.38,.03,.21,.25,.21);
         stream('arc',0xa7dda8);cycle=t=>blade.rotation.y=.2*Math.sin(t*5);spin=1.7;roll=7;break;
       }
+      case 'familiar-archer': {
+        mesh(shard,0xf8e5bb,0,.65,0,.48,.68,.42);
+        mesh(ball,0xcaad81,0,-.32,0,.12,1.05,.12);
+        for(const side of [-1,1])bright(shard,0xc197ff,side*.17,-1.02,0,.2,.42,.2).rotation.z=-side*.42;
+        spin=.4;break;
+      }
       case 'familiar-ember': {
         bright(stone,0xffb442,0,0,0,.69,.9,.67);mesh(gem,0xed583a,.1,-.19,0,.72,.76,.76);
         bright(cone,0xffde82,0,-.91,0,.52,1.38,.52).rotation.z=Math.PI;

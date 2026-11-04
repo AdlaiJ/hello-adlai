@@ -10,14 +10,14 @@ formation('fountain', 'witchspark:ffe36c bottle-rocket:ff964a thermal-font:87ffe
 formation('orbit', 'north-star:9acfff corner-pocket:75f7be catherine-wheel:ff8171 winter-ring:9feaff moonwalk:c1baff wild-hunt:c3f583 dawn-coronation:ffdb72');
 formation('fault', 'fault-stitch:f5d95f fork-lightning:9cefff quarry-auger:d89963 worldbreaker:ffb554 fault-cross:f48356 unlace:c0a4ff');
 formation('bloom', 'kiln-heart:ff783b crater-bell:eeb971 airburst:fff4a0 overbloom:f789dd heartwood:95dc71 aegis-break:be90ff phoenix-vigil:ffaf38');
-formation('ribs', 'rampart:bdadff bone-wall:f6deb1 bone-spikes:e4d5c5 hedge-hospice:81c76f rising-stair:ffc870 sky-shutter:a4e8f8 last-citadel:d8acff');
+formation('ribs', 'grave-squire:d3e4a8 rampart:bdadff bone-wall:f6deb1 bone-spikes:e4d5c5 hedge-hospice:81c76f rising-stair:ffc870 sky-shutter:a4e8f8 last-citadel:d8acff');
 formation('weave', 'green-thread:80efb8 last-stitch:b4ffbb glass-graft:9af9ea root-needle:99d981 safety-net:f7b8ff field-dressing:f9c9ad tripwire:ff9bd9');
 formation('vortex', 'gravity-well:b58cff lodestone:f287bc undertow:74c8ff hook-and-eye:d2b68c vampire-moth:f298c8 thieves-quill:e4a5ff ward-tax:ffda7f');
 formation('fall', 'moon-mortar:d8cdff sky-toll:bda6fa dew-wash:81e1ff lead-anklet:a5b9da lead-bell:c6aba4 siege-clock:f5bf78 pilgrim-salve:7cf7ca');
-formation('blades', 'star-shears:fc9da5 silver-skewer:e0faff glass-fan:93ddff glass-knife:9fffe3 wisp-rapier:b5d7ff rime-axe:80e6ff ember-maul:ff9366 harvest-scythe:d3a5ff midnight-harvest:bc98ff');
+formation('blades', 'crypt-bow:d3b0ff star-shears:fc9da5 silver-skewer:e0faff glass-fan:93ddff glass-knife:9fffe3 wisp-rapier:b5d7ff rime-axe:80e6ff ember-maul:ff9366 harvest-scythe:d3a5ff midnight-harvest:bc98ff');
 formation('gate', 'foxstep:ffab71 hare-moon:efe398 fold-step:fddb89 switchback:a6eafa return-ticket:ffda81 cross-step:ffbfe1 pilgrim-step:f5da86 thunder-road:fff08a comet-retreat:ff9f59');
 formation('shell', 'thimble-ward:b6a1ff looking-glass:b1f5ff smoke-skin:cad0ed spark-film:a2eff5 capacitor-shell:fff069 prism-parry:f69bff polar-aegis:81dfff snail-citadel:e0beb0 mirror-post:a2caff');
-formation('flock', 'ember-newt:ff9459 rime-owl:addfff balm-beetle:93ef98 bastion-crab:ffc28c storm-finch:b3caff quarry-mole:cda173 salamander-nest:ffa247 winter-court:aceaff familiar-feast:ffaf85 fire-skull:ff7046');
+formation('flock', 'soul-wraith:8fffe1 ember-newt:ff9459 rime-owl:addfff balm-beetle:93ef98 bastion-crab:ffc28c storm-finch:b3caff quarry-mole:cda173 salamander-nest:ffa247 winter-court:aceaff familiar-feast:ffaf85 fire-skull:ff7046');
 formation('pendulum', 'sundial-mine:ffcc73 hemlock-clock:e4acff vowbreaker:d69ce3 hush-feather:bbabe7 second-draft:83decf glass-receipt:c0fbf9 crimson-ledger:ef8189');
 formation('altar', 'pocket-poultice:97f6bc lantern-well:ffdb90 root-tea:c2e59b tithe-dome:c4adff iron-choir:d1bbec pressure-valve:c8eeee');
 formation('trail', 'comet-train:ffae72 recoil-rose:fc9ab3 cinder-brand:ff936b fevervine:bcdd77 mute-marsh:a2a580 peel-gilt:ffe294');
