@@ -307,5 +307,25 @@ export function extraSpells(){
  });
  school('Movement','orbit','#9fffe1');
  add('Ghostwalk','♧',30,.5,'Walk through walls for six seconds while staying on solid floors. You can still take damage. If you are inside a wall when it ends, return to your last open position.',(a,p)=>a.wallwalk(p));
+ school('Hexes','orbit','#9bdfff');
+ add('Timestop','◷',200,1.2,'Freeze enemy wizards, monsters, projectiles and spell fields for five seconds. You and your allies can move and attack freely.',(a,p)=>a.stopTime(p));
+ school('Evocation','fall','#ff9c59');
+ add('Asteroid Strike','☄',450,3,'Call a massive asteroid onto the ground ahead. A 1.8-second warning precedes a 120-damage impact across a 160-unit radius that shatters terrain.',(a,p,pitch)=>{
+  const distance=Math.max(100,Math.min(350,250-pitch*140)),x=p.x+Math.cos(p.yaw)*distance,z=p.z+Math.sin(p.yaw)*distance,y=a.surface(x,z,p.y-100);if(y===null)return;
+  a.fx(x,y,90,'#ff9c59','asteroid-strike',z,0,0,1.8);a.fx(x,y-2,160,'#ff9c59','tentacle-warning',z,0,0,1.8);
+  let hit=false;a.zone(p,x,y,1,1.9,1.8,(w,o)=>{if(hit)return;hit=true;w.area(o,x,y-15,160,120,'#ffbc75',z)},'#ff9c59',z,'tentacle-timer');
+ });
+ school('Summoning','orbit','#c4bc96');
+ add('Dungeon Master','▤',300,2.5,'Build a 300-unit maze of breakable walls, connecting hallways and four entrances ahead. Six spike traps guard its halls; six allied skeleton guardians hunt enemies for 35 seconds.',(a,p)=>a.dungeon(p));
+ school('Evocation','fault','#ff7357');
+ add('Cataclysm','✹',700,4,'Unleash six expanding eruptions around you over three seconds. Each blasts a different area for 40 damage. The final 220-unit shockwave deals 60 damage and launches surviving enemies upward.',(a,p)=>{
+  const x=p.x,y=p.y-10,z=p.z;let pulse=0;
+  a.fx(x,y,200,'#ff7357','cataclysm',z,0,0,3.5);
+  a.zone(p,x,y,1,3.1,.5,(w,o)=>{
+   if(pulse>=6)return;const angle=pulse*Math.PI/3,r=65+pulse*25;
+   w.area(o,x+Math.cos(angle)*r,y,90,40,'#ff9964',z+Math.sin(angle)*r);pulse++;
+   if(pulse===6){w.area(o,x,y,220,60,'#ffc06c',z);for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-y,q.z-z)<250){q.vy=-350;q.ground=false}}
+  },'#ff7357',z,'tentacle-timer');
+ });
  return book;
 }

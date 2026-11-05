@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=ghostwalk';
-import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=ghostwalk';
+import {SPELLS} from './wizard-spells.js?v=secret-four';
+import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=secret-four';
 
 import {markChangedChunk,T} from './wizard-world.js?v=keyboard-play';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=ghostwalk');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=secret-four');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -38,7 +38,7 @@ const starterKits={
 };
 function starterIds(kit){
  const affordable=spell=>spell.cost<=settings.mana;
- const fallback=SPELLS.filter(affordable).sort((a,b)=>a.cost-b.cost).map(s=>s.id);
+ const fallback=SPELLS.filter(s=>!s.passwordProtected).filter(affordable).sort((a,b)=>a.cost-b.cost).map(s=>s.id);
  return [...new Set([...kit.order.split(' ').filter(id=>affordable(spells.get(id))),...fallback])].slice(0,settings.count);
 }
 function previewStarter(){
@@ -52,6 +52,13 @@ function previewStarter(){
 }
 $('starterStyle').onchange=previewStarter;
 $('equipStarter').onclick=()=>{if(locked)return;selected=starterIds(starterKits[$('starterStyle').value]);drawBook();$('bookStatus').textContent='Loadout equipped. Choose Lock in spells to play, or unselect a spell to swap it.'};
+let requestedSecret=null;
+function requestSecretSpell(id){requestedSecret=id;$('spellPassword').value='';$('passwordError').textContent='';$('passwordTitle').textContent='Equip '+spells.get(id).name;$('spellUnlock').showModal();$('spellPassword').focus()}
+$('cancelUnlock').onclick=()=>{$('spellUnlock').close();requestedSecret=null};
+$('unlockForm').onsubmit=e=>{e.preventDefault();if($('spellPassword').value!=='GANDALFTIME'){$('passwordError').textContent='Incorrect password. Try again.';return}
+ if(page==='book'&&!locked&&requestedSecret&&!selected.includes(requestedSecret)&&selected.length<settings.count)selected.push(requestedSecret);
+ $('spellUnlock').close();requestedSecret=null;$('spellPassword').value='';drawBook();
+};
 function drawBook(){const focused=document.activeElement?.dataset?.spell;previewStarter();const list=$('cards');list.replaceChildren();
  $('grandToggle').setAttribute('aria-pressed',String($('school').value==='grand'));
  for(const school of schools){
@@ -61,7 +68,7 @@ function drawBook(){const focused=document.activeElement?.dataset?.spell;preview
   if(!entries.length)continue;heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
   for(const s of entries){
  const i=selected.indexOf(s.id),b=document.createElement('button');b.dataset.spell=s.id;b.setAttribute('aria-pressed',String(i>=0));b.disabled=locked||(i<0&&selected.length>=settings.count);
- const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+((i+1)%10)+'] ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+(s.channel?s.channel.mana+' mana/second · Hold to cast':s.cost+' mana · '+(s.time?s.time+'s':'Instant'));desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
+ const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+((i+1)%10)+'] ':'')+(s.passwordProtected?'🔒 ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+(s.channel?s.channel.mana+' mana/second · Hold to cast':s.cost+' mana · '+(s.time?s.time+'s':'Instant'));desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0&&s.passwordProtected){requestSecretSpell(s.id);return}if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
  }
  $('selection').textContent=selected.length+' / '+settings.count+' bound';$('ready').disabled=locked||selected.length!==settings.count;
  if(focused){if(!$('ready').disabled)$('ready').focus();else [...list.querySelectorAll('button')].find(b=>b.dataset.spell===focused)?.focus()}}
@@ -72,7 +79,6 @@ function notify(text){message=text;messageUntil=performance.now()+1600}
 function start(){heldSpell=-1;show('hud');keys.clear();armed=false;yaw=state.players[me].yaw;angle=0;netClock=0;
  canvas.tabIndex=-1;canvas.focus();
  $('practice').hidden=mode!=='sandbox';$('slots').replaceChildren();
- if(p.statuses.wallwalk>0)$('signal').textContent+=' · GHOSTWALK '+p.statuses.wallwalk.toFixed(1)+'s';
  selected.forEach((id,i)=>{const b=document.createElement('button');if(spells.get(id).channel){
   b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);holdSpell(i)};
   b.onlostpointercapture=()=>releaseSpell(i);

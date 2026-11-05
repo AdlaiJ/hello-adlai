@@ -1,4 +1,4 @@
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=ghostwalk';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=secret-four';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=keyboard-play';
 export {MAPS,makeTiles} from './wizard-world.js?v=keyboard-play';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -11,6 +11,7 @@ export function campaignTiles(map,stage){
 }
 export function createGame(settings,loadouts,mode){
  const s={map:settings.map,tiles:makeTiles(settings.map),players:[],summons:[],changedChunks:new Map(),shots:[],effects:[],zones:[],time:0,wave:0,over:'',mode};
+ const frozen=p=>s.timeStop&&s.time<s.timeStop.until&&p.side!==s.timeStop.side;
  const dirty=new Set();s.terrainVersion=0;
  let activeSpell=null,activeSource=null;
  const burnSources=new WeakMap(),wallSafe=new WeakMap();
@@ -73,6 +74,30 @@ export function createGame(settings,loadouts,mode){
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds,source=activeSource)=>{if(key==='burn'&&source)burnSources.set(p,source);p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,cutTerrain:tileDamage,
+  stopTime(p){s.timeStop={side:p.side,until:s.time+5};fx(p.x,p.y-15,100,'#a7e8ff','timestop',p.z,0,0,5)},
+  dungeon(p){
+   const cx=clamp(Math.floor((p.x+150*Math.cos(p.yaw))/T),15,W-16),cz=clamp(Math.floor((p.z+150*Math.sin(p.yaw))/T),15,D-16);
+   const floor=api.surface(cx*T,cz*T,p.y-60);if(floor===null)return;
+   const fy=Math.floor(floor/T),occupants=api.occupants();
+   for(let x=-12;x<=12;x++)for(let z=-12;z<=12;z++){
+    const edge=Math.abs(x)===12||Math.abs(z)===12;
+    const entrance=(Math.abs(x)<=1||Math.abs(z)<=1)&&edge;
+    const divider=!edge&&x%4===0&&Math.abs(z)<11&&Math.abs(z-((x/4)%2===0?7:-7))>1;
+    const wall=(edge&&!entrance)||divider;
+    for(let y=0;y<5;y++){
+     const wx=(cx+x)*T,wz=(cz+z)*T,wy=(fy-y)*T;if(wy<0)continue;
+
+     if((y===0||wall)&&occupants.some(q=>Math.abs(q.x-wx-6)<16&&Math.abs(q.z-wz-6)<16&&Math.abs(q.y-12-wy-6)<28))continue;
+     setBlock(((cz+z)*H+fy-y)*W+cx+x,y===0||wall?42:0);
+    }
+   }
+   for(let i=0;i<6;i++){
+    const x=(cx-10+i*4)*T+6,z=(cz+(i%2?5:-5))*T+6;
+    api.spike(p,x,floor,z);
+    const monster=summon(p,i%2?'archer':'squire',35);monster.x=x;monster.z=(cz+(i%2?-7:7))*T+6;monster.y=floor-1;
+   }
+   fx(cx*T,floor-3,150,'#b3b98c','dungeon-master',cz*T,0,0,1);
+  },
   wallwalk(p){if(!blocked(p.x,p.y,p.z))wallSafe.set(p,{x:p.x,y:p.y,z:p.z});api.status(p,'wallwalk',6)},
   stoneCoffin(q){
    const cx=Math.floor(q.x/T),cz=Math.floor(q.z/T),bottom=Math.floor((q.y-1)/T)+1;
@@ -200,6 +225,7 @@ export function createGame(settings,loadouts,mode){
  function stepFamiliars(dt){
   s.summons=s.summons.filter(f=>f.hp>0&&f.time<f.duration&&f.owner.hp>0);
   for(const f of s.summons){
+   if(frozen(f))continue;
    f.time+=dt;f.pulse-=dt;
    for(const k of Object.keys(f.statuses))f.statuses[k]=Math.max(0,f.statuses[k]-dt);
    if(f.statuses.burn>0)damage(f,dt*6,burnSources.get(f));
@@ -338,18 +364,18 @@ export function createGame(settings,loadouts,mode){
  }
  function fireSword(index){
   const p=s.players[index];
-  if(!p?.onThrone||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0)||p.hp<=0||s.over||s.cutscene||p.cast>0||p.statuses.silence>0||p.swordReady>s.time)return false;
+  if(!p?.onThrone||frozen(p)||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0)||p.hp<=0||s.over||s.cutscene||p.cast>0||p.statuses.silence>0||p.swordReady>s.time)return false;
   p.throneVolley=s.time+.7;p.swordReady=s.time+1.5;return true;
  }
  function fireBlood(index){
   const p=s.players[index];
-  if(!p?.bloodAmmo||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  if(!p?.bloodAmmo||frozen(p)||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   const weapon=bloodWeapons[(p.bloodFired||0)%bloodWeapons.length];
   api.bolt(p,p.aim,{...weapon,color:'#da1741'});p.bloodAmmo--;p.bloodFired=(p.bloodFired||0)+1;return true;
  }
  function fireBlock(index){
   const p=s.players[index];
-  if(!p?.blocks?.length||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  if(!p?.blocks?.length||frozen(p)||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   p.blocks.pop();
   api.bolt(p,p.aim,{style:'quarry-volley',speed:355,r:5,damage:17,color:'#bf9e72'});
   return true;
@@ -360,7 +386,7 @@ export function createGame(settings,loadouts,mode){
  }
  function command(index,slot,store=false){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
-  if(!Number.isInteger(slot)||!spell||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  if(!Number.isInteger(slot)||!spell||frozen(p)||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(spell.channel)return false;
   if(!store&&spell.id==='blood-arsenal'&&p.bloodAmmo>=30)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
@@ -432,7 +458,7 @@ export function createGame(settings,loadouts,mode){
   }
  }
  function campaignStage(stage){
-  s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
+  s.timeStop=null;s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
   s.map=campaignMaps[stage-1];s.tiles=campaignTiles(s.map,stage);s.terrainVersion++;dirty.clear();
   s.changedChunks=new Map();s.players.splice(heroCount);inputs.splice(heroCount);s.summons=[];s.shots=[];s.zones=[];s.effects=[];
   const p=s.players[0];Object.assign(p,{x:midX-150,z:midZ,y:200,vx:0,vy:0,vz:0,hp:p.maxHp,mana:p.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null,throneVolley:0,onThrone:false});
@@ -527,7 +553,7 @@ export function createGame(settings,loadouts,mode){
   const pulses=Math.floor(second/10)-Math.floor(previousSecond/10);
   const manaFraction=(second-previousSecond)*.005+pulses*.1;
   for(const [i,p] of s.players.entries()){
-   if(p.hp<=0)continue;const st=p.statuses;
+   if(p.hp<=0||frozen(p))continue;const st=p.statuses;
    if(p.weapon){
     const held=p.weapon;
     if(held.hitAt!==undefined&&s.time>=held.hitAt){delete held.hitAt;if(!(st.silence>0))meleeImpact(p,held)}
@@ -600,6 +626,7 @@ export function createGame(settings,loadouts,mode){
   stepFamiliars(dt);
   const targetsBySide=new Map();
   for(const b of [...s.shots]){
+   if(frozen(b.p))continue;
    if(!targetsBySide.has(b.p.side))targetsBySide.set(b.p.side,enemies(b.p));
    const candidates=targetsBySide.get(b.p.side);
    if(b.homing){const distance=q=>Math.hypot(q.x-b.x,q.y-12-b.y,q.z-b.z),t=candidates.reduce((best,q)=>q.hp>0&&(!best||distance(q)<distance(best))?q:best,null);
@@ -641,7 +668,7 @@ export function createGame(settings,loadouts,mode){
    }
    if(!b.dead&&(b.life<=0||b.x<0||b.x>W*T||b.y>550||b.y< -150||b.z<0||b.z>D*T)){b.onExpire?.(api,b.p,b.x,b.y,b.z);b.dead=true}
   }
-  s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){z.life-=dt;
+  s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){if(frozen(z.p))continue;z.life-=dt;
    if(z.style==='spikes'){
     if(z.hp<=0||!solid(z.x,z.y+1,z.z)){z.life=0;fx(z.x,z.y-9,16,z.color,'burst',z.z);continue}
     const victim=api.occupants().find(q=>Math.hypot(q.x-z.x,q.z-z.z)<=spellRadius(24)&&q.y>=z.y-spellRadius(26)&&q.y<=z.y+5);
@@ -675,6 +702,6 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
- function snapshot(includeTiles=true){return {mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

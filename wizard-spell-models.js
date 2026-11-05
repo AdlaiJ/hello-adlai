@@ -490,5 +490,22 @@ export function makeSpellModels({joint,part,shape,mat}){
    smoke.forEach((p,i)=>{const u=i/7;p.position.set(-1.3+u*1.8+Math.sin(t*8+i)*.2,.25+Math.sin(u*Math.PI)*(2.7*(1-fall))+(t>.6?(t-.6)*1.5:0),Math.cos(t*7+i)*.3);p.scale.setScalar(.15+.13*Math.sin(t*3+i)**2)});
   };
  };
+ models.timestop=g=>{
+  const dial=joint(g,0,.4,0);piece(dial,'hoop',0x9bdfff,0,0,0,1,1,1,0,true);
+  const hand=piece(dial,'box',0xffffff,0,.35,0,.04,.7,.04,0,true);
+  for(let i=0;i<12;i++){const a=i*Math.PI/6;piece(dial,'gem',0xb0e8ff,Math.sin(a)*.85,Math.cos(a)*.85,0,.05,.09,.04,0,true)}
+  return t=>{hand.rotation.z=-Math.min(t*15,1)*Math.PI*.7};
+ };
+ models['asteroid-strike']=g=>{
+  const rock=joint(g,0,0,0);piece(rock,'gem',0x63413d,0,0,0,.7,.8,.65);
+  for(let i=0;i<8;i++){const a=i*2.4;piece(rock,'gem',0xffad57,Math.cos(a)*.5,Math.sin(a)*.5,.2,.17,.35,.19,a,true)}
+  const tail=piece(rock,'cone',0xff7b3d,0,1.4,0,.5,2,.5,0,true);
+  return t=>{rock.position.y=4*(1-t*t);rock.rotation.z=t*2;tail.scale.x=.4+.1*Math.sin(t*35)};
+ };
+ models['dungeon-master']=g=>{for(let i=0;i<5;i++)box(g,0xb7b194,(i-2)*.35,.12,.12,.4,1.4);piece(g,'hoop',0xd2dbb0,0,.02,0,1,.04,1,0,true)};
+ models.cataclysm=g=>{
+  const spikes=[];for(let i=0;i<12;i++){const a=i*Math.PI/6;spikes.push(piece(g,'cone',i%2?0xff9960:0x7a3343,Math.cos(a)*.8,0,Math.sin(a)*.8,.12,1,.12,0,i%2===1))}
+  return t=>spikes.forEach((spike,i)=>{spike.scale.y=.1+Math.max(0,Math.sin(t*12-i*.5))*.9;spike.position.y=spike.scale.y/2});
+ };
  return models;
 }

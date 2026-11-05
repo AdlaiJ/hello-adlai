@@ -1,6 +1,6 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=ghostwalk';
+import {makeSpellModels} from './wizard-spell-models.js?v=secret-four';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=ghostwalk';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=secret-four';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
