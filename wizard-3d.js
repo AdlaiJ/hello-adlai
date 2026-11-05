@@ -430,10 +430,17 @@ function makeFamiliars(scene){
   }
   return {root,body,fins,badge};
  }
+ const view=new THREE.Frustum(),viewMatrix=new THREE.Matrix4(),bounds=new THREE.Sphere();
  return (familiars,players,t,camera)=>{
+  camera.updateMatrixWorld();
+  view.setFromProjectionMatrix(viewMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
   for(const pool of pools.values())pool.used=0;
   for(const f of familiars){
    if(f.hp<=0||!(f.kind in palette))continue;
+   // Generous bounds keep large bosses and moving limbs visible at screen edges.
+   bounds.center.set(f.x,HEIGHT-f.y+20,f.z);
+   bounds.radius=f.voidBoss||f.kind==='crimson-king'?250:f.kind==='purple-wurm'?140:f.monster?100:65;
+   if(!view.intersectsSphere(bounds))continue;
    if(!pools.has(f.kind))pools.set(f.kind,{used:0,rigs:[]});const pool=pools.get(f.kind),i=pool.used++;
    const rig=pool.rigs[i]??(pool.rigs[i]=create(f.kind)),phase=t*4+(f.id||0)*1.89;
    const support=f.kind==='medic'||f.kind==='bastion';

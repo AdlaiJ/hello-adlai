@@ -1,5 +1,5 @@
 import {SPELLS} from './wizard-spells.js?v=keyboard-play';
-import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=keyboard-play';
+import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=combat-feedback';
 
 import {markChangedChunk,T} from './wizard-world.js?v=keyboard-play';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=keyboard-play');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=summon-perf');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -18,8 +18,8 @@ let heldSpell=-1;
 for(const map of MAPS)$('map').add(new Option(map,map));
 const schools=[...new Set(SPELLS.map(s=>s.category))].sort();
 for(const cat of schools)$('school').add(new Option(cat,cat));
-function show(id){page=id;if(id!=='hud'&&windowAim)setWindowAim(false);if(id!=='hud'&&document.pointerLockElement===canvas)document.exitPointerLock();document.body.classList.toggle('playing',id==='hud');for(const x of ['home','setup','book','end','hud'])$(x).hidden=x!==id;document.querySelector('main').style.display=id==='hud'?'none':''}
-function clean(){heldSpell=-1;room?.stop();room=null;game=state=null;code='';locked=false;seats.clear();me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
+function show(id){page=id;$('combatFeedback').hidden=id!=='hud';if(id!=='hud'&&windowAim)setWindowAim(false);if(id!=='hud'&&document.pointerLockElement===canvas)document.exitPointerLock();document.body.classList.toggle('playing',id==='hud');for(const x of ['home','setup','book','end','hud'])$(x).hidden=x!==id;document.querySelector('main').style.display=id==='hud'?'none':''}
+function clean(){resetFeedback();heldSpell=-1;room?.stop();room=null;game=state=null;code='';locked=false;seats.clear();me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
 function setup(m){clean();mode=m;show('setup');$('map').parentElement.hidden=m==='campaign';$('formatLabel').hidden=m!=='multi';$('modeName').textContent={campaign:'Campaign · Eight stages',waves:'Singleplayer · Waves',multi:'Multiplayer · Room match',sandbox:'Sandbox · Training grounds'}[m];
  $('proceed').textContent=m==='multi'?'Create room':'Choose spells';$('joining').hidden=m!=='multi';$('setupStatus').textContent=m==='multi'?'The host sets the rules. Choose a match format and share the room word with your friends.':'Choose how many spells you want to bring.';$('join').disabled=$('proceed').disabled=false}
 $('multiplayer').onclick=()=>setup('multi');$('waves').onclick=()=>setup('waves');$('sandbox').onclick=()=>setup('sandbox');
@@ -129,6 +129,36 @@ function releaseSpell(i){
 }
 function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).channel){holdSpell(i);return}heldSpell=-1;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:'cast',slot:i,store})}}
+
+let feedbackPrevious=null,hurtUntil=0,hitUntil=0,hitTotal=0,hurtTotal=0,lastHurt=0,lastHit=0;
+function resetFeedback(){feedbackPrevious=null;hurtUntil=hitUntil=hitTotal=hurtTotal=0;$('hurtGlow').style.opacity=0;$('hurtText').textContent='';$('hitConfirm').style.opacity=0}
+function combatFeedback(now){
+ const p=state?.players[me];if(!p)return;
+ const current=[p.damageTaken||0,p.shieldTaken||0,p.damageDealt||0,p.kills||0];
+ if(feedbackPrevious&&current.every((v,i)=>v>=feedbackPrevious[i])){
+  const hurt=current[0]-feedbackPrevious[0],shield=current[1]-feedbackPrevious[1],hit=current[2]-feedbackPrevious[2],kill=current[3]>feedbackPrevious[3];
+  if(hurt+shield>0){
+   if(now-lastHurt>600)hurtTotal=0;hurtTotal+=hurt+shield;lastHurt=now;hurtUntil=now+650;
+   $('hurtText').textContent=(hurt>0?'HURT −':'SHIELD −')+Math.max(1,Math.round(hurtTotal));
+   $('hurtText').style.color=hurt>0?'#ffb3bb':'#a8eaff';
+   $('hurtGlow').style.boxShadow='inset 0 0 95px 25px '+(hurt>0?'#dc234e':'#32a9e5');
+   $('hurtGlow').style.background=hurt>0?'radial-gradient(ellipse,transparent 45%,#b0002344)':'none';
+  }
+  if(hit>0){
+   if(now-lastHit>600)hitTotal=0;hitTotal+=hit;lastHit=now;hitUntil=now+(kill?1100:700);
+   $('hitAmount').textContent=(kill?'DEFEATED · ':'HIT · ')+Math.max(1,Math.round(hitTotal));
+   $('hitConfirm').style.color=kill?'#ffca70':'#fff0a8';
+  }
+ }
+ feedbackPrevious=current;
+ $('hurtGlow').style.opacity=Math.max(0,(hurtUntil-now)/650)*.75;
+ $('hurtText').style.opacity=Math.min(1,Math.max(0,(hurtUntil-now)/250));
+ $('hitConfirm').style.opacity=Math.min(1,Math.max(0,(hitUntil-now)/250));
+ const fraction=Math.max(0,Math.min(1,p.hp/p.maxHp));
+ $('healthFill').style.width=(fraction*100)+'%';$('healthFill').style.background=fraction<.25?'#ff627a':'#69e0a5';
+ const label='HP '+Math.ceil(p.hp)+' / '+p.maxHp;if($('healthLabel').textContent!==label)$('healthLabel').textContent=label;
+}
+
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  $('vitals').textContent=colors[p.side]+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
  const boss=state.players.find(q=>q.boss&&q.hp>0);$('bossHealth').hidden=!boss;
@@ -234,6 +264,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)
   if(host){const tiles=[];for(const k of game.dirty){tiles.push([k,state.tiles[k]]);game.dirty.delete(k);if(tiles.length===160)break}room.send({t:'frame',state:game.snapshot(false),tiles})}
   else room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell})}
  if(!state||page!=='hud'||document.hidden)return;
+ combatFeedback(now);
  cameraDistance+=(distances[zoomLevel]-cameraDistance)*(1-Math.exp(-14*dt));
  draw(state,me,state.cutscene?Math.atan2(state.cutscene.z-state.players[me].z,state.cutscene.x+95-state.players[me].x):yaw,state.cutscene?-.15:angle,now/1000,state.cutscene?140:cameraDistance);uiClock+=dt;if(uiClock>.1){hud();uiClock=0}if(state.over)finish();
 }

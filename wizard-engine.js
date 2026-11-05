@@ -12,7 +12,8 @@ export function campaignTiles(map,stage){
 export function createGame(settings,loadouts,mode){
  const s={map:settings.map,tiles:makeTiles(settings.map),players:[],summons:[],changedChunks:new Map(),shots:[],effects:[],zones:[],time:0,wave:0,over:'',mode};
  const dirty=new Set();s.terrainVersion=0;
- let activeSpell=null;
+ let activeSpell=null,activeSource=null;
+ const burnSources=new WeakMap();
  const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
  const heroCount=mode==='campaign'?loadouts.length:1;
  const livingHeroes=()=>s.players.slice(0,heroCount).filter(p=>p.hp>0&&!p.disconnected);
@@ -44,12 +45,17 @@ export function createGame(settings,loadouts,mode){
    const y=Math.max(24,p.y+dy/n);if(!blocked(p.x,y,p.z))p.y=y;else{if(dy>0)p.ground=true;p.vy=0}
   }
  }
- function damage(p,n){
+ function damage(p,n,source=activeSource){
   if(p.hp<=0||p.statuses.phased>0||n<=0)return;
+  const oldHp=p.hp,oldShield=p.shield;
   n*=p.statuses.armor>0?.5:1;
   const spent=Math.min(n,p.shield);p.shield-=spent;p.hp=Math.max(0,p.hp-n+spent);
   if(p.hp===0&&p.statuses.crowned>0){p.hp=1;p.statuses.crowned=0;api.status(p,'phased',1);fx(p.x,p.y-12,48,'#ffdd75','burst',p.z)}
   if(p.kind&&n>spent)fx(p.x,p.y-10,p.hp===0?21:6,p.hp===0?'#ffbb66':'#fff2c5','burst',p.z);
+  const healthLost=Math.max(0,oldHp-p.hp),shieldLost=Math.max(0,oldShield-p.shield),total=healthLost+shieldLost;
+  p.damageTaken=(p.damageTaken||0)+healthLost;p.shieldTaken=(p.shieldTaken||0)+shieldLost;
+  const attacker=source?.owner||source;
+  if(total>0&&attacker&&attacker.side!==p.side){attacker.damageDealt=(attacker.damageDealt||0)+total;if(p.hp===0)attacker.kills=(attacker.kills||0)+1}
   if(n>spent)p.lastInjury=(p.lastInjury||0)+1;
   if(spent&&p.statuses.capacitor>0)p.mana=Math.min(p.maxMana,p.mana+spent);
   if(spent&&p.statuses.polar>0)for(const q of enemies(p))if(Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<=spellRadius(72))api.status(q,'slow',2);
@@ -65,7 +71,7 @@ export function createGame(settings,loadouts,mode){
     if(dx*dx+dy*dy+dz*dz<=radiusSquared){const hp=Math.max(0,(value&127)-n);setBlock(k,hp>0?(value&128)+hp:0)}
    }
  }
- const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds)=>{p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
+ const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds,source=activeSource)=>{if(key==='burn'&&source)burnSources.set(p,source);p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,cutTerrain:tileDamage,
   stoneCoffin(q){
    const cx=Math.floor(q.x/T),cz=Math.floor(q.z/T),bottom=Math.floor((q.y-1)/T)+1;
@@ -97,7 +103,7 @@ export function createGame(settings,loadouts,mode){
     }
    }
    api.zone(p,p.x,floor,20,18,1,(w,owner)=>{
-    for(const q of w.enemies(owner))if(rivers.some(tile=>Math.abs(q.y-tile.y)<16&&Math.hypot(q.x-tile.x,q.z-tile.z)<11.5))damage(q,6);
+    for(const q of w.enemies(owner))if(rivers.some(tile=>Math.abs(q.y-tile.y)<16&&Math.hypot(q.x-tile.x,q.z-tile.z)<11.5))damage(q,6,owner);
    },'#ac1537',p.z,'throne');
    Object.assign(s.zones.at(-1),{yaw:p.yaw,rivers});
    p.y=floor-24;p.vy=0;p.ground=true;p.onThrone=true;
@@ -136,14 +142,14 @@ export function createGame(settings,loadouts,mode){
   },
   area:(p,x,y,r,n,color,z=p.z)=>{r=spellRadius(r);fx(x,y,r,color,'burst',z);tileDamage(x,y,r,n,z);for(const trap of s.zones){
     if(trap.style==='spikes'&&Math.hypot(trap.x-x,trap.y-12-y,trap.z-z)<=r+spellRadius(12))trap.hp-=n;
-   }for(const q of enemies(p))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<=r+9)damage(q,n)},
+   }for(const q of enemies(p))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<=r+9)damage(q,n,p)},
   bolt:(p,angle,o,origin)=>{
    const spellId=activeSpell;
    if(spellId){
     o={...o};
     for(const key of ['onHit','onExpire'])if(o[key]){
      const callback=o[key];
-     o[key]=(...args)=>{const previous=activeSpell;activeSpell=spellId;try{return callback(...args)}finally{activeSpell=previous}};
+     o[key]=(...args)=>{const previous=activeSpell,previousSource=activeSource;activeSpell=spellId;activeSource=p;try{return callback(...args)}finally{activeSpell=previous;activeSource=previousSource}};
     }
    }
    const yaw=p.yaw+(o.yawOffset||0),dx=Math.cos(angle)*Math.cos(yaw),dz=Math.cos(angle)*Math.sin(yaw),dy=Math.sin(angle);
@@ -187,7 +193,7 @@ export function createGame(settings,loadouts,mode){
    }
   }
   if(rise>.5&&foe&&f.pulse<=0&&!(f.statuses.silence>0)&&Math.hypot(foe.x-f.x,foe.y-f.y,foe.z-f.z)<65&&api.clearLine(f,foe)){
-   damage(foe,24);f.pulse=1.2;
+   damage(foe,24,f);f.pulse=1.2;
   }
  }
  function stepFamiliars(dt){
@@ -195,13 +201,18 @@ export function createGame(settings,loadouts,mode){
   for(const f of s.summons){
    f.time+=dt;f.pulse-=dt;
    for(const k of Object.keys(f.statuses))f.statuses[k]=Math.max(0,f.statuses[k]-dt);
-   if(f.statuses.burn>0)damage(f,dt*6);
+   if(f.statuses.burn>0)damage(f,dt*6,burnSources.get(f));
    if(f.hp<=0)continue;
    const dist=q=>Math.hypot(q.x-f.x,q.y-f.y,q.z-f.z);
    if(f.familiar&&dist(f.owner)>120){
     f.x=f.owner.x;f.y=f.owner.y;f.z=f.owner.z;f.vx=f.vy=f.vz=0;
    }
-   const foe=enemies(f).reduce((best,q)=>!best||dist(q)<dist(best)?q:best,null);
+   let foe=null,nearest=Infinity;
+   for(const group of [s.players,s.summons])for(const q of group){
+    if(q.side===f.side||q.hp<=0)continue;
+    const dx=q.x-f.x,dy=q.y-f.y,dz=q.z-f.z,d2=dx*dx+dy*dy+dz*dz;
+    if(d2<nearest){nearest=d2;foe=q}
+   }
    if(f.kind==='purple-wurm'){stepWurm(f,foe,dt);continue}
    if(f.kind==='imp-furnace'){
     f.vy=Math.min(440,f.vy+900*dt);move(f,0,f.vy*dt,0);
@@ -245,8 +256,9 @@ export function createGame(settings,loadouts,mode){
    // Keep the front ranks and support creatures from stacking in one spot.
    for(const other of s.summons){
     if(other===f||other.hp<=0||other.side!==f.side)continue;
-    const sx=f.x-other.x,sz=f.z-other.z,separation=Math.hypot(sx,sz);
-    if(separation<23){
+    const sx=f.x-other.x,sz=f.z-other.z,d2=sx*sx+sz*sz;
+    if(d2<529){
+     const separation=Math.sqrt(d2);
      const angle=f.id*2.4;
      desiredX+=(separation? sx/separation:Math.cos(angle))*(23-separation)*3;
      desiredZ+=(separation? sz/separation:Math.sin(angle))*(23-separation)*3;
@@ -293,7 +305,7 @@ export function createGame(settings,loadouts,mode){
       move(f,Math.cos(f.yaw)*reach,0,Math.sin(f.yaw)*reach);
       fx(f.x,f.y-12,65,'#bf79f2','void-tentacle-lash',f.z,f.yaw,0);
       for(const q of enemies(f))if(dist(q)<78&&api.clearLine(f,q)){
-       damage(q,22);api.status(q,'root',.8);
+       damage(q,22,f);api.status(q,'root',.8);
        const away=Math.max(1,Math.hypot(q.x-f.x,q.z-f.z));
        move(q,(q.x-f.x)/away*22,-8,(q.z-f.z)/away*22);
       }
@@ -312,7 +324,7 @@ export function createGame(settings,loadouts,mode){
      const blockedStrike=[.25,.5,.75].some(t=>solid(f.x+dx*t,f.y-12+(foe.y-f.y)*t,f.z+dz*t));
      if(blockedStrike)continue;
      const before=foe.hp;
-     damage(foe,f.kind==='squire'?11:8);
+     damage(foe,f.kind==='squire'?11:8,f);
      if(f.kind==='wraith')api.heal(f.owner,Math.max(0,before-foe.hp));else f.pulse=.85;
      fx(foe.x,foe.y-12,12,f.kind==='wraith'?'#8fffe1':'#d3e4a8','ring',foe.z);
     }else if(f.kind==='archer')api.bolt(f,pitch,{speed:365,damage:13,pierce:1,r:3,color:'#cfadff'});
@@ -343,8 +355,8 @@ export function createGame(settings,loadouts,mode){
   return true;
  }
  function castSpell(spell,p){
-  const previous=activeSpell;activeSpell=spell.id;
-  try{spell.cast(api,p,p.aim)}finally{activeSpell=previous}
+  const previous=activeSpell,previousSource=activeSource;activeSpell=spell.id;activeSource=p;
+  try{spell.cast(api,p,p.aim)}finally{activeSpell=previous;activeSource=previousSource}
  }
  function command(index,slot,store=false){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
@@ -382,9 +394,9 @@ export function createGame(settings,loadouts,mode){
     if(covered)continue;
     if(q.style==="spikes"){q.hp-=power;fx(q.x,q.y-12,12,q.color,"burst",q.z);continue}
     const behind=dx*Math.cos(q.yaw)+dz*Math.sin(q.yaw)>Math.hypot(dx,dz)*.5;
-    const before=q.hp;damage(q,trait==='backstab'&&behind?power*3:power);
+    const before=q.hp;damage(q,trait==='backstab'&&behind?power*3:power,p);
     if(trait==='drain'&&q.hp<before)api.heal(p,8);
-    if(trait==='slow'||trait==='burn')api.status(q,trait,2);
+    if(trait==='slow'||trait==='burn')api.status(q,trait,2,p);
     fx(q.x,q.y-12,12,'#ffd691','burst',q.z);
    }
  }
@@ -513,7 +525,7 @@ export function createGame(settings,loadouts,mode){
     if((s.time>=held.until&&s.time>=held.ready)||(!held.strikes&&s.time>=held.ready))p.weapon=null;
    }
    for(const k of Object.keys(st))st[k]=Math.max(0,st[k]-dt);
-   if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt);
+   if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt,burnSources.get(p));
    if(manaFraction)p.mana=Math.min(p.maxMana,p.mana+p.maxMana*manaFraction);
    if(p.boss){if(p.voidBoss)stepVoid(p,dt);else stepKing(p,dt);continue}
    if(p.store>=0&&!(st.silence>0)){
@@ -589,7 +601,7 @@ export function createGame(settings,loadouts,mode){
      fx(b.x,b.y,26,'#f7aaff','burst',b.z);b.dead=true;continue;
     }
     if(target?.statuses.reflect>0){b.p=target;b.vx*=-1;b.vy*=-1;b.vz*=-1;b.hit.clear();break}
-    if(target){damage(target,b.damage||0);b.hit.add(target)}else tileDamage(b.x,b.y,5,b.damage||0,b.z);
+    if(target){damage(target,b.damage||0,b.p);b.hit.add(target)}else tileDamage(b.x,b.y,5,b.damage||0,b.z);
     if(b.blast)api.area(b.p,b.x,b.y,b.blast,b.damage||0,b.color,b.z);
     b.onHit?.(api,b.p,target||null,b.x,b.y,b.z);fx(b.x,b.y,10,b.color,'burst',b.z);
     if(wall&&b.bounces>0){b.bounces--;if(hitX)b.vx*=-1;else if(hitZ)b.vz*=-1;else b.vy*=-1;b.x=ox;b.y=oy;b.z=oz;break}
@@ -602,7 +614,7 @@ export function createGame(settings,loadouts,mode){
     if(z.hp<=0||!solid(z.x,z.y+1,z.z)){z.life=0;fx(z.x,z.y-9,16,z.color,'burst',z.z);continue}
     const victim=api.occupants().find(q=>Math.hypot(q.x-z.x,q.z-z.z)<=spellRadius(24)&&q.y>=z.y-spellRadius(26)&&q.y<=z.y+5);
     if(victim){z.life=0;if(victim.side===z.p.side){victim.vy=-440;victim.ground=false}
-     else{damage(victim,26);api.status(victim,'root',1.7)}
+     else{damage(victim,26,z.p);api.status(victim,'root',1.7)}
      fx(z.x,z.y-8,30,z.color,'burst',z.z)}
     continue;
    }
@@ -612,8 +624,8 @@ export function createGame(settings,loadouts,mode){
     const ground=api.surface(z.x,z.z,0);
     if(ground!==null)z.y=ground;
    }
-   z.tick-=dt;if(z.tick<=0){const previous=activeSpell;activeSpell=z.spellId;
-    try{z.cb(api,z.p,z.x,z.y,z.z)}finally{activeSpell=previous}
+   z.tick-=dt;if(z.tick<=0){const previous=activeSpell,previousSource=activeSource;activeSpell=z.spellId;activeSource=z.p;
+    try{z.cb(api,z.p,z.x,z.y,z.z)}finally{activeSpell=previous;activeSource=previousSource}
     z.tick+=z.interval}}
   s.zones=s.zones.filter(z=>z.life>0);for(const e of s.effects)e.life-=dt;s.effects=s.effects.filter(e=>e.life>0);
   if(mode==='multi'){
