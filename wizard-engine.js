@@ -1,6 +1,6 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=refill-spells';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=refill-spells';
-export {MAPS,makeTiles} from './wizard-world.js?v=refill-spells';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=crimson-campaign';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=crimson-campaign';
+export {MAPS,makeTiles} from './wizard-world.js?v=crimson-campaign';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -381,6 +381,57 @@ export function createGame(settings,loadouts,mode){
  }
  function startWave(){s.wave++;for(let i=0;i<Math.min(1+Math.floor(s.wave/2),6);i++)spawn();waveWait=0}
  if(mode==='waves')startWave();
+ const campaignMaps=['Bellfall Keep','Ember Quarry','Thornroot Ruins','Void Cathedral'];
+ const campaignNames=['The Broken Gate','Ashfall Foundry','The Cursed Grove','Throne of the Crimson King'];
+ function campaignWave(){
+  s.wave++;waveWait=0;
+  for(let j=0;j<s.stage+2;j++){
+   const foe=spawn();foe.monster=['squire','ember','wraith','archer'][(j+s.stage)%4];
+   foe.hp=foe.maxHp=38+s.stage*14;foe.mana=foe.maxMana=100;
+  }
+ }
+ function campaignStage(stage){
+  s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
+  s.map=campaignMaps[stage-1];s.tiles=makeTiles(s.map);s.terrainVersion++;
+  s.changedChunks=new Map();s.players.splice(1);inputs.splice(1);s.summons=[];s.shots=[];s.zones=[];s.effects=[];
+  const p=s.players[0];Object.assign(p,{x:midX-150,z:midZ,y:200,vx:0,vy:0,vz:0,hp:p.maxHp,mana:p.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null});
+  p.bank.fill(0);waveWait=0;
+  if(stage<4){campaignWave();return}
+  // Clear a broad fighting floor so the giant can move and its telegraphs stay visible.
+  for(let z=Math.floor(midZ/T)-32;z<=Math.floor(midZ/T)+32;z++)for(let x=Math.floor(midX/T)-40;x<=Math.floor(midX/T)+40;x++){
+   for(let y=0;y<36;y++)s.tiles[(z*H+y)*W+x]=0;
+   for(let y=36;y<H;y++)s.tiles[(z*H+y)*W+x]=127;
+  }
+  p.y=430;
+  const king=actor(1,midX+190,[]);Object.assign(king,{monster:'crimson-king',boss:true,hp:1400,maxHp:1400,y:430,z:midZ,attackClock:2.5,attackCycle:0});
+ }
+ function stepKing(p,dt){
+  const q=s.players[0],dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);
+  p.yaw=Math.atan2(dz,dx);p.phase=p.hp<p.maxHp*.45?2:1;
+  const speed=p.phase===2?65:45;
+  if(d>100)move(p,dx/Math.max(1,d)*speed*dt,0,dz/Math.max(1,d)*speed*dt);
+  p.attackClock-=dt;
+  if(p.attackClock>0)return;
+  p.attackClock=p.phase===2?2.8:4;p.attackAt=s.time;
+  const attack=p.attackCycle++%3;p.attackKind=attack;
+  if(attack===0){
+   // Target is fixed when the warning appears, allowing a clean dodge.
+   const x=q.x,z=q.z;fx(x,430,95,'#ff4f67','king-warning',z,0,0,1.2);
+   let done=false;api.zone(p,x,430,95,1.3,1.2,(w,o)=>{if(done||o.hp<=0)return;done=true;w.area(o,x,418,95,30,'#ff4f67',z);fx(x,430,95,'#ff4f67','king-slam',z)},'#ff4f67',z,'king-warning');
+  }else if(attack===1){
+   fx(p.x,p.y-50,45,'#ff843a','king-volley',p.z,p.yaw,0,1);
+   let done=false;api.zone(p,p.x,p.y,1,1.1,.9,(w,o)=>{if(done||o.hp<=0)return;done=true;
+    const pitch=Math.atan2(q.y-o.y,Math.hypot(q.x-o.x,q.z-o.z));
+    for(let j=-2;j<=2;j++)w.bolt(o,pitch,{style:'furnace-arrow',speed:210,r:7,damage:16,yawOffset:j*.2,life:4,color:'#ff6548'});
+   },'#ff843a',p.z,'king-volley');
+  }else{
+   const x=p.x,z=p.z;fx(x,430,170,'#c83855','king-warning',z,0,0,1.1);
+   let done=false;api.zone(p,x,430,170,1.2,1,(w,o)=>{if(done||o.hp<=0)return;done=true;fx(x,430,170,'#ff6583','king-slam',z);
+    for(const enemy of w.enemies(o))if(Math.hypot(enemy.x-x,enemy.z-z)<190&&enemy.y>400)w.hurt(enemy,24);
+   },'#c83855',z,'king-warning');
+  }
+ }
+ if(mode==='campaign')campaignStage(1);
  function tick(dt){
   if(s.over)return;
   const previousSecond=Math.floor(s.time+1e-8);
@@ -394,6 +445,7 @@ export function createGame(settings,loadouts,mode){
    for(const k of Object.keys(st))st[k]=Math.max(0,st[k]-dt);
    if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt);
    if(manaFraction)p.mana=Math.min(p.maxMana,p.mana+p.maxMana*manaFraction);
+   if(p.boss){stepKing(p,dt);continue}
    if(p.store>=0&&!(st.silence>0)){
     const slot=p.store,cost=byId.get(p.ids[slot]).cost,deposit=Math.min(p.mana,p.maxMana/20*dt,cost-p.bank[slot]);
     p.mana-=deposit;p.bank[slot]+=deposit;if(p.bank[slot]>=cost-.00001){p.bank[slot]=cost;p.store=-1}
@@ -444,7 +496,7 @@ export function createGame(settings,loadouts,mode){
    for(let i=0;i<n&&!b.dead;i++){
     const ox=b.x,oy=b.y,oz=b.z;b.z+=b.vz*dt/n;b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
     const target=candidates.find(q=>{
-     const size=q.kind==='purple-wurm'?30:8,reach=size+b.r;
+     const size=q.boss?48:q.kind==='purple-wurm'?30:8,reach=size+b.r;
      return q.hp>0&&Math.abs(q.y-13-b.y)<size+6+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q);
     });
     if(b.terrainPierce)tileDamage(b.x,b.y,Math.max(8,b.r),200,b.z);
@@ -493,6 +545,14 @@ export function createGame(settings,loadouts,mode){
    if(alive.size<=1)s.over=alive.size?['Blue','Red','Gold'][[...alive][0]]+(loadouts.length>3?' team wins':' wizard wins'):'Draw';
   }else if(s.players[0].hp<=0)s.over='The tower falls';
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
+  else if(mode==='campaign'&&!enemies(s.players[0]).length){
+   waveWait+=dt;
+   if(waveWait>3){
+    if(s.stage===4)s.over='The Crimson King has fallen';
+    else if(s.wave<2){s.players.splice(1);inputs.splice(1);campaignWave()}
+    else campaignStage(s.stage+1);
+   }
+  }
  }
  function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};

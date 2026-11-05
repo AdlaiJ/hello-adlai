@@ -1,13 +1,13 @@
-import {SPELLS} from './wizard-spells.js?v=refill-spells';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=refill-spells';
+import {SPELLS} from './wizard-spells.js?v=crimson-campaign';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=crimson-campaign';
 
-import {markChangedChunk,T} from './wizard-world.js?v=refill-spells';
-import {openRoom} from './wizard-room.js?v=refill-spells';
+import {markChangedChunk,T} from './wizard-world.js?v=crimson-campaign';
+import {openRoom} from './wizard-room.js?v=crimson-campaign';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=refill-spells');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=crimson-campaign');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -20,13 +20,14 @@ const schools=[...new Set(SPELLS.map(s=>s.category))].sort();
 for(const cat of schools)$('school').add(new Option(cat,cat));
 function show(id){page=id;if(id!=='hud'&&windowAim)setWindowAim(false);if(id!=='hud'&&document.pointerLockElement===canvas)document.exitPointerLock();document.body.classList.toggle('playing',id==='hud');for(const x of ['home','setup','book','end','hud'])$(x).hidden=x!==id;document.querySelector('main').style.display=id==='hud'?'none':''}
 function clean(){heldSpell=-1;room?.stop();room=null;game=state=null;code='';locked=false;seats.clear();me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
-function setup(m){clean();mode=m;show('setup');$('formatLabel').hidden=m!=='multi';$('modeName').textContent={waves:'Singleplayer · Waves',multi:'Multiplayer · Room match',sandbox:'Sandbox · Training grounds'}[m];
+function setup(m){clean();mode=m;show('setup');$('map').parentElement.hidden=m==='campaign';$('formatLabel').hidden=m!=='multi';$('modeName').textContent={campaign:'Campaign · Four stages',waves:'Singleplayer · Waves',multi:'Multiplayer · Room match',sandbox:'Sandbox · Training grounds'}[m];
  $('proceed').textContent=m==='multi'?'Create room':'Choose spells';$('joining').hidden=m!=='multi';$('setupStatus').textContent=m==='multi'?'The host sets the rules. Choose a match format and share the room word with your friends.':'Choose how many spells you want to bring.';$('join').disabled=$('proceed').disabled=false}
 $('multiplayer').onclick=()=>setup('multi');$('waves').onclick=()=>setup('waves');$('sandbox').onclick=()=>setup('sandbox');
+$('campaign').onclick=()=>{setup('campaign');$('count').value=6;$('mana').value=1000;$('setupStatus').textContent='Clear two battles in each of three stages, then face the four-armed Crimson King. Health and mana refill between stages. The campaign chooses its own maps.'};
 function home(){clean();show('home')}
 document.querySelectorAll('.back').forEach(b=>b.onclick=home);$('leave').onclick=home;
 function readSettings(){const count=$('count').valueAsNumber,mana=$('mana').valueAsNumber;if(!Number.isInteger(count)||count<1||count>10||!Number.isInteger(mana)||mana<10||mana>5000){$('setupStatus').textContent='Choose 1–10 spells and 10–5000 mana.';return null}return {count,mana,format:$('format').value,map:$('map').value}}
-function book(){selected=[];locked=false;$('school').value='All';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?settings.format+' room · '+code:mode==='waves'?'Singleplayer · Waves':'Sandbox';
+function book(){selected=[];locked=false;$('school').value='All';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?settings.format+' room · '+code:mode==='waves'?'Singleplayer · Waves':mode==='campaign'?'Campaign · The Crimson King':'Sandbox';
  $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Regain 0.5% of your maximum mana every second, plus 10% every 10 seconds. F then a spell banks 5% of your pool per second. Storing half the cost halves both the mana due and the cast time. Fully stored spells cast instantly for free.';drawBook()}
 const starterKits={
  'All-rounder':{tip:'Use Witchspark for quick shots.',order:'witchspark pocket-poultice thimble-ward fold-step glass-fan rampart foxstep north-star iron-choir crater-bell'},
@@ -124,7 +125,9 @@ function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:'cast',slot:i,store})}}
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  $('vitals').textContent=colors[p.side]+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
- $('opponent').textContent=mode==='waves'?'Wave '+state.wave:mode==='multi'?settings.format+' · '+(p.hp<=0?'Eliminated · ':'')+state.players.filter(q=>q.side!==p.side&&q.hp>0).length+' rivals alive':'Sandbox';
+ const boss=state.players.find(q=>q.boss&&q.hp>0);$('bossHealth').hidden=!boss;
+ if(boss){$('bossHealth').textContent='CRIMSON KING '+Math.ceil(boss.hp)+' / '+boss.maxHp+(boss.phase===2?' · ENRAGED':'');$('bossHealth').style.background='linear-gradient(90deg,#a51b3b '+boss.hp/boss.maxHp*100+'%,#281e29 0)';$('bossHealth').style.padding='7px 14px';$('bossHealth').style.border='1px solid #ff7e95'}
+ $('opponent').textContent=mode==='campaign'?'Stage '+state.stage+'/4 · '+state.stageName+(state.stage<4?' · Battle '+state.wave+'/2':''):mode==='waves'?'Wave '+state.wave:mode==='multi'?settings.format+' · '+(p.hp<=0?'Eliminated · ':'')+state.players.filter(q=>q.side!==p.side&&q.hp>0).length+' rivals alive':'Sandbox';
  const rivals=state.players.filter(q=>q.side!==p.side&&q.hp>0);
  if(rivals.length){
   const distance=q=>Math.hypot(q.x-p.x,q.z-p.z),rival=rivals.reduce((a,b)=>distance(a)<distance(b)?a:b);
