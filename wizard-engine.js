@@ -1,8 +1,8 @@
-import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=starfall-faults';
+import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=storm-road';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=starfall-faults';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=keyboard-play';
-export {MAPS,makeTiles} from './wizard-world.js?v=keyboard-play';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=storm-road';
+import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=storm-road';
+export {MAPS,makeTiles} from './wizard-world.js?v=storm-road';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -76,6 +76,26 @@ export function createGame(settings,loadouts,mode){
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds,source=activeSource)=>{if(key==='burn'&&source)burnSources.set(p,source);p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,cutTerrain:tileDamage,
+  thunderRoad(p,pitch){
+   const start={x:p.x,y:p.y-14,z:p.z},yaw=p.yaw,range=crosshairRange(s,p,yaw,pitch);
+   const dx=Math.cos(yaw)*Math.cos(pitch),dy=Math.sin(pitch),dz=Math.sin(yaw)*Math.cos(pitch);
+   let distance=0;
+   for(let d=1;d<=range;d++){
+    const x=start.x+dx*d,y=start.y+14+dy*d,z=start.z+dz*d;
+    if(x<8||x>W*T-8||z<8||z>D*T-8||y<24||y>H*T||blocked(x,y,z))break;
+    distance=d;
+   }
+   if(distance<2)return;
+   const road={dx:dx*distance,dy:dy*distance,dz:dz*distance};
+   p.x+=road.dx;p.y+=road.dy;p.z+=road.dz;p.vx=p.vy=p.vz=0;p.ground=false;
+   function shock(amount){for(const q of enemies(p)){
+    const x=q.x-start.x,y=q.y-12-start.y,z=q.z-start.z,projection=clamp(x*dx+y*dy+z*dz,0,distance);
+    if(Math.hypot(x-projection*dx,y-projection*dy,z-projection*dz)<=20)damage(q,amount,p);
+   }}
+   shock(12);
+   const trail=api.zone(p,start.x+road.dx/2,start.y+road.dy/2,18,4,.4,()=>shock(6),'#8efbff',start.z+road.dz/2,'electric-road');
+   trail.road=road;
+  },
   stopTime(p){s.timeStop={side:p.side,until:s.time+5};fx(p.x,p.y-15,100,'#a7e8ff','timestop',p.z,0,0,5)},
   dungeon(p){
    const seed=(Math.floor(Math.random()*0x7ffffffe)+1)>>>0;
@@ -718,6 +738,6 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
- function snapshot(includeTiles=true){return {dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,life})=>({x,y,z,r,color,style,hp,yaw,rivers,road,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

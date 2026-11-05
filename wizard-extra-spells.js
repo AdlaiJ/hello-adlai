@@ -8,7 +8,7 @@ export function extraSpells(){
   book.push({id,name,symbol,cost,time,description,category,design:{motion,color:spellColor},cast(api,p,pitch){
    const reach=id==='thunder-tongs'?42:18;
    const offset=id==='thunder-tongs'?0:18;
-   if(!['smoky-tentacle','asteroid-strike','cataclysm'].includes(id))api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
+   if(!['smoky-tentacle','asteroid-strike','cataclysm','furnace-arrow'].includes(id))api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
    cast(api,p,pitch);
   }});
  }
@@ -216,7 +216,7 @@ export function extraSpells(){
  add('Furnace Arrow','➶',230,2.6,'Sukuna-inspired: fire a blazing arrow that bursts for 42 splash damage plus 28 on direct impact, leaving a burning crater for four seconds.',(a,p,t)=>shot(a,p,t,'furnace-arrow',{
   speed:430,damage:28,r:6,color:'#ffae43',onHit:(w,o,q,x,y,z)=>{
    w.area(o,x,y,75,42,'#ff9d32',z);
-   w.zone(o,x,y,75,4.05,1,(v,c,cx,cy,cz)=>{for(const enemy of v.enemies(c))if(Math.hypot(enemy.x-cx,enemy.y-12-cy,enemy.z-cz)<84){v.hurt(enemy,5);v.status(enemy,'burn',1.2)}},'#ff8a2c',z,'furnace-arrow');
+   w.zone(o,x,y,75,4.05,1,(v,c,cx,cy,cz)=>{for(const enemy of v.enemies(c))if(Math.hypot(enemy.x-cx,enemy.y-12-cy,enemy.z-cz)<84){v.hurt(enemy,5);v.status(enemy,'burn',1.2)}},'#ff8a2c',z,'furnace-scorch');
   }
  }));
  school('Hexes','weave','#ff788e');

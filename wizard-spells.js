@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=starfall-faults';
+import {extraSpells} from './wizard-extra-spells.js?v=storm-road';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
 export const spellRadius = radius => radius * 1.12;
 
@@ -612,14 +612,8 @@ const grandSpells = [
     (api,p)=>{let spent=false;api.zone(p,p.x,p.y-12,20,10,.1,(a,o)=>{if(!spent&&o.hp>0&&o.hp<o.maxHp/2){
       spent=true;a.heal(o,65);a.area(o,o.x,o.y-12,104,45,'#ffac48',o.z)}},'#ffac48',p.z)}),
   spell('Movement','thunder-road','Thunder Road','⟿',50,1.8,
-    'Blink up to 24 blocks along your aim. For ten seconds, both ends become speed pads. Any wizard crossing one gains haste for two seconds.',
-    (api,p,pitch)=>{
-      const end=aimPoint(p,pitch,288);
-      const pad=()=>api.zone(p,p.x,p.y-12,37,10,.15,(world,o,x,y,z)=>{
-        for(const q of world.occupants())if(distanceFrom(q,x,y,z)<=spellRadius(37))world.status(q,'haste',2);
-      },color.Movement,p.z);
-      pad();api.blink(p,end.x-p.x,end.y+12-p.y,end.z-p.z);pad();
-    }),
+    'Teleport toward your crosshair, up to 40 blocks, stopping at solid terrain. The route shocks enemies for 12 damage on arrival, then 6 every 0.4 seconds for four seconds.',
+    (api,p,pitch)=>api.thunderRoad(p,pitch)),
   spell('Warding','last-citadel','Last Citadel','♖',100,2.5,
     'Raise four destructible pillars around you, gain 75 shielding, and reflect incoming shots for three seconds.',
     (api,p)=>{

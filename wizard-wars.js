@@ -1,14 +1,14 @@
 import {setupControls} from './wizard-controls.js?v=controls';
-import {SPELLS} from './wizard-spells.js?v=starfall-faults';
-import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=starfall-faults';
+import {SPELLS} from './wizard-spells.js?v=storm-road';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=storm-road';
 
-import {markChangedChunk,T} from './wizard-world.js?v=keyboard-play';
+import {markChangedChunk,T} from './wizard-world.js?v=storm-road';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=starfall-faults');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=storm-road');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;

@@ -365,8 +365,32 @@ export function makeSpellModels({joint,part,shape,mat}){
  models.dismantle=g=>{for(let i=-1;i<=1;i++)box(g,0xffd5df,i*.15,i*.28,1.5,.045,.06,-.3)};
  models.cleave=g=>{box(g,0xffd5df,0,0,1.6,.065,.07,.65);box(g,0xff8298,0,0,1.6,.065,.07,-.65)};
  models['furnace-arrow']=g=>{
-  box(g,0xffbc49,0,0,1.5,.09,.09);piece(g,'cone',0xffee9b,.8,0,0,.4,.6,.4,-Math.PI/2,true);
-  for(let i=0;i<5;i++)fire(g,-.75+i*.26,Math.sin(i)*.12);
+  box(g,0x492824,0,0,2,.15,.15);
+  piece(g,'gem',0xffd678,.96,0,0,.76,.26,.23,0,true);
+  for(const side of [-1,1]){
+   piece(g,'gem',0xff7630,.55,.18*side,0,.48,.10,.16,side*.38,true);
+   piece(g,'gem',0xf49332,-.75,.2*side,0,.45,.13,.15,-side*.42,true);
+  }
+  for(let i=0;i<4;i++)piece(g,'box',0xffdb88,-.42+i*.26,0,0,.06,.22,.23,0,true);
+  const plume=joint(g,-.95,0,0);piece(plume,'cone',0xff7327,-.78,0,0,.21,1.6,.21,Math.PI/2,true);
+  piece(plume,'cone',0xffe6a4,-.46,0,0,.15,1.05,.15,Math.PI/2,true);
+  const sparks=Array.from({length:6},()=>piece(g,'gem',0xffbe5a,0,0,0,.09,.045,.045,0,true));
+  return t=>{plume.scale.x=1+.16*Math.sin(t*30);sparks.forEach((spark,i)=>{const u=(t*2+i/6)%1;spark.position.set(-1-2*u,Math.sin(i*2.4+u*4)*u*.38,Math.cos(i*2.4+u*4)*u*.38);spark.visible=u<.95})};
+ };
+ models['furnace-scorch']=g=>{
+  for(let i=0;i<10;i++){const ray=joint(g,0,.015,0);ray.rotation.y=i*Math.PI/5;piece(ray,'box',0xff893d,.57,0,0,.65,.018,.035,0,true);piece(ray,'gem',0x78372d,.79,.09,0,.16,.17,.13)}
+  const flames=[];for(let i=0;i<7;i++){const a=i*2.4;flames.push(piece(g,'cone',i%2?0xffbb48:0xff6535,.5*Math.cos(a),.12,.5*Math.sin(a),.06,.27,.08,0,true))}
+  return t=>flames.forEach((f,i)=>{f.scale.y=.22+.12*Math.sin(t*8+i);f.position.y=f.scale.y/2});
+ };
+ models['electric-road']=g=>{
+  const arcs=[];
+  for(let strand=0;strand<3;strand++){
+   const arc=joint(g,0,0,0);arcs.push(arc);let x=-.5,y=0;
+   for(let i=1;i<=16;i++){const nx=i/16-.5,ny=i===16?0:Math.sin(i*2.5+strand)*(.09+.06*strand);
+    piece(arc,'box',strand?0x68baff:0xecffff,(x+nx)/2,(y+ny)/2,0,Math.hypot(nx-x,ny-y),.023,.04,Math.atan2(ny-y,nx-x),true);x=nx;y=ny;
+   }
+  }
+  return t=>arcs.forEach((arc,i)=>{arc.rotation.x=i*2+.65*Math.sin(t*13+i);arc.scale.y=.75+.24*Math.sin(t*19+i)});
  };
  models['spiderweb-cut']=g=>{
   for(let i=0;i<8;i++){const web=joint(g,0,.02,0);web.rotation.y=i*Math.PI/4;box(web,0xffa7b6,0,0,1.9,.015,.025)}

@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=starfall-faults';
+import {makeSpellModels} from './wizard-spell-models.js?v=storm-road';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=starfall-faults';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=storm-road';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=keyboard-play';
+import {crosshairRange,W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=storm-road';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -490,9 +490,9 @@ function makeSpellParts(scene){
    if(!pool){pool={used:0,models:[]};projectiles.set(style,pool)}
    let model=pool.models[pool.used];
    if(!model){if(models[style]){
-     const root=new THREE.Group(),body=joint(root,0,0,0);models[style](body);
-     body.rotation.z=Math.PI/2;body.scale.setScalar(2);
-     model={root,animate(time){body.rotation.y=style==='pinball-furnace'?time*6:0}};
+     const root=new THREE.Group(),body=joint(root,0,0,0);const pose=models[style](body);
+     body.rotation.z=Math.PI/2;body.scale.setScalar(style==='furnace-arrow'?2.8:2);
+     model={root,animate(time){if(style==='furnace-arrow')pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
     }else model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
    pool.used++;
    model.root.visible=true;
@@ -584,6 +584,7 @@ function makeSpellParts(scene){
    b.beads.forEach((m,j)=>{const a=j*TAU/5+i;m.position.set(Math.cos(a)*r,Math.sin(a)*r,Math.sin(a*2)*r*.5);m.scale.setScalar(Math.max(.01,life*r*.09))});
   });
   each(fields,zones,field,(z,b,i)=>{
+   b.root.quaternion.identity();
    if(models[z.style]||['marsh','wind','lantern','clock','embers','cleaver-shrine','throne','nest','sundial'].includes(z.style)){
     b.scenery??=new Map();
     let patch=b.scenery.get(z.style);
@@ -650,6 +651,8 @@ function makeSpellParts(scene){
     }
     for(const child of b.root.children)child.visible=child===patch;
     b.root.position.set(z.x,HEIGHT-z.y+.4,z.z);b.root.scale.setScalar(z.r);
+    b.root.quaternion.identity();
+    if(z.road){const {dx,dy,dz}=z.road;v.set(dx,-dy,dz);const length=v.length();b.root.rotation.order='YXZ';b.root.rotation.set(0,-Math.atan2(dz,dx),Math.atan2(-dy,Math.hypot(dx,dz)),'YXZ');patch.scale.x=length/z.r}
     if(z.style==='throne'){
      patch.userData.frame.rotation.y=-z.yaw;
      patch.userData.pools.forEach((pool,j)=>{
@@ -837,14 +840,7 @@ export function makeRenderer(canvas){
   const tiles=state.tiles;look.set(Math.cos(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.sin(yaw)*Math.cos(pitch));
   eye.set(p.x,HEIGHT-p.y+14,p.z);sideVec.set(-Math.sin(yaw),0,Math.cos(yaw));
   // Converge the crosshair on the first surface intersected by the actual cast ray.
-  let range=480;
-  for(let d=8;d<range;d+=4){pos.copy(eye).addScaledVector(look,d);if(blocked(tiles,pos.x,pos.y,pos.z)){range=d;break}}
-  for(const q of state.players.concat(state.summons||[])){
-   if(q===p||q.hp<=0)continue;
-   pos.set(q.x,HEIGHT-q.y+13,q.z).sub(eye);const along=pos.dot(look);
-   if(along<0||along>range)continue;pos.addScaledVector(look,-along);
-   if(Math.abs(pos.y)<=12&&Math.hypot(pos.x,pos.z)<7)range=along;
-  }
+  const range=crosshairRange(state,p,yaw,pitch);
   target.copy(eye).addScaledVector(look,range);
   const shoulder=Math.min(1,distance/65);
   desired.copy(eye).addScaledVector(look,-distance).addScaledVector(sideVec,9*shoulder);desired.y+=14*shoulder;

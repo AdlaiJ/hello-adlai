@@ -78,3 +78,19 @@ export function makeTiles(map){
  }
  return tiles;
 }
+
+// Shared by the camera and by spells that land on the crosshair.
+export function crosshairRange(state,caster,yaw,pitch){
+ const dx=Math.cos(yaw)*Math.cos(pitch),dy=Math.sin(pitch),dz=Math.sin(yaw)*Math.cos(pitch);
+ let range=480;
+ for(let d=4;d<=range;d+=4){
+  const x=Math.floor((caster.x+dx*d)/T),y=Math.floor((caster.y-14+dy*d)/T),z=Math.floor((caster.z+dz*d)/T);
+  if(x<0||x>=W||z<0||z>=D||y<0||y>=H||state.tiles[x+W*(y+H*z)]){range=d;break}
+ }
+ for(const target of [...state.players,...state.summons||[]]){
+  if(target===caster||target.hp<=0)continue;
+  const x=target.x-caster.x,y=target.y-caster.y+1,z=target.z-caster.z,along=x*dx+y*dy+z*dz;
+  if(along>=0&&along<range&&Math.abs(y-along*dy)<=12&&Math.hypot(x-along*dx,z-along*dz)<7)range=along;
+ }
+ return range;
+}
