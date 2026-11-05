@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=cursed-ten';
+import {extraSpells} from './wizard-extra-spells.js?v=refill-spells';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
 export const spellRadius = radius => radius * 1.12;
 
@@ -49,7 +49,7 @@ export const bloodWeapons=[
 ];
 const damage = [
   spell('Summoning','blood-arsenal','Blood Arsenal','⚔',95,1.4,
-    'Summon six orbiting blood weapons. Click or press this slot to launch a swift dagger (14 damage), a piercing spear (19 damage), then a bursting axe (14 damage). The sequence repeats once.',
+    'Summon six orbiting blood weapons. Click the arena to launch a dagger (14 damage), piercing spear (19 damage), then bursting axe (14 damage). Cast this slot again to refill to six weapons for the normal mana cost and casting time.',
     (api,p)=>{p.bloodAmmo=6;}),
   spell('Evocation','shrine-of-cleavers','Shrine of Cleavers','⛩',600,4,
     'Unfold an open shrine for eight seconds. Every half second it slashes every enemy inside the marked circle for 8 damage and cuts a trench through the terrain. Escape the circle to avoid the next cut.',
@@ -70,7 +70,7 @@ const damage = [
     'Raise a bone throne for 18 seconds. Blood rivers hurt enemies. On its seat, click or press this slot to launch crimson swords for 26 damage.',
     (api,p)=>api.raiseThrone(p)),
   spell('Evocation','quarry-volley','Quarry Volley','▦',45,.9,
-    'Lift up to nine nearby terrain blocks. Click the arena or press this spell slot to fire one block for 17 damage.',
+    'Lift up to nine nearby terrain blocks. Click the arena to fire one block for 17 damage. Cast this slot again to gather more, keeping your remaining blocks and filling up to nine for the normal mana cost and casting time.',
     (api,p)=>api.liftBlocks(p)),
   spell('Evocation', 'witchspark', 'Witchspark', '✦', 3, .2,
     'Flick a quick spark for 8 damage to finish off a weakened enemy.',

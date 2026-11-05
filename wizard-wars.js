@@ -1,13 +1,13 @@
-import {SPELLS} from './wizard-spells.js?v=cursed-ten';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=cursed-ten';
+import {SPELLS} from './wizard-spells.js?v=refill-spells';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=refill-spells';
 
-import {markChangedChunk,T} from './wizard-world.js?v=cursed-ten';
-import {openRoom} from './wizard-room.js?v=cursed-ten';
+import {markChangedChunk,T} from './wizard-world.js?v=refill-spells';
+import {openRoom} from './wizard-room.js?v=refill-spells';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=cursed-ten');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=refill-spells');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -120,7 +120,7 @@ function releaseSpell(i){
  if(game)game.input(me,movement(),jumping(),angle,strafe(),yaw,-1);
  else room?.send({t:'input',move:0,jump:false,angle,strafe:0,yaw,channel:-1});
 }
-function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).channel){holdSpell(i);return}heldSpell=-1;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="blood-arsenal"&&p.bloodAmmo)&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
+function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).channel){holdSpell(i);return}heldSpell=-1;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:'cast',slot:i,store})}}
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  $('vitals').textContent=colors[p.side]+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
@@ -133,7 +133,7 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   $('opponent').textContent+=' · '+(rival.monster?'Monster ':'Rival ')+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
  $('signal').textContent=armed?'STORE · Choose a spell':p.channel>=0?'Channeling '+spells.get(p.ids[p.channel]).name:p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
- selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent='Blood Arsenal · '+p.bloodAmmo+' left';if(id==='skull-throne'&&p.onThrone)b.textContent='Click to fire crimson swords';if(id==='quarry-volley'&&p.blocks?.length)b.textContent='Click to fire · '+p.blocks.length+' blocks';if(s.channel)b.textContent=((i+1)%10)+' '+s.name+' · HOLD · '+s.channel.mana+' mana/s';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
+ selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent=((i+1)%10)+' Refill Arsenal · '+p.bloodAmmo+'/6 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(id==='skull-throne'&&p.onThrone)b.textContent='Click to fire crimson swords';if(id==='quarry-volley'&&p.blocks?.length)b.textContent=((i+1)%10)+' Gather blocks · '+p.blocks.length+'/9 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(s.channel)b.textContent=((i+1)%10)+' '+s.name+' · HOLD · '+s.channel.mana+' mana/s';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
 function finish(){show('end');$('result').textContent=state.over;$('resultInfo').textContent=mode==='waves'?'Reached wave '+state.wave+' in '+Math.floor(state.time)+' seconds.':settings.map+' · '+Math.floor(state.time)+' seconds';keys.clear()}
 $('dummy').onclick=()=>{if(game&&game.state.players.length<24)game.spawn()};
 $('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana};$('restore').onclick=()=>{state.tiles=makeTiles(settings.map);state.terrainVersion++};$('change').onclick=()=>{game=state=null;book()};

@@ -1,6 +1,6 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=cursed-ten';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=cursed-ten';
-export {MAPS,makeTiles} from './wizard-world.js?v=cursed-ten';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=refill-spells';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=refill-spells';
+export {MAPS,makeTiles} from './wizard-world.js?v=refill-spells';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -91,8 +91,10 @@ export function createGame(settings,loadouts,mode){
      candidates.push({x:bx,y:top+T/2,z:bz,distance:Math.hypot(x-cx,z-cz,(top-p.y)/T)});
     }
    }
-   p.blocks=candidates.sort((a,b)=>a.distance-b.distance).slice(0,9);
-   for(const block of p.blocks)setBlock(index(block.x,block.y,block.z),0);
+   const held=p.blocks||[];
+   const gathered=candidates.sort((a,b)=>a.distance-b.distance).slice(0,Math.max(0,9-held.length));
+   for(const block of gathered)setBlock(index(block.x,block.y,block.z),0);
+   p.blocks=[...held,...gathered];
    p.liftedAt=s.time;
   },
   spike:(owner,x,y,z)=>s.zones.push({p:owner,x,y,z,r:spellRadius(28),life:14,hp:18,style:'spikes',color:'#f3dfa7'}),
@@ -328,9 +330,7 @@ export function createGame(settings,loadouts,mode){
   if(spell.channel)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
   if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
-  if(spell.id==='blood-arsenal'&&p.bloodAmmo)return fireBlood(index);
   if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
-  if(spell.id==='quarry-volley'&&p.blocks?.length)return fireBlock(index);
   const held=p.weapon;
   if(held?.id===spell.id&&held.until>s.time&&held.strikes>0){
    if(s.time<held.ready)return false;
