@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=keyboard-play';
-import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=combat-feedback';
+import {SPELLS} from './wizard-spells.js?v=throne-volley';
+import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=throne-volley';
 
 import {markChangedChunk,T} from './wizard-world.js?v=keyboard-play';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=summon-perf');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=throne-volley');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -172,7 +172,7 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   $('opponent').textContent+=' · '+(rival.monster?'Monster ':'Rival ')+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
  $('signal').textContent=state.cinematicText?state.cinematicText:settings.coop&&p.hp<=0?'Downed · Your allies can finish the stage to revive you':armed?'STORE · Choose a spell':p.channel>=0?'Channeling '+spells.get(p.ids[p.channel]).name:p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
- selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent=((i+1)%10)+' Refill Arsenal · '+p.bloodAmmo+'/6 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(id==='skull-throne'&&p.onThrone)b.textContent='Click to fire crimson swords';if(id==='quarry-volley'&&p.blocks?.length)b.textContent=((i+1)%10)+' Gather blocks · '+p.blocks.length+'/9 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(s.channel)b.textContent=((i+1)%10)+' '+s.name+' · HOLD · '+s.channel.mana+' mana/s';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
+ selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent=((i+1)%10)+' Stack Arsenal · '+p.bloodAmmo+'/30 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(id==='skull-throne'&&p.onThrone)b.textContent=p.throneVolley>state.time?'Conjuring six swords…':'G / click: six-sword volley';if(id==='quarry-volley'&&p.blocks?.length)b.textContent=((i+1)%10)+' Gather blocks · '+p.blocks.length+'/9 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(s.channel)b.textContent=((i+1)%10)+' '+s.name+' · HOLD · '+s.channel.mana+' mana/s';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
 function finish(){show('end');$('result').textContent=state.over;$('resultInfo').textContent=mode==='waves'?'Reached wave '+state.wave+' in '+Math.floor(state.time)+' seconds.':settings.map+' · '+Math.floor(state.time)+' seconds';keys.clear()}
 $('dummy').onclick=()=>{if(game&&game.state.players.length<24)game.spawn()};
 $('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana};$('restore').onclick=()=>{state.tiles=makeTiles(settings.map);state.terrainVersion++};$('change').onclick=()=>{game=state=null;book()};

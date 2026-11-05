@@ -398,11 +398,13 @@ export function makeSpellModels({joint,part,shape,mat}){
  models['crimson-king']=g=>{
   oval(g,0x6f102d,0,.5,.9,1.25,.6);box(g,0x251c2b,0,-.15,1,.3,.7);
   oval(g,0xa82a42,0,1.4,.55,.6,.46);
+  const legs=[];
   for(const s of [-1,1]){
    piece(g,'cone',bone,s*.55,1.95,0,.18,.95,.18,-s*.4);
    piece(g,'box',0xffe36c,s*.19,1.47,.46,.18,.085,.07,0,true);
-   box(g,0x481025,s*.3,-.7,.32,.85,.36);
-   box(g,0x1d1724,s*.3,-1.1,.42,.22,.6);
+   const leg=joint(g,s*.3,-.28,0);legs.push(leg);
+   box(leg,0x481025,0,-.42,.32,.85,.36);
+   box(leg,0x1d1724,0,-.82,.42,.22,.6);
   }
   piece(g,'box',0x1b111b,0,1.18,.46,.25,.1,.04);
   for(let i=-2;i<=2;i++)piece(g,'cone',bone,i*.075,1.12,.46,.045,.18,.045,Math.PI);
@@ -414,7 +416,11 @@ export function makeSpellModels({joint,part,shape,mat}){
    for(let i=-1;i<=1;i++)piece(fore,'cone',bone,i*.1,-.86,.1,.06,.3,.06,Math.PI);
    arms.push(arm);
   }
-  return t=>arms.forEach((arm,i)=>{arm.rotation.z=Math.sin(t*2+i*.9)*.35;arm.rotation.x=Math.sin(t*1.5+i)*.45});
+  return (t,actor={})=>{const seated=actor.entranceSeat||0,walking=actor.entranceWalk||0;
+   g.position.y=28-14*seated;g.rotation.x=-.12*seated;
+   legs.forEach((leg,i)=>leg.rotation.x=-1.2*seated+Math.sin(t*6+i*Math.PI)*.55*walking);
+   arms.forEach((arm,i)=>{arm.rotation.z=Math.sin(t*2+i*.9)*.35*(1-seated);arm.rotation.x=-.55*seated+Math.sin(t*1.5+i)*.45*(1-seated)});
+  };
  };
  models['king-warning']=g=>{for(let i=0;i<3;i++){const r=rim(g,0xff3758,0,.02,1-i*.14,1-i*.14);r.rotation.x=Math.PI/2}};
  models['king-slam']=g=>{for(let i=0;i<12;i++){const a=i*Math.PI/6;piece(g,'cone',0xff5874,Math.cos(a)*.8,.2,Math.sin(a)*.8,.13,.7,.13,0,true)}};

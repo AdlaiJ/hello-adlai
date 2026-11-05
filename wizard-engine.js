@@ -1,4 +1,4 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=keyboard-play';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=throne-volley';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=keyboard-play';
 export {MAPS,makeTiles} from './wizard-world.js?v=keyboard-play';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -95,15 +95,15 @@ export function createGame(settings,loadouts,mode){
    const rivers=[];
    for(let arm=0;arm<4;arm++){
     const angle=p.yaw+arm*Math.PI/2;
-    for(let i=1;i<=9;i++){
-     const reach=20+i*10.5,bend=7*Math.sin(i*.7+arm);
+    for(let i=1;i<=18;i++){
+     const reach=20+i*12,bend=12*Math.sin(i*.7+arm);
      const x=p.x+reach*Math.cos(angle)-bend*Math.sin(angle),z=p.z+reach*Math.sin(angle)+bend*Math.cos(angle);
      const y=api.surface(x,z,floor-24);
      if(y!==null)rivers.push({x,y,z});
     }
    }
    api.zone(p,p.x,floor,20,18,1,(w,owner)=>{
-    for(const q of w.enemies(owner))if(rivers.some(tile=>Math.abs(q.y-tile.y)<16&&Math.hypot(q.x-tile.x,q.z-tile.z)<11.5))damage(q,6,owner);
+    for(const q of w.enemies(owner))if(rivers.some(tile=>Math.abs(q.y-tile.y)<16&&Math.hypot(q.x-tile.x,q.z-tile.z)<22))damage(q,6,owner);
    },'#ac1537',p.z,'throne');
    Object.assign(s.zones.at(-1),{yaw:p.yaw,rivers});
    p.y=floor-24;p.vy=0;p.ground=true;p.onThrone=true;
@@ -338,14 +338,13 @@ export function createGame(settings,loadouts,mode){
  function fireSword(index){
   const p=s.players[index];
   if(!p?.onThrone||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0)||p.hp<=0||s.over||s.cutscene||p.cast>0||p.statuses.silence>0||p.swordReady>s.time)return false;
-  api.bolt(p,p.aim,{style:'skull-throne',speed:390,damage:26,r:4,color:'#fc274b'});
-  p.swordReady=s.time+.32;return true;
+  p.throneVolley=s.time+.7;p.swordReady=s.time+1.5;return true;
  }
  function fireBlood(index){
   const p=s.players[index];
   if(!p?.bloodAmmo||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
-  const weapon=bloodWeapons[(6-p.bloodAmmo)%bloodWeapons.length];
-  api.bolt(p,p.aim,{...weapon,color:'#da1741'});p.bloodAmmo--;return true;
+  const weapon=bloodWeapons[(p.bloodFired||0)%bloodWeapons.length];
+  api.bolt(p,p.aim,{...weapon,color:'#da1741'});p.bloodAmmo--;p.bloodFired=(p.bloodFired||0)+1;return true;
  }
  function fireBlock(index){
   const p=s.players[index];
@@ -362,6 +361,7 @@ export function createGame(settings,loadouts,mode){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
   if(!Number.isInteger(slot)||!spell||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(spell.channel)return false;
+  if(!store&&spell.id==='blood-arsenal'&&p.bloodAmmo>=30)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
   if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
   if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
@@ -434,10 +434,10 @@ export function createGame(settings,loadouts,mode){
   s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
   s.map=campaignMaps[stage-1];s.tiles=campaignTiles(s.map,stage);s.terrainVersion++;dirty.clear();
   s.changedChunks=new Map();s.players.splice(heroCount);inputs.splice(heroCount);s.summons=[];s.shots=[];s.zones=[];s.effects=[];
-  const p=s.players[0];Object.assign(p,{x:midX-150,z:midZ,y:200,vx:0,vy:0,vz:0,hp:p.maxHp,mana:p.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null});
+  const p=s.players[0];Object.assign(p,{x:midX-150,z:midZ,y:200,vx:0,vy:0,vz:0,hp:p.maxHp,mana:p.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null,throneVolley:0,onThrone:false});
   p.bank.fill(0);waveWait=0;
   for(let i=0;i<heroCount;i++){
-   const hero=s.players[i];Object.assign(hero,{x:midX-150,z:midZ+i*35,y:stage===4||stage===8?430:200,vx:0,vy:0,vz:0,hp:hero.disconnected?0:hero.maxHp,mana:hero.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null});hero.bank.fill(0);
+   const hero=s.players[i];Object.assign(hero,{x:midX-150,z:midZ+i*35,y:stage===4||stage===8?430:200,vx:0,vy:0,vz:0,hp:hero.disconnected?0:hero.maxHp,mana:hero.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null,throneVolley:0,onThrone:false});hero.bank.fill(0);
   }
   if(stage!==4&&stage!==8){campaignWave();return}
   // Clear a broad fighting floor so the giant can move and its telegraphs stay visible.
@@ -445,6 +445,15 @@ export function createGame(settings,loadouts,mode){
   const king=actor(1,midX+190,[]);Object.assign(king,{monster:'crimson-king',boss:true,hp:1400,maxHp:1400,y:430,z:midZ,attackClock:2.5,attackCycle:0});
   if(stage===8)Object.assign(king,{monster:'void-entity',voidBoss:true,hp:2200,maxHp:2200});
   king.hp=king.maxHp=Math.round(king.maxHp*(1+(heroCount-1)*.65));
+  if(stage===4){king.x=midX+270;king.y=396;king.yaw=Math.PI;king.entranceSeat=1;s.cutscene={kind:'king-entrance',time:0,x:king.x,z:king.z};s.cinematicText='The Crimson King awaits upon his skull throne.'}
+ }
+ function kingEntranceTick(dt){
+  const c=s.cutscene;c.time+=dt;s.time+=dt;const king=s.players.find(p=>p.boss),t=c.time;
+  const rise=clamp((t-2)/1.8,0,1),walk=clamp((t-3.8)/3.2,0,1);
+  king.entranceSeat=1-rise;king.entranceWalk=walk>0&&walk<1?Math.sin(walk*Math.PI):0;
+  king.x=c.x-115*walk;king.y=396+34*walk;king.yaw=Math.PI;
+  s.cinematicText=t<2?'The Crimson King awaits upon his skull throne.':t<3.8?'The four-armed monarch rises.':t<7?'He steps down to face you.':'THE CRIMSON KING';
+  if(t>=8){delete king.entranceSeat;delete king.entranceWalk;s.cutscene=null;s.cinematicText='';king.attackClock=2.5}
  }
  function beginRift(){
   const king=s.players.find(p=>p.boss),hero=s.players[0];
@@ -510,7 +519,7 @@ export function createGame(settings,loadouts,mode){
  if(mode==='campaign')campaignStage(1);
  function tick(dt){
   if(s.over)return;
-  if(s.cutscene){riftTick(dt);return}
+  if(s.cutscene){if(s.cutscene.kind==='king-entrance')kingEntranceTick(dt);else riftTick(dt);return}
   const previousSecond=Math.floor(s.time+1e-8);
   s.time+=dt;
   const second=Math.floor(s.time+1e-8);
@@ -548,6 +557,15 @@ export function createGame(settings,loadouts,mode){
     const seat=z.y-24;
     if(p.vy>=0&&previousY<=seat+.1&&p.y>=seat){
      p.y=seat;p.vy=0;p.ground=true;p.onThrone=z.p===p;break;
+    }
+   }
+   if(p.throneVolley){
+    if(!p.onThrone||p.hp<=0||st.silence>0||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0))p.throneVolley=0;
+    else if(s.time>=p.throneVolley){
+     const tx=p.x+500*Math.cos(p.aim)*Math.cos(p.yaw),ty=p.y-14+500*Math.sin(p.aim),tz=p.z+500*Math.cos(p.aim)*Math.sin(p.yaw);
+     for(let n=0;n<6;n++){const origin=throneSwordOrigin(p,n),dx=tx-origin.x,dy=ty-origin.y,dz=tz-origin.z;
+      api.bolt(p,Math.atan2(dy,Math.hypot(dx,dz)),{style:'skull-throne',speed:390,damage:26,r:4,color:'#fc274b',yawOffset:Math.atan2(dz,dx)-p.yaw},origin);
+     }p.throneVolley=0;
     }
    }
    if(p.y>580){damage(p,22);p.x=midX+(p.side?300:-300);p.z=midZ;p.y=40;p.vy=0}

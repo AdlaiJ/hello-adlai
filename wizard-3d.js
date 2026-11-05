@@ -1,6 +1,6 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=keyboard-play';
+import {makeSpellModels} from './wizard-spell-models.js?v=king-entrance';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=keyboard-play';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=throne-volley';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -464,7 +464,7 @@ function makeFamiliars(scene){
     rig.health.rotation.y=yaw;rig.health.quaternion.multiply(camera.quaternion);
     const ratio=f.hp/f.maxHp;rig.fill.scale.x=8.7*ratio;rig.fill.position.x=4.35*(ratio-1);
    }
-   rig.body.userData.pose?.(t);rig.body.rotation.z=f.kind==='purple-wurm'?(((f.time||0)%5)>3.3?Math.sin(((f.time||0)%5-3.3)/1.7*Math.PI)*.75:0):Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
+   rig.body.userData.pose?.(t,f);rig.body.rotation.z=f.kind==='purple-wurm'?(((f.time||0)%5)>3.3?Math.sin(((f.time||0)%5-3.3)/1.7*Math.PI)*.75:0):Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
    if(skeletal){
     rig.fins.forEach((leg,j)=>{leg.rotation.set(0,0,Math.sin(phase*2+j*Math.PI)*.65*Math.min(1,(f.walkSpeed||0)/70))});
     const attack=clamp(((f.time||0)-(f.attackAt??-10))/.55,0,1);
@@ -613,7 +613,7 @@ function makeSpellParts(scene){
        part(skull,shape.box,ivory,.08,-.24,0,.24,.18,.28);
        for(const side of [-1,1])part(skull,shape.ball,shadow,.20,.01,side*.10,.065,.09,.075);
       }
-      patch.userData.pools=Array.from({length:36},()=>part(patch,shape.ball,mat(0xa51033),0,0,0,.34,.034,.34));
+      patch.userData.pools=Array.from({length:72},()=>part(patch,shape.ball,mat(0xa51033),0,0,0,.70,.034,.70));
      }else if(z.style==='sundial'){
       part(patch,shape.pole,mat(0xbb8541),0,0,0,.67,.045,.67);
       part(patch,shape.cone,mat(0xffc767),0,.12,0,.08,.24,.08).rotation.z=-.4;
@@ -799,6 +799,21 @@ export function makeRenderer(canvas){
  key.position.set(-250,530,210);scene.add(env,key);
  const rim=new THREE.DirectionalLight(0xa8e6ff,1.45);rim.position.set(80,130,-260);scene.add(rim);
  const title=makeTitle(scene),groundGroup=new THREE.Group();scene.add(groundGroup);
+ const throne=joint(scene,X*TILE/2+270,108,Z*TILE/2);throne.rotation.y=-Math.PI/2;
+ const ivory=mat(0xd8c9a3),darkBone=mat(0x847865),obsidian=mat(0x302332),skullEye=mat(0x1c1019);
+ part(throne,shape.box,obsidian,0,5,22,140,10,140);
+ part(throne,shape.box,darkBone,0,15,10,120,10,100);
+ part(throne,shape.box,ivory,0,26,0,100,12,70);
+ part(throne,shape.box,obsidian,0,38,-8,74,12,58);
+ part(throne,shape.box,darkBone,0,83,-35,86,108,15);
+ for(const side of [-1,1]){part(throne,shape.box,ivory,side*42,55,-5,13,35,68);part(throne,shape.cone,ivory,side*42,130,-35,15,42,15)}
+ for(let row=0;row<3;row++)for(let col=-2;col<=2;col++){
+  const skull=joint(throne,col*16,66+row*25,-24);
+  part(skull,shape.ball,ivory,0,0,0,7.5,9,6);
+  for(const side of [-1,1])part(skull,shape.ball,skullEye,side*3.4,1,5.4,4.3,5,2);
+  for(let tooth=-1;tooth<=1;tooth++)part(skull,shape.box,ivory,tooth*3,-10,3,2,5,4);
+ }
+ throne.visible=false;
  const paintCasting=makeCastPainter(THREE,scene,SPELLS,HEIGHT);
  const updateTerrain=makeTerrain(groundGroup),rigs=[],paintSpells=makeSpellParts(scene),paintFamiliars=makeFamiliars(scene);
  let pixelScale=1,frames=0,frameSeconds=0,lastDraw=0;
@@ -872,6 +887,12 @@ export function makeRenderer(canvas){
    camera.position.set(480+Math.sin(clock*.17)*9,152+29*framing,192+distance);
    camera.lookAt(480,143,192);
   }else updateTerrain(state,p,camera);
+  throne.visible=!demo&&state.stage===4;
+  if(!demo&&state.cutscene?.kind==='king-entrance'){
+   const c=state.cutscene,t=c.time,progress=clamp(t/8,0,1);
+   camera.position.set(c.x-190-progress*60,210-progress*20,c.z+180-progress*40);
+   camera.lookAt(c.x-40*progress,185,c.z);camera.updateMatrixWorld();
+  }
   const creatures=demo?[]:[...(state.summons||[])];
   if(demo&&titleScene===3){
    for(let i=0;i<6;i++)creatures.push({id:i,kind:i<4?'squire':'wraith',side:0,hp:28,maxHp:28,
@@ -921,11 +942,15 @@ export function makeRenderer(canvas){
    paintSpells(shots,titleBursts,zones,clock,camera);
   }else{
    const visibleShots=[...(state.shots||[])];
+   for(const wizard of players)if(wizard.hp>0&&wizard.onThrone&&wizard.throneVolley>state.time){
+    const grow=clamp(1-(wizard.throneVolley-state.time)/.7,0,1);
+    for(let i=0;i<6;i++)visibleShots.push({style:'skull-throne',...throneSwordOrigin(wizard,i),r:1+3*grow,color:'#fc274b',vx:Math.cos(wizard.yaw),vy:0,vz:Math.sin(wizard.yaw)});
+   }
    for(const wizard of players)if(wizard.hp>0&&wizard.bloodAmmo){
-    for(let i=6-wizard.bloodAmmo;i<6;i++){
-     const angle=clock*1.25+i*TAU/6;
-     visibleShots.push({style:bloodWeapons[i%bloodWeapons.length].style,r:4,
-      x:wizard.x+24*Math.cos(angle),y:wizard.y-27+3*Math.sin(angle*2),z:wizard.z+24*Math.sin(angle),
+    for(let i=0;i<Math.min(30,wizard.bloodAmmo);i++){
+     const ring=Math.floor(i/6),radius=24+ring*7,angle=clock*(1.25-ring*.12)+i*TAU/6+ring*.3;
+     visibleShots.push({style:bloodWeapons[((wizard.bloodFired||0)+i)%bloodWeapons.length].style,r:4,
+      x:wizard.x+radius*Math.cos(angle),y:wizard.y-27-ring*10+3*Math.sin(angle*2),z:wizard.z+radius*Math.sin(angle),
       vx:0,vy:-1,vz:0});
     }
    }

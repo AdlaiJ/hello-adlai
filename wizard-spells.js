@@ -42,6 +42,7 @@ function buildAhead(api, p, distance, heightOffset, width, height, yawOffset = 0
   api.build(p, center.x, p.y + heightOffset, width, height, center.z);
 }
 
+export function throneSwordOrigin(p,i){const side=(i-2.5)*13;return {x:p.x-Math.sin(p.yaw)*side,y:p.y-65-Math.sin(i*Math.PI/5)*14,z:p.z+Math.cos(p.yaw)*side}}
 export const bloodWeapons=[
  {style:'blood-dagger',speed:470,damage:14,r:3},
  {style:'blood-spear',speed:370,damage:19,r:4,pierce:2},
@@ -49,8 +50,8 @@ export const bloodWeapons=[
 ];
 const damage = [
   spell('Summoning','blood-arsenal','Blood Arsenal','⚔',95,1.4,
-    'Summon six orbiting blood weapons. Press G or click the arena to launch a dagger (14 damage), piercing spear (19 damage), then bursting axe (14 damage). Cast this slot again to refill to six weapons for the normal mana cost and casting time.',
-    (api,p)=>{p.bloodAmmo=6;}),
+    'Summon six orbiting blood weapons. Press G or click the arena to launch a dagger (14 damage), piercing spear (19 damage), then bursting axe (14 damage). Each recast adds six more weapons, stacking up to 30, for the normal mana cost and casting time.',
+    (api,p)=>{if(!p.bloodAmmo)p.bloodFired=0;p.bloodAmmo=Math.min(30,(p.bloodAmmo||0)+6);}),
   spell('Evocation','shrine-of-cleavers','Shrine of Cleavers','⛩',600,4,
     'Unfold an open shrine for eight seconds. Every half second it slashes every enemy inside the marked circle for 8 damage and cuts a trench through the terrain. Escape the circle to avoid the next cut.',
     (api,p)=>{
@@ -67,7 +68,7 @@ const damage = [
       },'#bc173a',p.z,'cleaver-shrine');
     }),
   spell('Summoning','skull-throne','Skull Throne','☠',320,2.8,
-    'Raise a bone throne for 18 seconds. Blood rivers hurt enemies. On its seat, press G, click or press this slot to launch crimson swords for 26 damage.',
+    'Raise a bone throne for 18 seconds. Wide blood rivers spread twice as far and hurt enemies. On its seat, press G, click or press this slot to conjure six swords overhead, then launch them together toward your current aim. Each sword deals 26 damage.',
     (api,p)=>api.raiseThrone(p)),
   spell('Evocation','quarry-volley','Quarry Volley','▦',45,.9,
     'Lift up to nine nearby terrain blocks. Press G or click the arena to fire one block for 17 damage. Cast this slot again to gather more, keeping your remaining blocks and filling up to nine for the normal mana cost and casting time.',
