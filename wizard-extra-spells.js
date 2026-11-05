@@ -247,5 +247,32 @@ export function extraSpells(){
  add('Unlimited Void','✧',650,4.5,'Gojo-inspired: create an eight-second star-filled domain around your casting position. Enemies inside 155 units are repeatedly rooted and silenced, taking 4 damage each second. Escape the field to recover.',(a,p)=>{
   a.zone(p,p.x,p.y-12,155,8.05,.25,(w,o,x,y,z)=>{for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<174){w.status(q,'root',.35);w.status(q,'silence',.35);w.hurt(q,1)}},'#e1eeff',p.z,'unlimited-void');
  });
+ school('Hexes','ribs','#b9b5aa');
+ add('Stone Coffin','▣',95,1.4,'Enclose the enemy closest to your aim within 220 units in a stone coffin. The walls, floor and lid have 22 health per block: break them or blink out to escape. Requires line of sight; giant bosses cannot fit.',(a,p,t)=>{
+  const candidates=a.enemies(p).filter(q=>!q.boss&&q.kind!=='purple-wurm');
+  const aim=[Math.cos(t)*Math.cos(p.yaw),Math.sin(t),Math.cos(t)*Math.sin(p.yaw)];
+  const scored=candidates.map(q=>{const dx=q.x-p.x,dy=q.y-p.y,dz=q.z-p.z,d=Math.hypot(dx,dy,dz);return {q,d,dot:(dx*aim[0]+dy*aim[1]+dz*aim[2])/Math.max(1,d)}})
+   .filter(v=>v.d<=220&&v.dot>.9&&a.clearLine(p,v.q)).sort((a,b)=>b.dot-a.dot||a.d-b.d);
+  if(scored[0]){const q=scored[0].q;a.stoneCoffin(q);a.fx(q.x,q.y-20,30,'#b9b5aa','stone-coffin',q.z)}
+ });
+ function realm(a,p,style,color,radius,duration,interval,effect){
+  const x=p.x+75*Math.cos(p.yaw),z=p.z+75*Math.sin(p.yaw),y=a.surface(x,z,p.y-60)??p.y;
+  a.zone(p,x,y,radius,duration+.01,interval,(w,o,cx,cy,cz)=>{
+   const occupants=w.occupants().filter(q=>Math.hypot(q.x-cx,q.z-cz)<=radius*1.12&&Math.abs(q.y-cy)<180);
+   effect(w,o,occupants);
+  },color,z,style);
+ }
+ school('Restoration','bloom','#83eeb5');
+ add('Demiplane of Sanctuary','❀',200,2.2,'Unfold a pocket garden with a 125-unit radius for 12 seconds. Allies inside recover 4 health each second and shed burning and slow effects. Enemies receive no healing. Leave its boundary to lose the benefit.',(a,p)=>realm(a,p,'demiplane-of-sanctuary','#83eeb5',125,12,1,(w,o,qs)=>{
+  for(const q of qs)if(q.side===o.side){w.heal(q,4);q.statuses.burn=0;q.statuses.slow=0}
+ }));
+ school('Movement','orbit','#a0a1ff');
+ add('Demiplane of Stars','✧',180,2,'Open a star-filled pocket realm with a 140-unit radius for 10 seconds. Every wizard inside gains low gravity, slow falling and higher jumps. Its altered gravity fades shortly after you leave.',(a,p)=>realm(a,p,'demiplane-of-stars','#a0a1ff',140,10,.2,(w,o,qs)=>{
+  for(const q of qs)if(!q.kind&&!q.boss){w.status(q,'astral',.35);w.status(q,'leap',.35)}
+ }));
+ school('Hexes','fault','#ff8259');
+ add('Demiplane of Cinders','♨',270,2.8,'Open a cracked volcanic pocket realm with a 130-unit radius for 10 seconds. Grounded enemies take 7 damage each second and burn; jumping above its floor avoids the eruption. Allies gain armor while inside.',(a,p)=>realm(a,p,'demiplane-of-cinders','#ff8259',130,10,1,(w,o,qs)=>{
+  for(const q of qs)if(q.side===o.side)w.status(q,'armor',1.2);else if(q.ground||q.boss){w.hurt(q,7);w.status(q,'burn',1.2)}
+ }));
  return book;
 }

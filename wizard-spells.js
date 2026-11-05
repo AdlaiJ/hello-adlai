@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=less-lag';
+import {extraSpells} from './wizard-extra-spells.js?v=keyboard-play';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
 export const spellRadius = radius => radius * 1.12;
 
@@ -49,7 +49,7 @@ export const bloodWeapons=[
 ];
 const damage = [
   spell('Summoning','blood-arsenal','Blood Arsenal','⚔',95,1.4,
-    'Summon six orbiting blood weapons. Click the arena to launch a dagger (14 damage), piercing spear (19 damage), then bursting axe (14 damage). Cast this slot again to refill to six weapons for the normal mana cost and casting time.',
+    'Summon six orbiting blood weapons. Press G or click the arena to launch a dagger (14 damage), piercing spear (19 damage), then bursting axe (14 damage). Cast this slot again to refill to six weapons for the normal mana cost and casting time.',
     (api,p)=>{p.bloodAmmo=6;}),
   spell('Evocation','shrine-of-cleavers','Shrine of Cleavers','⛩',600,4,
     'Unfold an open shrine for eight seconds. Every half second it slashes every enemy inside the marked circle for 8 damage and cuts a trench through the terrain. Escape the circle to avoid the next cut.',
@@ -67,10 +67,10 @@ const damage = [
       },'#bc173a',p.z,'cleaver-shrine');
     }),
   spell('Summoning','skull-throne','Skull Throne','☠',320,2.8,
-    'Raise a bone throne for 18 seconds. Blood rivers hurt enemies. On its seat, click or press this slot to launch crimson swords for 26 damage.',
+    'Raise a bone throne for 18 seconds. Blood rivers hurt enemies. On its seat, press G, click or press this slot to launch crimson swords for 26 damage.',
     (api,p)=>api.raiseThrone(p)),
   spell('Evocation','quarry-volley','Quarry Volley','▦',45,.9,
-    'Lift up to nine nearby terrain blocks. Click the arena to fire one block for 17 damage. Cast this slot again to gather more, keeping your remaining blocks and filling up to nine for the normal mana cost and casting time.',
+    'Lift up to nine nearby terrain blocks. Press G or click the arena to fire one block for 17 damage. Cast this slot again to gather more, keeping your remaining blocks and filling up to nine for the normal mana cost and casting time.',
     (api,p)=>api.liftBlocks(p)),
   spell('Evocation', 'witchspark', 'Witchspark', '✦', 3, .2,
     'Flick a quick spark for 8 damage to finish off a weakened enemy.',
@@ -673,7 +673,7 @@ const grandSpells = [
 
 function armament(id,name,symbol,cost,time,form,tint,strikes,reach,arc,damage,delay,trait,extra){
   const entry=spell('Summoning',id,name,symbol,cost,time,
-    'Summon for 12 seconds. Click the arena or press this slot again to swing for free. Hits land during the swing; press shortly before recovery ends to queue the next attack. '+strikes+' swings, '+damage+' damage each. '+extra,
+    'Summon for 12 seconds. Press G, click the arena or press this slot again to swing for free. Hits land during the swing; press shortly before recovery ends to queue the next attack. '+strikes+' swings, '+damage+' damage each. '+extra,
     (api,p)=>{p.weapon={id,until:api.now()+12,strikes,ready:api.now(),swing:-1}});
   entry.melee={form,tint,reach,arc,damage,delay,trait};
   return entry;

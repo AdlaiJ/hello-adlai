@@ -1,6 +1,6 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=less-lag';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=less-lag';
-export {MAPS,makeTiles} from './wizard-world.js?v=less-lag';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=keyboard-play';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=keyboard-play';
+export {MAPS,makeTiles} from './wizard-world.js?v=keyboard-play';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -67,6 +67,16 @@ export function createGame(settings,loadouts,mode){
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds)=>{p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,cutTerrain:tileDamage,
+  stoneCoffin(q){
+   const cx=Math.floor(q.x/T),cz=Math.floor(q.z/T),bottom=Math.floor((q.y-1)/T)+1;
+   for(let x=cx-2;x<=cx+2;x++)for(let z=cz-2;z<=cz+2;z++)for(let y=bottom-5;y<=bottom;y++){
+    if(x<0||x>=W||z<0||z>=D||y<0||y>=H)continue;
+    if(x!==cx-2&&x!==cx+2&&z!==cz-2&&z!==cz+2&&y!==bottom-5&&y!==bottom)continue;
+    const k=(z*H+y)*W+x;if(s.tiles[k])continue;
+    if(api.occupants().some(p=>Math.abs(p.x-(x*T+6))<12&&Math.abs(p.z-(z*T+6))<12&&Math.abs(p.y-12-(y*T+6))<22))continue;
+    setBlock(k,22);
+   }
+  },
   clearLine(p,q){
    const dx=q.x-p.x,dy=q.y-p.y,dz=q.z-p.z,steps=Math.ceil(Math.hypot(dx,dy,dz)/5);
    for(let i=1;i<steps;i++)if(solid(p.x+dx*i/steps,p.y-12+dy*i/steps,p.z+dz*i/steps))return false;
@@ -519,7 +529,7 @@ export function createGame(settings,loadouts,mode){
    p.vx+=(drive.move*speed-p.vx)*(1-Math.exp(-7*dt));p.vz+=(drive.strafe*speed-p.vz)*(1-Math.exp(-7*dt));if(st.root>0)p.vx=p.vz=0;
    if(p.ground&&drive.jump&&!(st.root>0)){p.vy=st.leap>0?-440:-300;p.ground=false}
    const previousY=p.y;
-   p.ground=false;p.vy=Math.min(560,p.vy+720*dt);move(p,p.vx*dt,p.vy*dt,p.vz*dt);
+   p.ground=false;p.vy=Math.min(st.astral>0?100:560,p.vy+(st.astral>0?150:720)*dt);move(p,p.vx*dt,p.vy*dt,p.vz*dt);
    p.onThrone=false;
    for(const z of s.zones){
     if(z.style!=='throne'||Math.hypot(p.x-z.x,p.z-z.z)>19)continue;

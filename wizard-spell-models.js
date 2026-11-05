@@ -425,5 +425,32 @@ export function makeSpellModels({joint,part,shape,mat}){
   return t=>rings.forEach((r,i)=>{r.rotation.z=t*(i%2?1:-1)*.3;r.scale.x=1+Math.sin(t*2+i)*.04});
  };
  models['void-warning']=g=>{const r=rim(g,0xbc79ff,0,.02,1,1);r.rotation.x=Math.PI/2;for(let i=0;i<8;i++){const a=i*Math.PI/4;gem(g,0xb79aff,Math.cos(a)*.8,.03,.06,.12)}};
+ models['stone-coffin']=g=>{
+  box(g,0x89878a,-.55,0,.2,1.8,.85);box(g,0x89878a,.55,0,.2,1.8,.85);
+  box(g,0xb5b0a5,0,.9,1.3,.18,.9);box(g,0xb5b0a5,0,-.9,1.3,.18,.9);
+  for(let i=-2;i<=2;i++)box(g,0xc7bea8,0,i*.3,1.1,.035,.04);
+ };
+ models['demiplane-of-sanctuary']=g=>{
+  const ground=piece(g,'ball',0x356a52,0,-.025,0,1,.035,1);
+  for(let i=0;i<8;i++){const a=i*Math.PI/4,x=Math.cos(a)*.82,z=Math.sin(a)*.82;
+   const tree=joint(g,x,0,z);rod(tree,0x80624f,0,.2,.45,.04);oval(tree,0x68bb86,0,.48,.17,.25,.17);
+   const flowerRoot=joint(g,x*.6,.03,z*.6);flowerRoot.scale.setScalar(.1);flower(flowerRoot,i%2?pink:gold);
+  }
+  const arch=joint(g,0,.04,0);rim(arch,0xd1e0b0,0,.35,.22,.35);
+ };
+ models['demiplane-of-stars']=g=>{
+  const orbit=joint(g,0,.4,0);
+  for(let i=0;i<18;i++){const a=i*2.4;piece(orbit,'gem',i%2?0xc9c2ff:0x7ed9ff,Math.cos(a)*(.5+i/40),Math.sin(a*2)*.3,Math.sin(a)*(.5+i/40),.035,.09,.035,0,true)}
+  for(let i=0;i<3;i++){const ring=rim(g,0x787fc1,0,.02,.95-i*.2,.95-i*.2);ring.rotation.x=Math.PI/2}
+  return t=>{orbit.rotation.y=t*.3};
+ };
+ models['demiplane-of-cinders']=g=>{
+  piece(g,'ball',0x3a2533,0,-.02,0,1,.035,1);
+  for(let i=0;i<9;i++){const a=i*2.4,x=Math.cos(a)*.7,z=Math.sin(a)*.7;
+   const fissure=joint(g,x,.025,z);fissure.rotation.y=a;box(fissure,0xff9d42,0,0,.6,.015,.025);
+   piece(g,'cone',0x594253,x,.1,z,.11,.25,.11);
+   const flame=joint(g,x,.18,z);flame.scale.setScalar(.18);fire(flame,0,0);
+  }
+ };
  return models;
 }

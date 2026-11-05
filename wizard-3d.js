@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=less-lag';
+import {makeSpellModels} from './wizard-spell-models.js?v=keyboard-play';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=less-lag';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=keyboard-play';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=less-lag';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=keyboard-play';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
