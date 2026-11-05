@@ -1,6 +1,6 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=spell-shapes';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=spell-shapes';
-export {MAPS,makeTiles} from './wizard-world.js?v=spell-shapes';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=cursed-ten';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=cursed-ten';
+export {MAPS,makeTiles} from './wizard-world.js?v=cursed-ten';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -133,6 +133,8 @@ export function createGame(settings,loadouts,mode){
    shield:0,statuses:{},vx:0,vy:0,vz:0,yaw:owner.yaw,time:0,duration,pulse:.35};
   if(kind==='purple-wurm'){f.hp=f.maxHp=220;f.burrowFloor=api.surface(f.x,f.z,0)??440;f.digClock=0;f.erupted=false}
   if(kind==='void-entity'){f.hp=f.maxHp=85;f.attackCycle=0}
+  if(kind==='imp-furnace'){f.hp=f.maxHp=90;f.pulse=1;f.spawned=0}
+  if(kind==='fire-imp'){f.hp=f.maxHp=16;f.leap=0}
   move(f,Math.cos(owner.yaw)*20,-12,Math.sin(owner.yaw)*20);s.summons.push(f);return f;
  }
  function stepWurm(f,foe,dt){
@@ -177,6 +179,36 @@ export function createGame(settings,loadouts,mode){
    }
    const foe=enemies(f).reduce((best,q)=>!best||dist(q)<dist(best)?q:best,null);
    if(f.kind==='purple-wurm'){stepWurm(f,foe,dt);continue}
+   if(f.kind==='imp-furnace'){
+    f.vy=Math.min(440,f.vy+900*dt);move(f,0,f.vy*dt,0);
+    if(f.y>550){f.hp=0;continue}
+    if(f.pulse<=0&&f.spawned<8&&!(f.statuses.silence>0)){
+     f.pulse=2;f.spawned++;
+     const imp=summon(f.owner,'fire-imp',12),angle=f.spawned*2.4;
+     imp.x=f.x+Math.cos(angle)*22;imp.z=f.z+Math.sin(angle)*22;imp.y=f.y-8;imp.vy=-150;
+     fx(f.x,f.y-15,18,'#ff9b32','fire-imp',f.z);
+    }
+    continue;
+   }
+   if(f.kind==='fire-imp'){
+    f.leap=Math.max(0,f.leap-dt);
+    const dx=foe?foe.x-f.x:0,dz=foe?foe.z-f.z:0,d=Math.hypot(dx,dz);
+    const speed=f.statuses.root>0?0:f.statuses.slow>0?70:155;
+    if(foe&&d>1){f.yaw=Math.atan2(dz,dx);f.vx=dx/d*speed;f.vz=dz/d*speed}
+    else f.vx=f.vz=0;
+    if(foe&&d<85&&f.ground&&f.leap<=0&&speed&&!(f.statuses.silence>0)){
+     f.vy=-260;f.leap=.8;f.attackAt=f.time;
+    }
+    const ox=f.x,oz=f.z;
+    f.vy=Math.min(440,f.vy+900*dt);f.ground=false;move(f,f.vx*dt,f.vy*dt,f.vz*dt);
+    if(speed&&foe&&f.ground&&Math.hypot(f.x-ox,f.z-oz)<dt*10)f.vy=-240;
+    f.walkSpeed=Math.hypot(f.x-ox,f.z-oz)/dt;
+    if(foe&&dist(foe)<24&&!(f.statuses.silence>0)){
+     api.area(f,f.x,f.y-8,36,18,'#ff983e',f.z);fx(f.x,f.y-8,36,'#ff983e','fire-imp',f.z);f.hp=0;
+    }
+    if(f.y>550)f.hp=0;
+    continue;
+   }
    const support=f.kind==='medic'||f.kind==='bastion';
    const chasing=!support&&foe&&dist(foe)<400;
    const target=chasing&&!f.familiar?foe:f.owner,dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
@@ -415,7 +447,8 @@ export function createGame(settings,loadouts,mode){
      const size=q.kind==='purple-wurm'?30:8,reach=size+b.r;
      return q.hp>0&&Math.abs(q.y-13-b.y)<size+6+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q);
     });
-    const wall=solid(b.x,b.y,b.z),hitX=wall&&solid(b.x,oy,oz),hitZ=wall&&solid(ox,oy,b.z);
+    if(b.terrainPierce)tileDamage(b.x,b.y,Math.max(8,b.r),200,b.z);
+    const wall=!b.terrainPierce&&solid(b.x,b.y,b.z),hitX=wall&&solid(b.x,oy,oz),hitZ=wall&&solid(ox,oy,b.z);
     if(!wall&&!target&&!(b.impactY!==undefined&&oy<b.impactY&&b.y>=b.impactY)){
      const spike=s.zones.find(t=>t.style==='spikes'&&t.hp>0&&Math.hypot(t.x-b.x,t.z-b.z)<spellRadius(16)+b.r&&b.y>=t.y-t.r-b.r&&b.y<=t.y+b.r);
      if(!spike)continue;

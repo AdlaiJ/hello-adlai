@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=spell-shapes';
+import {makeSpellModels} from './wizard-spell-models.js?v=cursed-ten';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=spell-shapes';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=cursed-ten';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=spell-shapes';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=cursed-ten';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -322,11 +322,16 @@ function makeTerrain(scene){
 }
 function makeFamiliars(scene){
  const creatureModels=makeSpellModels({joint,part,shape,mat});
- const pools=new Map(),palette={'purple-wurm':0xb983ef,'void-entity':0x9a8bff,squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
+ const pools=new Map(),palette={'imp-furnace':0xff9634,'fire-imp':0xff7b22,'purple-wurm':0xb983ef,'void-entity':0x9a8bff,squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
  function create(kind){
   const root=joint(scene,0,0,0),body=joint(root,0,0,0),glow=mat(palette[kind],true),fins=[];
   const badge=part(body,shape.ring,mat(0x8febff,true),0,-3.7,0,2.05);badge.rotation.x=Math.PI/2;
   switch(kind){
+   case 'imp-furnace':case 'fire-imp':{
+    const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='imp-furnace'?19:10);
+    creature.rotation.y=Math.PI/2;
+    body.userData.pose=creatureModels[kind](creature);break;
+   }
    case 'purple-wurm':case 'void-entity':{
     const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='purple-wurm'?42:19);
     body.userData.pose=creatureModels[kind](creature);break;

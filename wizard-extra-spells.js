@@ -197,5 +197,55 @@ export function extraSpells(){
     }
    },'#b8ed61',z,'acid-rain');
   });
+ school('Summoning','ribs','#ff863e');
+ add('Imp Furnace','♨',180,2,'Summon a killable 90-HP furnace for 18 seconds. It releases eight fire imps, one every two seconds. Each 16-HP imp chases enemies and leaps onto them, exploding for 18 damage in a small area. Imps last 12 seconds.',(a,p)=>{
+  const f=a.summon(p,'imp-furnace',18);
+  const x=p.x+Math.cos(p.yaw)*45,z=p.z+Math.sin(p.yaw)*45;
+  const floor=a.surface(x,z,0);
+  if(floor!==null){f.x=x;f.z=z;f.y=floor}
+ });
+ school('Evocation','blades','#ff6878');
+ add('Dismantle','╱',28,.35,'Sukuna-inspired: launch three thin, piercing cutting blades in a fan. Each deals 9 damage and slices through two targets.',(a,p,t)=>{
+  for(const side of [-1,0,1])shot(a,p,t,'dismantle',{speed:530,damage:9,pierce:1,r:3,yawOffset:side*.11,color:'#ffbac4'});
+ });
+ add('Cleave','✕',65,.75,'Sukuna-inspired: a close-range cross cut hits visible enemies in front of you within 65 units. Deals 22 damage plus 15% of their maximum health, capped at 55 total.',(a,p)=>{
+  for(const q of near(a,p,65))if(Math.cos(Math.atan2(q.z-p.z,q.x-p.x)-p.yaw)>.3&&a.clearLine(p,q))a.hurt(q,Math.min(55,22+q.maxHp*.15));
+  a.fx(p.x+30*Math.cos(p.yaw),p.y-12,45,'#ffbac4','cleave',p.z+30*Math.sin(p.yaw),p.yaw);
+ });
+ school('Evocation','fountain','#ffae43');
+ add('Furnace Arrow','➶',230,2.6,'Sukuna-inspired: fire a blazing arrow that bursts for 42 splash damage plus 28 on direct impact, leaving a burning crater for four seconds.',(a,p,t)=>shot(a,p,t,'furnace-arrow',{
+  speed:430,damage:28,r:6,color:'#ffae43',onHit:(w,o,q,x,y,z)=>{
+   w.area(o,x,y,75,42,'#ff9d32',z);
+   w.zone(o,x,y,75,4.05,1,(v,c,cx,cy,cz)=>{for(const enemy of v.enemies(c))if(Math.hypot(enemy.x-cx,enemy.y-12-cy,enemy.z-cz)<84){v.hurt(enemy,5);v.status(enemy,'burn',1.2)}},'#ff8a2c',z,'furnace-arrow');
+  }
+ }));
+ school('Hexes','weave','#ff788e');
+ add('Spiderweb Cut','⌗',115,1.2,'Sukuna-inspired: fracture the ground ahead into a cutting web for five seconds. Enemies touching it take 8 damage each second and are briefly rooted; the web also cuts terrain.',(a,p)=>{
+  const x=p.x+90*Math.cos(p.yaw),z=p.z+90*Math.sin(p.yaw),y=a.surface(x,z,0);if(y===null)return;
+  a.zone(p,x,y,90,5.05,1,(w,o,cx,cy,cz)=>{w.cutTerrain(cx,cy+3,60,8,cz);for(const q of w.enemies(o))if(Math.hypot(q.x-cx,q.z-cz)<100&&Math.abs(q.y-cy)<30){w.hurt(q,8);w.status(q,'root',.45)}},'#ff788e',z,'spiderweb-cut');
+ });
+ school('Evocation','fault','#ffd5df');
+ add('World Sever','⫽',420,3.4,'Sukuna-inspired: send a huge vertical cutting blade through cover and up to nine enemies for 65 damage each, carving a narrow trench through the arena.',(a,p,t)=>shot(a,p,t,'world-sever',{speed:360,damage:65,pierce:8,r:14,life:3.5,color:'#ffd5df',terrainPierce:true}));
+ school('Warding','shell','#b9f1ff');
+ add('Infinity Veil','∞',140,1.1,'Gojo-inspired: gain 65 shield and six seconds of armor. For six seconds, enemies within 65 units are slowed by the space around you.',(a,p)=>{
+  guard(p,65);a.status(p,'armor',6);
+  timer(a,p,6,.2,w=>{for(const q of near(w,p,65))w.status(q,'slow',.35);w.fx(p.x,p.y-12,34,'#b9f1ff','infinity-veil',p.z,p.yaw,0,.25)},'#b9f1ff','infinity-veil');
+ });
+ school('Hexes','vortex','#4cafff');
+ add('Lapse Blue','◉',95,1,'Gojo-inspired: create a blue attraction point ahead for three seconds. It drags enemies inward and deals 5 damage every half-second.',(a,p)=>{
+  const x=p.x+110*Math.cos(p.yaw),z=p.z+110*Math.sin(p.yaw),y=p.y-12;
+  a.zone(p,x,y,105,3.05,.5,(w,o,cx,cy,cz)=>{for(const q of w.enemies(o))if(Math.hypot(q.x-cx,q.y-12-cy,q.z-cz)<118){w.blink(q,(cx-q.x)*.22,0,(cz-q.z)*.22);w.hurt(q,5)}},'#4cafff',z,'lapse-blue');
+ });
+ school('Evocation','bloom','#ff4d65');
+ add('Reversal Red','✹',120,1.3,'Gojo-inspired: launch a red repulsion star. On impact it bursts for 35 damage and forcefully shoves enemies away from the blast.',(a,p,t)=>shot(a,p,t,'reversal-red',{speed:340,damage:0,r:7,color:'#ff4d65',onHit:(w,o,q,x,y,z)=>{
+  w.area(o,x,y,85,35,'#ff4d65',z);
+  for(const enemy of w.enemies(o)){const dx=enemy.x-x,dz=enemy.z-z,d=Math.hypot(dx,dz);if(Math.hypot(d,enemy.y-12-y)<95){w.blink(enemy,dx/Math.max(1,d)*65,-18,dz/Math.max(1,d)*65);enemy.vy=-180;enemy.ground=false}}
+ }}));
+ school('Evocation','weave','#ba79ff');
+ add('Hollow Purple','◈',500,4,'Gojo-inspired: merge blue and red into a large violet projectile that bores through terrain and up to thirteen enemies for 85 damage each.',(a,p,t)=>shot(a,p,t,'hollow-purple',{speed:230,damage:85,pierce:12,r:24,life:5,color:'#ba79ff',terrainPierce:true}));
+ school('Hexes','orbit','#e1eeff');
+ add('Unlimited Void','✧',650,4.5,'Gojo-inspired: create an eight-second star-filled domain around your casting position. Enemies inside 155 units are repeatedly rooted and silenced, taking 4 damage each second. Escape the field to recover.',(a,p)=>{
+  a.zone(p,p.x,p.y-12,155,8.05,.25,(w,o,x,y,z)=>{for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<174){w.status(q,'root',.35);w.status(q,'silence',.35);w.hurt(q,1)}},'#e1eeff',p.z,'unlimited-void');
+ });
  return book;
 }

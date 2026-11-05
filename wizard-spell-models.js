@@ -340,5 +340,60 @@ export function makeSpellModels({joint,part,shape,mat}){
  models['balm-beetle']=g=>{oval(g,leaf,0,0,.5,.3,.3);cross(g,0,0,white)};
  models['bastion-crab']=g=>{shield(g,0xb99bea);for(const x of [-.5,.5])rim(g,gold,x,0,.2,.25)};
  models['quarry-mole']=g=>{oval(g,wood,0,0,.5,.3,.3);piece(g,'cone',iron,.5,0,0,.2,.5,.2,-Math.PI/2)};
+ models['imp-furnace']=g=>{
+  box(g,0x322d35,0,0,1.25,1.3,.95);box(g,iron,0,-.65,1.5,.18,1.12);
+  piece(g,'box',0xff5c16,0,-.1,.49,.83,.64,.04,0,true);
+  for(let i=-2;i<=2;i++)piece(g,'box',iron,i*.18,-.1,.53,.06,.7,.06);
+  box(g,iron,.35,1,.34,.8,.35);box(g,0x26212c,.35,1.43,.49,.12,.48);
+  const flame=joint(g,.35,1.6,0);fire(flame,0,0);
+  for(const x of [-.45,.45])box(g,iron,x,-.85,.2,.35,.3);
+  return t=>{flame.scale.setScalar(.8+Math.sin(t*11)*.16)};
+ };
+ models['fire-imp']=g=>{
+  oval(g,red,0,0,.68,.65,.48);oval(g,0xff9d32,0,.5,.68,.55,.51);
+  for(const s of [-1,1]){
+   piece(g,'cone',0xffdf81,s*.29,.87,0,.16,.43,.15,-s*.4);
+   piece(g,'ball',white,s*.17,.56,.24,.16,.17,.09,0,true);
+   piece(g,'box',ink,s*.17,.56,.3,.07,.1,.03);
+   box(g,red,s*.48,.02,.2,.55,.2,-s*.5);
+  }
+  const legs=[joint(g,-.23,-.4,0),joint(g,.23,-.4,0)];
+  for(const leg of legs)box(leg,0xff782a,0,-.2,.22,.45,.3);
+  const flame=joint(g,0,.95,0);fire(flame,0,0);
+  return t=>{legs.forEach((leg,i)=>leg.rotation.x=Math.sin(t*16+i*Math.PI)*.8);flame.scale.y=1+Math.sin(t*15)*.2};
+ };
+ models.dismantle=g=>{for(let i=-1;i<=1;i++)box(g,0xffd5df,i*.15,i*.28,1.5,.045,.06,-.3)};
+ models.cleave=g=>{box(g,0xffd5df,0,0,1.6,.065,.07,.65);box(g,0xff8298,0,0,1.6,.065,.07,-.65)};
+ models['furnace-arrow']=g=>{
+  box(g,0xffbc49,0,0,1.5,.09,.09);piece(g,'cone',0xffee9b,.8,0,0,.4,.6,.4,-Math.PI/2,true);
+  for(let i=0;i<5;i++)fire(g,-.75+i*.26,Math.sin(i)*.12);
+ };
+ models['spiderweb-cut']=g=>{
+  for(let i=0;i<8;i++){const web=joint(g,0,.02,0);web.rotation.y=i*Math.PI/4;box(web,0xffa7b6,0,0,1.9,.015,.025)}
+  for(let i=1;i<=3;i++){const r=rim(g,0xffd5df,0,.02,i*.31,i*.31);r.rotation.x=Math.PI/2}
+ };
+ models['world-sever']=g=>{box(g,0xffe6ec,0,0,.075,2.6,.08);box(g,0xff759d,.08,0,.045,2.3,.12);for(let i=-2;i<=2;i++)box(g,0xffd5df,i*.05,i*.45,.45,.025,.025,-.5)};
+ models['infinity-veil']=g=>{
+  const rings=[];for(let i=0;i<4;i++){const r=rim(g,0xaeeaff,0,0,1,1);r.rotation.y=i*Math.PI/4;rings.push(r)}
+  return t=>rings.forEach((r,i)=>{r.rotation.y=t*.35+i*Math.PI/4;r.rotation.x=Math.sin(t+i)*.4});
+ };
+ models['lapse-blue']=g=>{
+  gem(g,0x3a9fff,0,.12,.2,.24);const arms=[];
+  for(let i=0;i<8;i++){const arm=joint(g,0,.12,0);arm.rotation.y=i*Math.PI/4;for(let j=1;j<5;j++)piece(arm,'gem',0x75d5ff,j*.19,0,.05*j*j,.12,.04,.12);arms.push(arm)}
+  return t=>arms.forEach((arm,i)=>{arm.rotation.y=i*Math.PI/4+t;arm.scale.setScalar(.8+.15*Math.sin(t*4+i))});
+ };
+ models['reversal-red']=g=>{for(let i=0;i<6;i++){const arm=joint(g,0,0,0);arm.rotation.z=i*Math.PI/3;piece(arm,'cone',0xff5871,.65,0,0,.16,.65,.16,-Math.PI/2,true)}gem(g,0xffe5df,0,0,.45,.6)};
+ models['hollow-purple']=g=>{
+  gem(g,0xd6b0ff,0,0,.7,1.05);const a=joint(g,0,0,0),b=joint(g,0,0,0);
+  gem(a,0x529bff,0,.6,.35,.45);gem(b,0xff5273,0,-.6,.35,.45);
+  for(let i=0;i<5;i++)box(g,0xc499ff,-i*.25,0,.09,1.1-i*.13,.07,i*.2);
+  return t=>{a.rotation.x=t*5;b.rotation.x=t*5};
+ };
+ models['unlimited-void']=g=>{
+  const stars=joint(g,0,0,0);
+  for(let i=0;i<42;i++){const theta=i*2.4,y=(i/41-.5)*1.7,r=Math.sqrt(Math.max(0,1-y*y));piece(stars,'gem',i%3?0xd7eaff:0x8c85ff,Math.cos(theta)*r,y,Math.sin(theta)*r,.025,.06,.025,0,true)}
+  for(let i=0;i<3;i++){const ring=rim(g,0x849fff,0,0,1,1);ring.rotation.y=i*Math.PI/3}
+  return t=>{stars.rotation.y=t*.16};
+ };
  return models;
 }
