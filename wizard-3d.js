@@ -1,10 +1,11 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=storm-road';
+import {boneWallChunk} from './wizard-bone-wall.js?v=bone-ribs';
+import {makeSpellModels} from './wizard-spell-models.js?v=bone-ribs';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=storm-road';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=bone-ribs';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {crosshairRange,W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=storm-road';
+import {crosshairRange,W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=bone-ribs';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -270,15 +271,17 @@ const faces=[
  {n:[0,0,1],v:[0,0,1, 1,0,1, 1,1,1, 0,1,1]}, {n:[0,0,-1],v:[1,0,0, 0,0,0, 0,1,0, 1,1,0]}
 ];
 const bitCounts=Uint8Array.from({length:64},(_,i)=>i.toString(2).replaceAll('0','').length);
-function chunkSurface(tiles,xc,zc,palette,masks){
+function chunkSurface(tiles,xc,zc,palette,masks,boneCells){
+ const terrain=i=>tiles[i]&&(!(tiles[i]&128)||!tiles.boneWalls?.has(i));
  const x0=xc*CHUNK,z0=zc*CHUNK,x1=Math.min(X,x0+CHUNK),z1=Math.min(Z,z0+CHUNK),layer=X*Y;
  let count=0,slot=0;
  for(let z=z0;z<z1;z++)for(let y=0;y<Y;y++)for(let x=x0;x<x1;x++){
   const i=x+X*y+layer*z;let mask=0;
-  if(tiles[i]){
-   if(x===X-1||!tiles[i+1])mask|=1;if(x===0||!tiles[i-1])mask|=2;
-   if(y===0||!tiles[i-X])mask|=4;if(y===Y-1||!tiles[i+X])mask|=8;
-   if(z===Z-1||!tiles[i+layer])mask|=16;if(z===0||!tiles[i-layer])mask|=32;
+  if(tiles[i]&&!terrain(i))boneCells.push(i);
+  else if(tiles[i]){
+   if(x===X-1||!terrain(i+1))mask|=1;if(x===0||!terrain(i-1))mask|=2;
+   if(y===0||!terrain(i-X))mask|=4;if(y===Y-1||!terrain(i+X))mask|=8;
+   if(z===Z-1||!terrain(i+layer))mask|=16;if(z===0||!terrain(i-layer))mask|=32;
   }
   masks[slot++]=mask;count+=bitCounts[mask];
  }
@@ -314,7 +317,7 @@ function makeTerrain(scene){
  const material=new THREE.MeshStandardMaterial({map,vertexColors:true,roughness:.97});
  const chunks=new Map(),masks=new Uint8Array(CHUNK*CHUNK*Y),radius=5,queue=[];
  let previousTiles=null,previousPalette=null,lastX=-1,lastZ=-1,lastRevision=-1;
- function discard(chunk){if(chunk.mesh){scene.remove(chunk.mesh);chunk.mesh.geometry.dispose()}}
+ function discard(chunk){if(chunk.bones){scene.remove(chunk.bones);for(const mesh of chunk.bones.children)mesh.dispose()}if(chunk.mesh){scene.remove(chunk.mesh);chunk.mesh.geometry.dispose()}}
  return (state,p,camera)=>{
   if(previousTiles!==state.tiles||previousPalette!==p){
    for(const chunk of chunks.values())discard(chunk);
@@ -335,7 +338,9 @@ function makeTerrain(scene){
   const start=performance.now();
   for(let i=0;i<queue.length;i++){
    const chunk=queue[i],old=chunks.get(chunk.key);if(old)discard(old);
-   const geo=chunkSurface(state.tiles,chunk.x,chunk.z,p,masks);
+   const boneCells=[];
+   const geo=chunkSurface(state.tiles,chunk.x,chunk.z,p,masks,boneCells);
+   chunk.bones=boneWallChunk(THREE,shape,mat,state.tiles,boneCells,X,Y,TILE);if(chunk.bones)scene.add(chunk.bones);
    if(geo){chunk.mesh=new THREE.Mesh(geo,material);scene.add(chunk.mesh)}
    chunks.set(chunk.key,chunk);
    if(i+1<queue.length&&(performance.now()-start>2.5||i>=5)){lastX=-1;return}

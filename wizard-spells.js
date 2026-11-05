@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=storm-road';
+import {extraSpells} from './wizard-extra-spells.js?v=bone-ribs';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
 export const spellRadius = radius => radius * 1.12;
 
@@ -596,8 +596,8 @@ const grandSpells = [
     'Raise a barricade of ivory ribs five blocks ahead. Each block absorbs 58 damage. After three seconds the ribs regrow once, sealing breaches.',
     (api,p)=>{const at=aimPoint(p,0,60),ribs=[];
       for(let i=-7;i<=7;i++){const x=at.x-Math.sin(p.yaw)*i*10,z=at.z+Math.cos(p.yaw)*i*10,y=api.surface(x,z,p.y-120);
-        if(y!==null)for(let j=0;j<(i%2===0?7:4);j++){const rib=[x,y-6-j*12,z];api.bone(...rib);ribs.push(rib)}}
-      api.zone(p,at.x,p.y-12,18,3.05,3,w=>{for(const rib of ribs)w.bone(...rib)},color.Warding,at.z);
+        if(y!==null)for(let j=0;j<(i%2===0?7:4);j++){const rib=[x,y-6-j*12,z,p.yaw];api.bone(...rib);ribs.push(rib)}}
+      api.zone(p,at.x,p.y-12,18,3.05,3,w=>{for(const rib of ribs)w.bone(...rib)},color.Warding,at.z,'bone-regrowth');
     }),
   spell('Hexes','bone-spikes','Bone Floor Spikes','🩻',380,4,
     'Plant seven single-use traps for 14 seconds. Step on one to vault upward. Enemies take 26 damage and are pinned for 1.7 seconds. Shoot a cluster for 18 damage or break the floor to disarm it.',

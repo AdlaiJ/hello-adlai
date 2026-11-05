@@ -1,8 +1,8 @@
-import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=storm-road';
+import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=bone-ribs';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=storm-road';
-import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=storm-road';
-export {MAPS,makeTiles} from './wizard-world.js?v=storm-road';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=bone-ribs';
+import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=bone-ribs';
+export {MAPS,makeTiles} from './wizard-world.js?v=bone-ribs';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -38,7 +38,7 @@ export function createGame(settings,loadouts,mode){
  function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0,duration=.45){s.effects.push({x,y,z,r,color,kind:kind==='ring'&&activeSpell?activeSpell:kind,yaw,pitch,life:duration,maxLife:duration})}
  const index=(x,y,z)=>Math.floor(x/T)+W*(Math.floor(y/T)+H*Math.floor(z/T));
  function solid(x,y,z){return x>=0&&x<W*T&&y>=0&&y<540&&z>=0&&z<D*T&&s.tiles[index(x,y,z)]>0}
- function setBlock(k,hp){if(s.tiles[k]===hp)return;s.tiles[k]=hp;s.terrainVersion++;markChangedChunk(s.changedChunks,k);if(mode==='multi'||settings.coop)dirty.add(k)}
+ function setBlock(k,hp){if(s.tiles[k]===hp)return;s.tiles[k]=hp;if(!(hp&128))s.tiles.boneWalls?.delete(k);s.terrainVersion++;markChangedChunk(s.changedChunks,k);if(mode==='multi'||settings.coop)dirty.add(k)}
  function blocked(x,y,z){for(const dx of [-5,5])for(const dz of [-5,5])for(const dy of [-1,-12,-24])if(solid(x+dx,y+dy,z+dz))return true;return false}
  function move(p,dx,dy,dz=0){
   const n=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))/4));
@@ -184,8 +184,8 @@ export function createGame(settings,loadouts,mode){
   spike:(owner,x,y,z)=>s.zones.push({p:owner,x,y,z,r:spellRadius(28),life:14,hp:18,style:'spikes',color:'#f3dfa7'}),
   occupants:()=>s.players.concat(s.summons).filter(q=>q.hp>0),
   surface:(x,z,y)=>{for(let j=clamp(Math.floor(y/T),s.dungeonSeed?20:0,H-1);j<H;j++)if(solid(x,j*T,z)&&!solid(x,j*T-1,z))return j*T;return null},
-  bone:(x,y,z)=>{if(x<0||x>=W*T||z<0||z>=D*T||y<0||y>=H*T||solid(x,y,z))return;
-   if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-x)<17&&Math.abs(q.z-z)<17&&Math.abs(q.y-12-y)<24))setBlock(index(x,y,z),186)},
+  bone:(x,y,z,yaw=0)=>{if(x<0||x>=W*T||z<0||z>=D*T||y<0||y>=H*T||solid(x,y,z))return;
+   if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-x)<17&&Math.abs(q.z-z)<17&&Math.abs(q.y-12-y)<24)){const k=index(x,y,z);(s.tiles.boneWalls??=new Map()).set(k,yaw);setBlock(k,186)}},
   build:(p,x,y,w,h,z=p.z)=>{
    const depth=24,halfX=(Math.abs(Math.cos(p.yaw))*w+Math.abs(Math.sin(p.yaw))*depth)/2,halfZ=(Math.abs(Math.sin(p.yaw))*w+Math.abs(Math.cos(p.yaw))*depth)/2;
    for(let d=clamp(Math.floor((z-halfZ)/T),0,D-1);d<=clamp(Math.floor((z+halfZ)/T),0,D-1);d++)

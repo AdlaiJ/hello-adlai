@@ -551,5 +551,6 @@ export function makeSpellModels({joint,part,shape,mat}){
  models['fault-tear']=g=>{
   for(let i=0;i<5;i++)piece(g,'box',i%2?0xff813b:0xffdc82,(i-2)*.27,0,.08*Math.sin(i*2),.34,.045,.12,0,true).rotation.y=.35*Math.cos(i*2);
  };
+ models['bone-regrowth']=()=>{};
  return models;
 }

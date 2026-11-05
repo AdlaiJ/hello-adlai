@@ -1,14 +1,14 @@
 import {setupControls} from './wizard-controls.js?v=controls';
-import {SPELLS} from './wizard-spells.js?v=storm-road';
-import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=storm-road';
+import {SPELLS} from './wizard-spells.js?v=bone-ribs';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=bone-ribs';
 
-import {markChangedChunk,T} from './wizard-world.js?v=storm-road';
+import {markChangedChunk,T} from './wizard-world.js?v=bone-ribs';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=storm-road');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=bone-ribs');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -121,7 +121,7 @@ function network(isHost,word=''){
   else if(m.t==='frame'&&page==='hud'&&m.state&&Array.isArray(m.tiles)){
    if(settings.coop&&m.state.stage!==state.stage){state.tiles=campaignTiles(m.state.map,m.state.stage);state.changedChunks=new Map();state.terrainVersion++}
    if(m.state.dungeonSeed&&m.state.dungeonSeed!==state.dungeonSeed){state.tiles=dungeonTiles(m.state.dungeonSeed);state.changedChunks=new Map();state.terrainVersion++}
-   for(const [i,v] of m.tiles){state.tiles[i]=v;markChangedChunk(state.changedChunks,i)}state={...m.state,tiles:state.tiles,changedChunks:state.changedChunks,terrainVersion:state.terrainVersion+Number(m.tiles.length>0)};if(state.over)finish()}
+   for(const [i,v,boneYaw] of m.tiles){state.tiles[i]=v;if(Number.isFinite(boneYaw))(state.tiles.boneWalls??=new Map()).set(i,boneYaw);else state.tiles.boneWalls?.delete(i);markChangedChunk(state.changedChunks,i)}state={...m.state,tiles:state.tiles,changedChunks:state.changedChunks,terrainVersion:state.terrainVersion+Number(m.tiles.length>0)};if(state.over)finish()}
  }},isHost?sizes[settings.format]:2);
 }
 $('proceed').onclick=()=>{settings=readSettings();if(!settings)return;settings.coop=mode==='multi'&&settings.format.startsWith('Co-op');if(settings.coop)settings.map='Bellfall Keep';if(mode==='multi')network(true);else book()};
@@ -272,7 +272,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)
  turn((Number(keys.has('arrowright'))-Number(keys.has('arrowleft')))*dt*2.1,(Number(keys.has('arrowdown'))-Number(keys.has('arrowup')))*dt*1.4,controls.keyboard);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);acc+=dt;while(acc>=1/60){game.tick(1/60);acc-=1/60}}
  netClock+=dt;if(mode==='multi'&&(netClock>=.05||state.over)){netClock=0;
-  if(host){const tiles=[];for(const k of game.dirty){tiles.push([k,state.tiles[k]]);game.dirty.delete(k);if(tiles.length===160)break}room.send({t:'frame',state:game.snapshot(false),tiles})}
+  if(host){const tiles=[];for(const k of game.dirty){tiles.push(state.tiles.boneWalls?.has(k)?[k,state.tiles[k],state.tiles.boneWalls.get(k)]:[k,state.tiles[k]]);game.dirty.delete(k);if(tiles.length===160)break}room.send({t:'frame',state:game.snapshot(false),tiles})}
   else room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell})}
  if(!state||page!=='hud'||document.hidden)return;
  combatFeedback(now);
