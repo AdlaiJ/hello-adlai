@@ -8,7 +8,7 @@ export function extraSpells(){
   book.push({id,name,symbol,cost,time,description,category,design:{motion,color:spellColor},cast(api,p,pitch){
    const reach=id==='thunder-tongs'?42:18;
    const offset=id==='thunder-tongs'?0:18;
-   api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
+   if(id!=='smoky-tentacle')api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
    cast(api,p,pitch);
   }});
  }
@@ -290,6 +290,20 @@ export function extraSpells(){
    for(let d=12;d<=480;d+=24)w.cutTerrain(x+dx*d,y+dy*d,17,30,z+dz*d);
    pulses++;beam.interval=.2;
   },'#b7f5ff',z,'gaster-timer');
+ });
+ school('Evocation','orbit','#b29bcf');
+ add('Smoky Tentacle','〰',18,.6,'Conjure a massive smoky tentacle to slam a marked patch of ground ahead after a 0.55-second warning. Deals 24 area damage, breaks blocks and briefly slows enemies. Costs only 18 mana.',(a,p,pitch)=>{
+  const distance=Math.max(85,Math.min(220,155-pitch*90)),yaw=p.yaw;
+  const x=p.x+Math.cos(yaw)*distance,z=p.z+Math.sin(yaw)*distance,y=a.surface(x,z,p.y-100);
+  if(y===null)return;
+  a.fx(x,y-2,40,'#9d8aba','smoky-tentacle',z,yaw,0,.95);
+  a.fx(x,y-2,65,'#bba4e2','tentacle-warning',z,0,0,.55);
+  let struck=false;
+  a.zone(p,x,y,65,.6,.55,(w,o)=>{
+   if(struck)return;struck=true;
+   w.area(o,x,y-10,65,24,'#a18abf',z);
+   for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-12-(y-10),q.z-z)<65*1.12+9)w.status(q,'slow',1.2);
+  },'#9985b5',z,'tentacle-timer');
  });
  return book;
 }

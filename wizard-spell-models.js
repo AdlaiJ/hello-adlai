@@ -476,5 +476,19 @@ export function makeSpellModels({joint,part,shape,mat}){
   for(let i=0;i<12;i++){const ring=piece(g,'hoop',0x77dfff,20+i*40,0,0,18,18,18,0,true);ring.rotation.z=Math.PI/2}
   return t=>{core.scale.x=core.scale.z=11+2*Math.sin(t*50)};
  };
+ models['tentacle-timer']=()=>{};
+ models['tentacle-warning']=g=>{const r=piece(g,'hoop',0xbea2ea,0,.02,0,1,.03,1,0,true);return t=>{r.scale.x=r.scale.z=1-.08*Math.sin(t*20)}};
+ models['smoky-tentacle']=g=>{
+  const links=[],smoke=[];
+  for(let i=0;i<26;i++)links.push(piece(g,'ball',i%2?0x352d48:0x4e3d62,0,0,0,.29,.29,.29));
+  for(let i=0;i<8;i++)smoke.push(piece(g,'ball',i%2?0x746180:0x574861,0,0,0,.14,.14,.14));
+  return t=>{
+   const slam=Math.min(1,Math.max(0,(t-.23)/.35)),fall=slam*slam;
+   links.forEach((link,i)=>{const u=i/25,r=.32*(1-u)+.065;
+    link.position.set(-1.45+u*1.65,Math.sin(u*Math.PI*.72)*(3.1*(1-fall)+.22)+.08,Math.sin(u*5+t*5)*.13*(1-fall));link.scale.setScalar(r);
+   });
+   smoke.forEach((p,i)=>{const u=i/7;p.position.set(-1.3+u*1.8+Math.sin(t*8+i)*.2,.25+Math.sin(u*Math.PI)*(2.7*(1-fall))+(t>.6?(t-.6)*1.5:0),Math.cos(t*7+i)*.3);p.scale.setScalar(.15+.13*Math.sin(t*3+i)**2)});
+  };
+ };
  return models;
 }
