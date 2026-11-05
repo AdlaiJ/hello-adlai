@@ -170,5 +170,32 @@ export function extraSpells(){
   a.fx(p.x,p.y-12,100/1.12,'#ff8338','fire-cone-stream',p.z,p.yaw,t,.18);
  });
  book.at(-1).channel={mana:22,interval:.15};
+
+ school('Evocation','fall','#b8ed61');
+ add('Acid Rain','☂',190,2,
+  'Call a corrosive storm up to 240 units along your aim for seven seconds. Acid falls over a 95-unit radius, dealing 5 damage every half second to exposed enemies and eating through cover.',
+  (a,p,pitch)=>{
+   const distance=240*Math.cos(pitch);
+   const x=p.x+Math.cos(p.yaw)*distance,z=p.z+Math.sin(p.yaw)*distance;
+   const floor=a.surface(x,z,0);if(floor===null)return;
+   a.zone(p,x,floor,95,7.05,.5,(w,o,cx,cy,cz)=>{
+    for(const q of w.enemies(o)){
+     if(Math.hypot(q.x-cx,q.z-cz)>106)continue;
+     const roof=w.surface(q.x,q.z,0);
+     if(roof!==null&&q.y>roof+5)continue;
+     if(q.y<cy-145||q.y>cy+50)continue;
+     w.hurt(q,5);
+     w.fx(q.x,q.y-12,8,'#c5f477','acid-splash',q.z);
+    }
+    for(let i=0;i<10;i++){
+     const angle=w.now()*1.7+i*2.4,radius=90*Math.sqrt((i+.5)/10);
+     const dx=cx+Math.cos(angle)*radius,dz=cz+Math.sin(angle)*radius,top=w.surface(dx,dz,0);
+     if(top!==null){
+      w.cutTerrain(dx,top+3,12,9,dz);
+      w.fx(dx,top,7,'#b8ed61','acid-splash',dz);
+     }
+    }
+   },'#b8ed61',z,'acid-rain');
+  });
  return book;
 }

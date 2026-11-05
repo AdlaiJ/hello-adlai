@@ -1,12 +1,13 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=channel-spells';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=channel-spells';
-export {MAPS,makeTiles} from './wizard-world.js?v=channel-spells';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=spell-shapes';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=spell-shapes';
+export {MAPS,makeTiles} from './wizard-world.js?v=spell-shapes';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
 export function createGame(settings,loadouts,mode){
  const s={map:settings.map,tiles:makeTiles(settings.map),players:[],summons:[],changedChunks:new Map(),shots:[],effects:[],zones:[],time:0,wave:0,over:'',mode};
  const dirty=new Set();s.terrainVersion=0;
+ let activeSpell=null;
  const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
  function actor(side,x,ids,bot=false){
   const p={outfit:Math.floor(Math.random()*16),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,statuses:{},bot,ground:false,brain:1};
@@ -21,7 +22,7 @@ export function createGame(settings,loadouts,mode){
    p.yaw=Math.atan2(midZ-p.z,midX-p.x);
   });
  }else actor(0,midX-300,loadouts[0]);
- function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0,duration=.45){s.effects.push({x,y,z,r,color,kind,yaw,pitch,life:duration,maxLife:duration})}
+ function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0,duration=.45){s.effects.push({x,y,z,r,color,kind:kind==='ring'&&activeSpell?activeSpell:kind,yaw,pitch,life:duration,maxLife:duration})}
  const index=(x,y,z)=>Math.floor(x/T)+W*(Math.floor(y/T)+H*Math.floor(z/T));
  function solid(x,y,z){return x>=0&&x<W*T&&y>=0&&y<540&&z>=0&&z<D*T&&s.tiles[index(x,y,z)]>0}
  function setBlock(k,hp){if(s.tiles[k]===hp)return;s.tiles[k]=hp;s.terrainVersion++;markChangedChunk(s.changedChunks,k);if(mode==='multi')dirty.add(k)}
@@ -106,13 +107,22 @@ export function createGame(settings,loadouts,mode){
    for(let i=clamp(Math.floor((x-halfX)/T),0,W-1);i<=clamp(Math.floor((x+halfX)/T),0,W-1);i++){
     if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-i*T-6)<14&&Math.abs(q.y-12-j*T-6)<22&&Math.abs(q.z-d*T-6)<14))setBlock((d*H+j)*W+i,26)}},
   zone:(p,x,y,r,duration,interval,cb,color,z=p.z,style)=>{
-   const zone={p,x,y,z,r:spellRadius(r),life:duration,interval,tick:interval,cb,color,style};
+   const zone={p,x,y,z,r:spellRadius(r),life:duration,interval,tick:interval,cb,color,style:style||activeSpell,spellId:activeSpell};
    s.zones.push(zone);return zone;
   },
   area:(p,x,y,r,n,color,z=p.z)=>{r=spellRadius(r);fx(x,y,r,color,'burst',z);tileDamage(x,y,r,n,z);for(const trap of s.zones){
     if(trap.style==='spikes'&&Math.hypot(trap.x-x,trap.y-12-y,trap.z-z)<=r+spellRadius(12))trap.hp-=n;
    }for(const q of enemies(p))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<=r+9)damage(q,n)},
-  bolt:(p,angle,o,origin)=>{const yaw=p.yaw+(o.yawOffset||0),dx=Math.cos(angle)*Math.cos(yaw),dz=Math.cos(angle)*Math.sin(yaw),dy=Math.sin(angle);
+  bolt:(p,angle,o,origin)=>{
+   const spellId=activeSpell;
+   if(spellId){
+    o={...o};
+    for(const key of ['onHit','onExpire'])if(o[key]){
+     const callback=o[key];
+     o[key]=(...args)=>{const previous=activeSpell;activeSpell=spellId;try{return callback(...args)}finally{activeSpell=previous}};
+    }
+   }
+   const yaw=p.yaw+(o.yawOffset||0),dx=Math.cos(angle)*Math.cos(yaw),dz=Math.cos(angle)*Math.sin(yaw),dy=Math.sin(angle);
    s.shots.push({p,style:p.kind?(o.style||'familiar-'+p.kind):o.style,x:origin?.x??p.x+dx*10,y:origin?.y??p.y-14+dy*10,z:origin?.z??p.z+dz*10,vx:dx*o.speed,vy:dy*o.speed,vz:dz*o.speed,life:4,color:'#ffd76d',...o,r:spellRadius(o.r??3),hit:new Set()})}
  };
  function summon(owner,kind,duration=12){
@@ -172,10 +182,40 @@ export function createGame(settings,loadouts,mode){
    const target=chasing&&!f.familiar?foe:f.owner,dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
    const contact=f.kind==='squire'||f.kind==='wraith';
    const hold=chasing&&!f.familiar?(contact?14:f.kind==='archer'?165:105):22;
-   const speed=(f.statuses.root>0?0:f.statuses.slow>0?65:125)*dt;
-   const approach=Math.min(Math.max(0,d-hold),speed)/Math.max(1,d);
-   move(f,dx*approach,clamp(target.y-12-f.y,-speed,speed),dz*approach);
-   f.yaw=Math.atan2(dz,dx);
+   const grounded=f.kind==='squire'||f.kind==='archer';
+   const speed=f.statuses.root>0?0:f.statuses.slow>0?65:125;
+   const approach=Math.min(Math.max(0,d-hold)*3,speed)/Math.max(1,d);
+   let desiredX=dx*approach,desiredZ=dz*approach;
+   // Keep the front ranks and support creatures from stacking in one spot.
+   for(const other of s.summons){
+    if(other===f||other.hp<=0||other.side!==f.side)continue;
+    const sx=f.x-other.x,sz=f.z-other.z,separation=Math.hypot(sx,sz);
+    if(separation<23){
+     const angle=f.id*2.4;
+     desiredX+=(separation? sx/separation:Math.cos(angle))*(23-separation)*3;
+     desiredZ+=(separation? sz/separation:Math.sin(angle))*(23-separation)*3;
+    }
+   }
+   const length=Math.hypot(desiredX,desiredZ),limit=length?Math.min(1,speed/length):0;
+   const blend=1-Math.exp(-9*dt);
+   f.vx+=(desiredX*limit-f.vx)*blend;f.vz+=(desiredZ*limit-f.vz)*blend;
+   if(!speed)f.vx=f.vz=0;
+   const oldX=f.x,oldZ=f.z;
+   if(grounded){
+    f.vy=Math.min(440,f.vy+900*dt);f.ground=false;
+    move(f,f.vx*dt,f.vy*dt,f.vz*dt);
+    if(speed&&d>hold+5&&Math.hypot(f.x-oldX,f.z-oldZ)<dt*12&&f.ground){
+     const side=f.id%2?1:-1;
+     move(f,-Math.sin(f.yaw)*side*speed*dt,0,Math.cos(f.yaw)*side*speed*dt);
+     f.vy=-190;
+    }
+    if(f.y>550)f.hp=0;
+   }else move(f,f.vx*dt,clamp(target.y-12-f.y,-speed*dt,speed*dt),f.vz*dt);
+   f.walkSpeed=Math.hypot(f.x-oldX,f.z-oldZ)/dt;
+   if(d>1){
+    const bearing=Math.atan2(dz,dx),delta=Math.atan2(Math.sin(bearing-f.yaw),Math.cos(bearing-f.yaw));
+    f.yaw+=delta*(1-Math.exp(-8*dt));
+   }
    if(f.pulse>0||f.statuses.silence>0)continue;
    f.pulse=1.5;
    if(support&&dist(f.owner)<spellRadius(110)){
@@ -183,7 +223,7 @@ export function createGame(settings,loadouts,mode){
     fx(f.x,f.y-10,16,f.kind==='medic'?'#79ff99':'#dab1ff','ring',f.z);
    }else if(chasing){
     const pitch=Math.atan2(foe.y-f.y,Math.max(1,Math.hypot(foe.x-f.x,foe.z-f.z)));
-    f.yaw=Math.atan2(foe.z-f.z,foe.x-f.x);
+    f.yaw=Math.atan2(foe.z-f.z,foe.x-f.x);f.attackAt=f.time;
     if(f.kind==='void-entity'){
      const attack=f.attackCycle++%4;f.pulse=2.4;
      if(attack===0){
@@ -245,6 +285,10 @@ export function createGame(settings,loadouts,mode){
   p.blocks.pop();
   api.bolt(p,p.aim,{style:'quarry-volley',speed:355,r:5,damage:17,color:'#bf9e72'});
   return true;
+ }
+ function castSpell(spell,p){
+  const previous=activeSpell;activeSpell=spell.id;
+  try{spell.cast(api,p,p.aim)}finally{activeSpell=previous}
  }
  function command(index,slot,store=false){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
@@ -349,11 +393,11 @@ export function createGame(settings,loadouts,mode){
     if(p.channelClock<=0){
      const price=stream.channel.mana*stream.channel.interval;
      if(p.mana+.00001<price)p.channelBlocked=true;
-     else{p.mana=Math.max(0,p.mana-price);stream.cast(api,p,p.aim);p.channelClock+=stream.channel.interval}
+     else{p.mana=Math.max(0,p.mana-price);castSpell(stream,p);p.channelClock+=stream.channel.interval}
     }
     if(!p.channelBlocked)p.channel=p.channelRequested;
    }
-   if(p.pending>=0){p.cast=Math.max(0,p.cast-dt);if(!p.cast){const sp=byId.get(p.ids[p.pending]);p.pending=-1;fx(p.x,p.y-14,14,'#ffdc94','cast',p.z);sp.cast(api,p,p.aim)}}
+   if(p.pending>=0){p.cast=Math.max(0,p.cast-dt);if(!p.cast){const sp=byId.get(p.ids[p.pending]);p.pending=-1;fx(p.x,p.y-14,14,'#ffdc94','cast',p.z);castSpell(sp,p)}}
   }
   stepFamiliars(dt);
   const targetsBySide=new Map();
@@ -407,7 +451,9 @@ export function createGame(settings,loadouts,mode){
     const ground=api.surface(z.x,z.z,0);
     if(ground!==null)z.y=ground;
    }
-   z.tick-=dt;if(z.tick<=0){z.cb(api,z.p,z.x,z.y,z.z);z.tick+=z.interval}}
+   z.tick-=dt;if(z.tick<=0){const previous=activeSpell;activeSpell=z.spellId;
+    try{z.cb(api,z.p,z.x,z.y,z.z)}finally{activeSpell=previous}
+    z.tick+=z.interval}}
   s.zones=s.zones.filter(z=>z.life>0);for(const e of s.effects)e.life-=dt;s.effects=s.effects.filter(e=>e.life>0);
   if(mode==='multi'){
    const alive=new Set(s.players.filter(p=>p.hp>0).map(p=>p.side));
@@ -415,6 +461,6 @@ export function createGame(settings,loadouts,mode){
   }else if(s.players[0].hp<=0)s.over='The tower falls';
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
  }
- function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

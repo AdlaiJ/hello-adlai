@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=channel-spells';
+import {makeSpellModels} from './wizard-spell-models.js?v=spell-shapes';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=channel-spells';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=spell-shapes';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=channel-spells';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=spell-shapes';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -334,22 +334,27 @@ function makeFamiliars(scene){
    case 'squire':case 'archer':case 'wraith':{
     const bone=mat(0xe1d4ae),shade=mat(0x293348);
     part(body,shape.ball,bone,0,5,0,2.5,2.45,2.4);
+    part(body,shape.box,bone,1.2,3.1,0,2.8,.7,3);
+    for(let tooth=-2;tooth<=2;tooth++)part(body,shape.box,mat(0xa5967b),2.65,3.15,tooth*.48,.1,.5,.16);
     for(const sign of [-1,1]){
      part(body,shape.ball,shade,2,5.3,sign, .68,.82,.82);
      part(body,shape.ball,glow,2.58,5.35,sign,.28);
     }
     if(kind==='wraith'){
-     part(body,shape.cone,mat(0x456178),-.75,.5,0,4.3,8,4);
+     part(body,shape.cone,mat(0x293e59),-.75,.5,0,4.3,8,4);
+     part(body,shape.ball,mat(0x293e59),-.8,5.5,0,2.7,3,2.9);
+     for(let j=0;j<5;j++)part(body,shape.gem,glow,-1,-3-j*.5,(j-2)*.8,.25,2.5,.35);
      for(const side of [-1,1]){const tail=joint(body,-1,-2,side*2);part(tail,shape.gem,glow,-1,-2,0,.62,3,.6);fins.push(tail)}
     }else{
      part(body,shape.pole,bone,0,.2,0,.85,6,.85);
      for(const y of [0,1.2,2.4])part(body,shape.ring,bone,0,y,0,1.5,2.25,1).rotation.x=Math.PI/2;
      for(const side of [-1,1]){
-      const leg=joint(body,0,-2,side);part(leg,shape.pole,bone,0,-2.2,0,.8,4.5,.8);fins.push(leg);
+      const leg=joint(body,0,-2,side);part(leg,shape.pole,bone,0,-2.2,0,.8,4.5,.8);part(leg,shape.ball,bone,.6,-4.4,0,1.2,.5,.7);fins.push(leg);
       part(body,shape.pole,bone,1,1,side*2.4,.75,3,.75).rotation.z=.5;
      }
-     if(kind==='squire'){part(body,shape.gem,mat(0xa3bbb9),2.8,2.3,2.6,.8,4.6,.45);part(body,shape.box,bone,2.8,-.3,2.6,2.3,.55,.7)}
-     else{part(body,shape.hoop,mat(0xa78063),2.3,1,2.7,1.5,4,.8);part(body,shape.box,bone,2.3,1,2.7,.16,8,.16)}
+     const weapon=joint(body,1,1,2.4);body.userData.weapon=weapon;
+     if(kind==='squire'){part(body,shape.gem,mat(0x58677a),0,2.9,0,2.1,.8,2.5);part(body,shape.gem,mat(0x647b8a),1,0,-2.8,.5,2.9,2.1);part(weapon,shape.gem,mat(0xa3bbb9),2.8,2.3,2.6,.8,4.6,.45);part(weapon,shape.box,bone,2.8,-.3,2.6,2.3,.55,.7)}
+     else{part(body,shape.box,mat(0x6e4a43),-1.8,1,-1.6,1.3,5,1.5);part(weapon,shape.hoop,mat(0xa78063),2.3,1,2.7,1.5,4,.8);part(weapon,shape.box,bone,2.3,1,2.7,.16,8,.16)}
     }
     return {root,body,fins,badge};
    }
@@ -407,7 +412,12 @@ function makeFamiliars(scene){
    let yaw=f.yaw;
    if(!Number.isFinite(yaw)){let closest=Infinity;yaw=0;
     for(const p of players){if(p.hp<=0||(p.side===f.side)!==support)continue;const dx=p.x-f.x,dz=p.z-f.z,d=dx*dx+dz*dz;if(d<closest){closest=d;yaw=Math.atan2(dz,dx)}}}
-   rig.root.visible=true;rig.root.position.set(f.x,HEIGHT-f.y+8+Math.sin(phase)*1.3,f.z);rig.root.rotation.y=-yaw;
+   const skeletal=f.kind==='squire'||f.kind==='archer';
+   rig.root.visible=true;
+   rig.root.position.set(f.x,HEIGHT-f.y+8+(skeletal?Math.abs(Math.sin(phase*2))*.5*Math.min(1,(f.walkSpeed||0)/60):Math.sin(phase)*1.3),f.z);
+   if(rig.lastId!==f.id){rig.root.rotation.y=-yaw;rig.lastId=f.id}
+   const turn=-yaw-rig.root.rotation.y;
+   rig.root.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*.22;
    rig.root.scale.setScalar(f.monster?2.15:1);
    rig.root.position.y+=f.monster?4:0;
    if(!rig.health){
@@ -420,7 +430,11 @@ function makeFamiliars(scene){
     const ratio=f.hp/f.maxHp;rig.fill.scale.x=8.7*ratio;rig.fill.position.x=4.35*(ratio-1);
    }
    rig.body.userData.pose?.(t);rig.body.rotation.z=f.kind==='purple-wurm'?(((f.time||0)%5)>3.3?Math.sin(((f.time||0)%5-3.3)/1.7*Math.PI)*.75:0):Math.sin(phase*.6)*.09;rig.badge.material=mat(f.side===2?0xffce61:f.side?0xff9d93:0x8febff,true);
-   if(f.kind==='frost'||f.kind==='bastion')rig.fins.forEach((fin,j)=>{fin.rotation.x=(j?1:-1)*Math.sin(phase*(f.kind==='frost'?2.8:1.1))*.57});
+   if(skeletal){
+    rig.fins.forEach((leg,j)=>{leg.rotation.set(0,0,Math.sin(phase*2+j*Math.PI)*.65*Math.min(1,(f.walkSpeed||0)/70))});
+    const attack=clamp(((f.time||0)-(f.attackAt??-10))/.55,0,1);
+    rig.body.userData.weapon.rotation.z=f.kind==='squire'?Math.sin(attack*Math.PI)*-1.5:Math.sin(attack*Math.PI)*.25;
+   }else if(f.kind==='frost'||f.kind==='bastion')rig.fins.forEach((fin,j)=>{fin.rotation.x=(j?1:-1)*Math.sin(phase*(f.kind==='frost'?2.8:1.1))*.57});
    else if(f.kind==='storm')rig.fins[0].rotation.set(.9,phase,phase*.27);
    else if(f.kind==='burrow'){rig.fins[0].rotation.x=phase*2;rig.fins[1].rotation.z=Math.sin(phase)*.4;rig.fins[2].rotation.z=-Math.sin(phase)*.4}
    else rig.fins.forEach((fin,j)=>{fin.rotation.y=Math.sin(phase+j)*.34;fin.rotation.z=Math.cos(phase+j)*.17});

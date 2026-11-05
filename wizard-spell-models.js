@@ -223,5 +223,122 @@ export function makeSpellModels({joint,part,shape,mat}){
  };
  models.frack=g=>{gem(g,0xb59a80,0,0,.5,.8);gem(g,0x796e65,-.4,.1,.25,.4)};
  models['fire-jet']=g=>{fire(g,0,0);fire(g,-.3,0)};
+ models['acid-splash']=g=>{
+  for(let i=0;i<5;i++){
+   const angle=i*Math.PI*2/5;
+   piece(g,'gem',0xc5f477,Math.cos(angle)*.4,.2,Math.sin(angle)*.4,.09,.35,.09,0,true);
+  }
+  return t=>{g.scale.y=1-t*.7};
+ };
+ models['acid-rain']=g=>{
+  const drops=[];
+  for(let i=0;i<9;i++){
+   const angle=i*2.4,radius=i? .55:0;
+   piece(g,'ball',i%2?0x526c44:0x718154,Math.cos(angle)*radius,1.45,Math.sin(angle)*radius,.5,.24,.5);
+  }
+  for(let i=0;i<40;i++){
+   const drop=piece(g,'pole',i%2?0xbce666:0x88c842,0,0,0,.016,.12,.016,0,true);
+   drops.push(drop);
+  }
+  return t=>drops.forEach((drop,i)=>{
+   const angle=i*2.4,radius=.92*Math.sqrt((i+.5)/40);
+   drop.position.set(Math.cos(angle)*radius,1.4-((t*1.8+i*.173)%1)*1.4,Math.sin(angle)*radius);
+  });
+ };
+
+ const older={
+ 'blood-arsenal':g=>cluster(g,6,(_,a)=>{const blade=joint(g,Math.cos(a)*.6,Math.sin(a)*.6,0);blade.rotation.z=a;gem(blade,red,0,0,.12,.65)}),
+ 'shrine-of-cleavers':g=>{wall(g,0,-.3,1.2);box(g,red,0,.4,1.6,.2,.5);for(const x of [-.5,.5])rod(g,bone,x,0,.8,.13)},
+ 'crater-bell':g=>{piece(g,'sleeve',gold,0,0,0,.65,.9,.65);rim(g,gold,0,-.4,.7,.25)},
+ 'fault-stitch':g=>{for(let i=-2;i<=2;i++){gem(g,0x8a654c,i*.3,i%2*.15,.22,.5);box(g,gold,i*.3,.2,.04,.6,.04)}},
+ 'sundial-mine':g=>{rim(g,gold,0,0,.8,.8);piece(g,'cone',gold,0,.1,0,.12,.65,.12,.6);cluster(g,12,(_,a)=>gem(g,gold,.65*Math.cos(a),.65*Math.sin(a),.03,.1))},
+ 'star-shears':tongs,
+ 'foxstep':g=>{for(const x of [-.25,.25]){oval(g,0xe88e4d,x,0,.25,.3,.2);gem(g,white,x,.3,.12,.2)}},
+ 'hare-moon':g=>{oval(g,white,0,0,.4,.3,.25);for(const x of [-.18,.18])oval(g,white,x,.5,.1,.4,.1);rim(g,ice,0,0,.8,.8)},
+ 'fold-step':g=>{for(const x of [-.4,.4]){box(g,gold,x,0,.1,1.3,.15);box(g,gold,x,.6,.5,.1,.15)}},
+ 'bottle-rocket':g=>{bottle(g,red);fire(g,0,-.6)},
+ 'comet-train':g=>{for(let i=0;i<4;i++){gem(g,gold,i*.35-.5,0,.22-i*.03,.4);fire(g,i*.35-.6,-.25)}},
+ 'switchback':g=>{for(const s of [-1,1]){box(g,ice,0,s*.2,.9,.1,.15);piece(g,'cone',ice,s*.5,s*.2,0,.13,.3,.13,-s*Math.PI/2)}},
+ 'return-ticket':g=>{box(g,white,0,0,1.2,.55,.1);rim(g,pink,0,0,.25,.25);box(g,gold,.4,0,.05,.55,.12)},
+ 'pilgrim-step':g=>{rod(g,wood,0,0,1.4,.08);box(g,wood,.25,-.55,.55,.2,.3);gem(g,gold,0,.6,.18,.3)},
+ 'pocket-poultice':g=>{bandage(g,0,0);flower(g,leaf)},
+ 'green-thread':g=>{for(let i=0;i<9;i++)oval(g,leaf,i*.16-.6,Math.sin(i)*.15,.10,.08,.08)},
+ 'lantern-well':g=>{box(g,iron,0,0,.7,.85,.6);gem(g,gold,0,0,.3,.55);rim(g,iron,0,.65,.2,.2)},
+ 'last-stitch':g=>{rod(g,white,0,0,1.3,.04,.7);for(let i=0;i<6;i++)oval(g,pink,i*.16-.4,Math.sin(i)*.2,.09,.08,.05)},
+ 'glass-graft':g=>{gem(g,ice,-.2,0,.3,.7);gem(g,pink,.2,0,.3,.7);cross(g,0,0,white)},
+ 'overbloom':g=>{flower(g,pink);cluster(g,5,(_,a)=>gem(g,leaf,Math.cos(a)*.65,Math.sin(a)*.65,.15,.3))},
+ 'hedge-hospice':g=>{wall(g,0,-.3,1.3);for(let i=-2;i<=2;i++)oval(g,leaf,i*.28,.2,.22,.4,.2);cross(g,0,.4,white)},
+ 'thimble-ward':g=>{piece(g,'sleeve',iron,0,0,0,.65,.8,.65);for(let i=-2;i<=2;i++)oval(g,gold,i*.2,0,.05,.05,.03)},
+ 'iron-choir':g=>{for(let i=-2;i<=2;i++){rod(g,iron,i*.25,0,1-Math.abs(i)*.15,.12);rim(g,gold,i*.25,.45-Math.abs(i)*.08,.1,.1)}},
+ 'looking-glass':g=>{oval(g,ice,0,0,.46,.65,.05);rim(g,gold,0,0,.5,.7);rod(g,gold,0,-.75,.4,.12)},
+ 'smoke-skin':g=>{for(let i=0;i<5;i++)piece(g,'gem',0x9390ad,Math.sin(i)*.3,i*.17-.4,0,.6,.25,.3,i*.3)},
+ 'rampart':g=>wall(g,0,-.3,1.5),
+ 'winter-ring':g=>cluster(g,8,(_,a)=>gem(g,ice,.7*Math.cos(a),.7*Math.sin(a),.12,.35)),
+ 'tithe-dome':g=>{crown(g,gold);for(let i=-2;i<=2;i++)coin(g,i*.3,-.5)},
+ 'aegis-break':g=>{shield(g,pink,-.3,0);shield(g,ice,.3,.1);box(g,white,0,0,.08,1.4,.15,.6)},
+ 'catherine-wheel':g=>{rim(g,iron,0,0,.7,.7);cluster(g,7,(_,a)=>fire(g,.6*Math.cos(a),.6*Math.sin(a)));return t=>g.rotation.z=t*6},
+ 'pressure-valve':g=>{rim(g,red,0,0,.6,.6);box(g,iron,0,0,1.2,.1,.2);box(g,iron,0,0,.1,1.2,.2);rod(g,iron,0,-.6,.5,.2)},
+ 'rising-stair':g=>{for(let i=0;i<5;i++)box(g,0xa4a1b6,i*.25-.5,i*.2-.4,.3,.2,.8)},
+ 'thermal-font':g=>{for(let i=-2;i<=2;i++)gem(g,ice,i*.2,Math.cos(i)*.2,.1,.9)},
+ 'moonwalk':g=>{rim(g,ice,0,0,.7,.7);oval(g,0x28344a,.25,.1,.5,.65,.12);box(g,gold,-.4,-.4,.6,.17,.25)},
+ 'sky-toll':g=>{piece(g,'sleeve',iron,0,0,0,.6,.7,.6);coin(g,0,-.6)},
+ 'dew-wash':g=>{for(let i=-2;i<=2;i++)gem(g,ice,i*.25,-Math.abs(i)*.1,.16,.35);cross(g,0,.4,leaf)},
+ 'second-draft':g=>{box(g,white,0,0,.8,1.1,.08);piece(g,'gem',pink,.25,.15,0,.15,.9,.1,-.6)},
+ 'root-tea':g=>{piece(g,'sleeve',wood,0,0,0,.5,.5,.5);rim(g,wood,.5,0,.2,.22);flower(g,leaf)},
+ 'crimson-ledger':g=>{box(g,red,0,0,.9,1.2,.2);box(g,gold,-.3,0,.08,1.2,.25);coin(g,.1,0)},
+ 'heartwood':g=>{rod(g,wood,0,0,1,.4);for(const x of [-.3,.3])oval(g,leaf,x,.4,.3,.45,.2)},
+ 'pilgrim-salve':g=>{bottle(g,leaf);cross(g,0,0,white)},
+ 'sky-shutter':g=>{for(let i=-2;i<=2;i++)box(g,iron,0,i*.22,1.3,.18,.3)},
+ 'tripwire':g=>{for(const x of [-.6,.6])rod(g,iron,x,0,.7,.08);box(g,pink,0,0,1.2,.025,.025)},
+ 'glass-receipt':g=>{box(g,ice,0,0,.7,1.1,.08);for(let i=0;i<4;i++)box(g,gold,0,i*.2-.3,.45,.03,.1)},
+ 'snail-citadel':g=>{wall(g,0,-.4,1.3);rim(g,leaf,0,.2,.5,.5);rim(g,gold,0,.2,.25,.25)},
+ 'mirror-post':g=>{rod(g,wood,0,-.4,.8,.15);shield(g,ice,0,.2)},
+ 'safety-net':g=>{for(let i=-2;i<=2;i++){box(g,leaf,i*.25,0,.035,1.2,.05);box(g,leaf,0,i*.25,1.2,.035,.05)}},
+ 'bone-wall':g=>{for(let i=-3;i<=3;i++)rod(g,bone,i*.2,0,i%2?.8:1.2,.09)},
+ 'bone-spikes':g=>{for(let i=-2;i<=2;i++)piece(g,'cone',bone,i*.3,0,0,.12,.8+Math.cos(i)*.4,.12)},
+ 'phoenix-vigil':g=>{bird(g,red);fire(g,-.5,-.2);rim(g,gold,0,0,.9,.9)},
+ 'thunder-road':g=>{for(let i=-2;i<=2;i++){box(g,iron,i*.3,-.2,.25,.12,.5);bolt(g,i*.3,.2,.4)}},
+ 'last-citadel':g=>{wall(g,0,-.2,1.5);crown(g,ice)},
+ 'wild-hunt':g=>{bird(g,ice);bird(joint(g,-.6,-.2,0),gold);bird(joint(g,.6,-.2,0),red)},
+ 'second-sun':g=>{flower(g,gold);cluster(g,12,(_,a)=>gem(g,gold,.8*Math.cos(a),.8*Math.sin(a),.06,.24))},
+ 'gravity-well':g=>{for(let i=0;i<4;i++){const r=rim(g,0x9865da,0,0,.25+i*.2,.25+i*.2);r.rotation.x=i*.4}return t=>g.rotation.y=t*2},
+ 'worldbreaker':g=>{for(let i=-2;i<=2;i++)gem(g,i%2?gold:0x796457,i*.3,-Math.abs(i)*.2,.25,.9)},
+ 'glass-knife':g=>{gem(g,ice,0,.3,.16,.5);rod(g,wood,0,-.4,.4,.13)},
+ 'wisp-rapier':g=>{rod(g,ice,0,.2,1.3,.04);rim(g,gold,0,-.5,.22,.1)},
+ 'rime-axe':g=>{rod(g,wood,0,0,1.3,.09);gem(g,ice,.2,.3,.4,.35)},
+ 'ember-maul':g=>{rod(g,wood,0,-.2,1,.12);box(g,iron,0,.4,.9,.4,.4);fire(g,0,.5)},
+ 'harvest-scythe':g=>{rod(g,wood,0,0,1.5,.08);piece(g,'gem',white,.4,.6,0,.65,.12,.1,.3)},
+ 'spark-film':g=>{shield(g,ice);bolt(g,0,0,.6)},
+ 'capacitor-shell':g=>{shield(g,gold);for(const x of [-.3,.3])rod(g,iron,x,0,.8,.09)},
+ 'prism-parry':g=>{gem(g,ice,0,0,.55,.8);for(let i=-1;i<=1;i++)box(g,[red,gold,leaf][i+1],i*.2,-.5,.06,.6,.06,i*.3)},
+ 'polar-aegis':g=>{shield(g,ice);cluster(g,6,(_,a)=>gem(g,white,.6*Math.cos(a),.6*Math.sin(a),.1,.22))},
+ 'vault-kick':g=>{box(g,wood,0,0,.7,.25,.3);gem(g,gold,0,.6,.15,.35)},
+ 'cross-step':g=>{box(g,ice,0,0,1.1,.15,.15);box(g,pink,0,0,.15,1.1,.15)},
+ 'field-dressing':g=>{bandage(g,0,-.2);bandage(g,0,.2)},
+ 'lead-bell':g=>{piece(g,'sleeve',iron,0,0,0,.7,.8,.7);rod(g,iron,0,.6,.5,.14)},
+ 'fault-cross':g=>{box(g,red,0,0,1.5,.1,.1);box(g,red,0,0,.1,1.5,.1);gem(g,gold,0,0,.3,.5)},
+ 'familiar-feast':g=>{oval(g,red,0,0,.5,.3,.3);rod(g,bone,0,0,1.2,.12,Math.PI/2)},
+ 'ward-tax':g=>{rod(g,gold,0,0,1.1,.06);box(g,gold,0,.4,1.2,.06,.08);for(const x of [-.5,.5])coin(g,x,0)},
+ 'comet-retreat':g=>{gem(g,gold,.3,0,.3,.6);for(let i=0;i<4;i++)box(g,red,-i*.2,0,.1,.15,.12)},
+ 'winter-court':g=>{crown(g,ice);bird(joint(g,-.5,.3,0),white);bird(joint(g,.5,.3,0),white)},
+ 'siege-clock':g=>{rim(g,gold,0,0,.7,.7);box(g,iron,.2,0,.4,.05,.1);box(g,iron,0,.25,.05,.5,.1)},
+ 'dawn-coronation':g=>{crown(g,gold);cluster(g,5,(_,a)=>gem(g,pink,Math.cos(a)*.7,Math.sin(a)*.7,.08,.25))}
+ };
+ models['roman-candle']=g=>{
+  rod(g,0xb84443,0,0,1.2,.25);
+  for(let i=-2;i<=2;i++){gem(g,i%2?gold:pink,i*.2,.7+Math.cos(i)*.2,.08,.25)}
+  return t=>g.rotation.z=Math.sin(t*5)*.1;
+ };
+ Object.assign(models,older);
+ for(const [id,kind] of Object.entries({'summon-purple-wurm':'purple-wurm','summon-void-entity':'void-entity'}))models[id]=models[kind];
+ for(const [id,tint] of Object.entries({'grave-squire':bone,'crypt-bow':0xc99bff,'soul-wraith':ice})){
+  models[id]=g=>{skull(g,0,.2);if(id==='crypt-bow'){rim(g,wood,.4,-.2,.25,.6)}else if(id==='grave-squire'){rod(g,iron,.5,0,1.2,.07)}else{piece(g,'cone',0x456178,0,-.4,0,.5,.8,.3)}};
+ }
+ for(const [id,tint] of Object.entries({'ember-newt':red,'rime-owl':ice,'storm-finch':gold})){
+  models[id]=g=>{bird(g,tint);if(id==='ember-newt')fire(g,-.4,-.1);if(id==='storm-finch')bolt(g,0,.3,.4)};
+ }
+ models['balm-beetle']=g=>{oval(g,leaf,0,0,.5,.3,.3);cross(g,0,0,white)};
+ models['bastion-crab']=g=>{shield(g,0xb99bea);for(const x of [-.5,.5])rim(g,gold,x,0,.2,.25)};
+ models['quarry-mole']=g=>{oval(g,wood,0,0,.5,.3,.3);piece(g,'cone',iron,.5,0,0,.2,.5,.2,-Math.PI/2)};
  return models;
 }
