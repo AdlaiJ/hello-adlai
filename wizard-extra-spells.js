@@ -244,8 +244,9 @@ export function extraSpells(){
   a.fx(p.x+30*Math.cos(p.yaw),p.y-12,45,'#ffbac4','cleave',p.z+30*Math.sin(p.yaw),p.yaw);
  });
  school('Evocation','fountain','#ffae43');
- add('Furnace Arrow','➶',230,2.6,'Sukuna-inspired: fire a blazing arrow that bursts for 42 splash damage plus 28 on direct impact, leaving a burning crater for four seconds.',(a,p,t)=>shot(a,p,t,'furnace-arrow',{
+ add('Furnace Arrow','➶',230,2.6,'Sukuna-inspired: fire a blazing arrow that bursts for 42 splash damage plus 28 on direct impact, blasting through nearby blocks and leaving a burning crater for four seconds.',(a,p,t)=>shot(a,p,t,'furnace-arrow',{
   speed:430,damage:28,r:6,color:'#ffae43',onHit:(w,o,q,x,y,z)=>{
+   w.cutTerrain(x,y,54,127,z);
    w.area(o,x,y,75,42,'#ff9d32',z);
    w.zone(o,x,y,75,4.05,1,(v,c,cx,cy,cz)=>{for(const enemy of v.enemies(c))if(Math.hypot(enemy.x-cx,enemy.y-12-cy,enemy.z-cz)<84){v.hurt(enemy,5);v.status(enemy,'burn',1.2)}},'#ff8a2c',z,'furnace-scorch');
   }
@@ -366,20 +367,20 @@ export function extraSpells(){
  school('Summoning','orbit','#c4bc96');
  add('Dungeon Master','▤',300,2.5,'Transform the entire arena into the Iron Labyrinth: 96 connected chambers, vaulted passageways and walls that meet the ceiling. Take the doors or break through. Dodge swinging blades, binding chain seals and fire grates. Six permanent Demon Arms guard the halls until the labyrinth is replaced. Twelve towering skeletal wardens defend it for one minute.',(a,p)=>a.dungeon(p,(x,y,z,yaw)=>placeDemonArm(a,p,x,y,z,yaw,true)));
  school('Evocation','fault','#ff7357');
- add('Cataclysm','✹',700,4,'Split the earth along three branching faults in front of you. Each advancing fault launches enemies for 75 damage and leaves a trench beside a permanent, breakable stone ridge. Jump a fault or dodge sideways before it arrives.',(a,p)=>{
+ add('Cataclysm','✹',700,4,'Split the earth along three branching faults in front of you. Each advancing fault launches enemies for 115 damage and leaves a deep, wide trench beside a permanent, breakable stone ridge. Jump a fault or dodge sideways before it arrives.',(a,p)=>{
   const x=p.x,z=p.z,y=p.y,yaw=p.yaw,struck=new Set();let step=0;
   a.zone(p,x,y,1,3.08,.25,(w,o)=>{
-   step++;const reach=18+step*28;
+   step++;const reach=18+step*40;
    for(const branch of [-1,0,1]){
     const heading=yaw+branch*(.36+step*.014),dx=Math.cos(heading),dz=Math.sin(heading);
     const tx=x+dx*reach,tz=z+dz*reach,floor=w.surface(tx,tz,y-80);
     if(floor===null)continue;
-    w.reshapeGround(tx,floor,tz,24,3);
-    const side=branch||1;w.reshapeGround(tx-dz*side*40,floor,tz+dx*side*40,22,-5);
-    w.fx(tx,floor-2,26,'#ffb455','fault-tear',tz,heading,0,2.4);
+    w.reshapeGround(tx,floor,tz,36,5);
+    const side=branch||1;w.reshapeGround(tx-dz*side*56,floor,tz+dx*side*56,31,-7);
+    w.fx(tx,floor-2,39,'#ffb455','fault-tear',tz,heading,0,2.4);
     for(const q of w.enemies(o)){
-     if(struck.has(q)||Math.abs(q.y-floor)>40||Math.hypot(q.x-tx,q.z-tz)>42)continue;
-     struck.add(q);w.hurt(q,75);q.vy=-330;q.ground=false;
+     if(struck.has(q)||Math.abs(q.y-floor)>40||Math.hypot(q.x-tx,q.z-tz)>60)continue;
+     struck.add(q);w.hurt(q,115);q.vy=-425;q.ground=false;
     }
    }
   },'#ff7357',z,'tentacle-timer');
