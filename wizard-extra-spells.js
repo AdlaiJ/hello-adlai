@@ -305,5 +305,7 @@ export function extraSpells(){
    for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-12-(y-10),q.z-z)<65*1.12+9)w.status(q,'slow',1.2);
   },'#9985b5',z,'tentacle-timer');
  });
+ school('Movement','orbit','#9fffe1');
+ add('Ghostwalk','♧',30,.5,'Walk through walls for six seconds while staying on solid floors. You can still take damage. If you are inside a wall when it ends, return to your last open position.',(a,p)=>a.wallwalk(p));
  return book;
 }

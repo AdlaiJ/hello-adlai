@@ -1,4 +1,4 @@
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=smoky-tentacle';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=ghostwalk';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=keyboard-play';
 export {MAPS,makeTiles} from './wizard-world.js?v=keyboard-play';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -13,7 +13,7 @@ export function createGame(settings,loadouts,mode){
  const s={map:settings.map,tiles:makeTiles(settings.map),players:[],summons:[],changedChunks:new Map(),shots:[],effects:[],zones:[],time:0,wave:0,over:'',mode};
  const dirty=new Set();s.terrainVersion=0;
  let activeSpell=null,activeSource=null;
- const burnSources=new WeakMap();
+ const burnSources=new WeakMap(),wallSafe=new WeakMap();
  const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
  const heroCount=mode==='campaign'?loadouts.length:1;
  const livingHeroes=()=>s.players.slice(0,heroCount).filter(p=>p.hp>0&&!p.disconnected);
@@ -40,8 +40,8 @@ export function createGame(settings,loadouts,mode){
  function move(p,dx,dy,dz=0){
   const n=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))/4));
   for(let i=0;i<n;i++){
-   const x=clamp(p.x+dx/n,8,W*T-8);if(!blocked(x,p.y,p.z))p.x=x;else p.vx=0;
-   const z=clamp(p.z+dz/n,8,D*T-8);if(!blocked(p.x,p.y,z))p.z=z;else p.vz=0;
+   const x=clamp(p.x+dx/n,8,W*T-8);if(p.statuses.wallwalk>0||!blocked(x,p.y,p.z))p.x=x;else p.vx=0;
+   const z=clamp(p.z+dz/n,8,D*T-8);if(p.statuses.wallwalk>0||!blocked(p.x,p.y,z))p.z=z;else p.vz=0;
    const y=Math.max(24,p.y+dy/n);if(!blocked(p.x,y,p.z))p.y=y;else{if(dy>0)p.ground=true;p.vy=0}
   }
  }
@@ -73,6 +73,7 @@ export function createGame(settings,loadouts,mode){
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds,source=activeSource)=>{if(key==='burn'&&source)burnSources.set(p,source);p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,cutTerrain:tileDamage,
+  wallwalk(p){if(!blocked(p.x,p.y,p.z))wallSafe.set(p,{x:p.x,y:p.y,z:p.z});api.status(p,'wallwalk',6)},
   stoneCoffin(q){
    const cx=Math.floor(q.x/T),cz=Math.floor(q.z/T),bottom=Math.floor((q.y-1)/T)+1;
    for(let x=cx-2;x<=cx+2;x++)for(let z=cz-2;z<=cz+2;z++)for(let y=bottom-5;y<=bottom;y++){
@@ -533,7 +534,20 @@ export function createGame(settings,loadouts,mode){
     if(held.queued&&s.time>=held.ready){held.queued=false;if(held.strikes>0)command(i,p.ids.indexOf(held.id))}
     if((s.time>=held.until&&s.time>=held.ready)||(!held.strikes&&s.time>=held.ready))p.weapon=null;
    }
+   const wasWalking=st.wallwalk>0;
+   if(wasWalking&&!blocked(p.x,p.y,p.z))wallSafe.set(p,{x:p.x,y:p.y,z:p.z});
    for(const k of Object.keys(st))st[k]=Math.max(0,st[k]-dt);
+   if(wasWalking&&!st.wallwalk&&blocked(p.x,p.y,p.z)){
+    let safe=wallSafe.get(p);
+    if(!safe||blocked(safe.x,safe.y,safe.z)){
+     safe=null;
+     search:for(let radius=12;radius<=240;radius+=12)for(let n=0;n<16;n++)for(const up of [0,24,48,96]){
+      const x=clamp(p.x+Math.cos(n*Math.PI/8)*radius,8,W*T-8),z=clamp(p.z+Math.sin(n*Math.PI/8)*radius,8,D*T-8),y=Math.max(24,p.y-up);
+      if(!blocked(x,y,z)){safe={x,y,z};break search}
+     }
+    }
+    if(safe){Object.assign(p,safe);p.vx=p.vy=p.vz=0;wallSafe.delete(p)}else st.wallwalk=.2;
+   }
    if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt,burnSources.get(p));
    if(manaFraction)p.mana=Math.min(p.maxMana,p.mana+p.maxMana*manaFraction);
    if(p.boss){if(p.voidBoss)stepVoid(p,dt);else stepKing(p,dt);continue}

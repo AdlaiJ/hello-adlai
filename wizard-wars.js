@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=smoky-tentacle';
-import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=smoky-tentacle';
+import {SPELLS} from './wizard-spells.js?v=ghostwalk';
+import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=ghostwalk';
 
 import {markChangedChunk,T} from './wizard-world.js?v=keyboard-play';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=smoky-tentacle');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=ghostwalk');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -72,6 +72,7 @@ function notify(text){message=text;messageUntil=performance.now()+1600}
 function start(){heldSpell=-1;show('hud');keys.clear();armed=false;yaw=state.players[me].yaw;angle=0;netClock=0;
  canvas.tabIndex=-1;canvas.focus();
  $('practice').hidden=mode!=='sandbox';$('slots').replaceChildren();
+ if(p.statuses.wallwalk>0)$('signal').textContent+=' · GHOSTWALK '+p.statuses.wallwalk.toFixed(1)+'s';
  selected.forEach((id,i)=>{const b=document.createElement('button');if(spells.get(id).channel){
   b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);holdSpell(i)};
   b.onlostpointercapture=()=>releaseSpell(i);
