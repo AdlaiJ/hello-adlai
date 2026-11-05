@@ -1,5 +1,5 @@
-import {SPELLS} from './wizard-spells.js?v=throne-volley';
-import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=throne-volley';
+import {SPELLS} from './wizard-spells.js?v=gaster';
+import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=gaster';
 
 import {markChangedChunk,T} from './wizard-world.js?v=keyboard-play';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=throne-volley');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=gaster');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;

@@ -458,5 +458,23 @@ export function makeSpellModels({joint,part,shape,mat}){
    const flame=joint(g,x,.18,z);flame.scale.setScalar(.18);fire(flame,0,0);
   }
  };
+ models['gaster-timer']=()=>{};
+ models['gaster-blaster']=g=>{
+  oval(g,bone,0,.2,.8,.65,.6);oval(g,bone,.48,.05,.62,.4,.48);
+  for(const side of [-1,1]){
+   piece(g,'ball',0x101c30,.48,.28,side*.44,.27,.29,.13);
+   piece(g,'ball',0x8bedff,.59,.29,side*.49,.1,.13,.06,0,true);
+   piece(g,'cone',bone,-.4,.8,side*.4,.14,.65,.14,side*.3);
+  }
+  const jaw=joint(g,-.12,-.23,0);piece(jaw,'box',bone,.48,-.1,0,1,.15,.85);
+  for(let i=-2;i<=2;i++)piece(jaw,'cone',bone,.92,.05,i*.16,.06,.25,.06);
+  const glow=piece(g,'ball',0xb6faff,.9,-.03,0,.18,.24,.3,0,true);
+  return t=>{jaw.rotation.z=-.5*Math.min(1,t*3);glow.scale.setScalar(.18+Math.min(.4,t*.8))};
+ };
+ models['gaster-beam']=g=>{
+  const core=piece(g,'pole',0xeaffff,240,0,0,11,480,11,-Math.PI/2,true);
+  for(let i=0;i<12;i++){const ring=piece(g,'hoop',0x77dfff,20+i*40,0,0,18,18,18,0,true);ring.rotation.z=Math.PI/2}
+  return t=>{core.scale.x=core.scale.z=11+2*Math.sin(t*50)};
+ };
  return models;
 }

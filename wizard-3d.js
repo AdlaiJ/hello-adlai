@@ -1,6 +1,6 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=king-entrance';
+import {makeSpellModels} from './wizard-spell-models.js?v=gaster';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=throne-volley';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=gaster';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -572,7 +572,7 @@ function makeSpellParts(scene){
     if(!b.props.has(e.kind))b.props.set(e.kind,buildProp(b.root,e.kind));
     const prop=b.props.get(e.kind);prop.visible=true;prop.scale.setScalar(e.r*Math.min(1,life*5));
     prop.rotation.set(0,-(e.yaw||0),-(e.pitch||0),'YXZ');
-    if(models[e.kind]&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
+    if(models[e.kind]&&!e.kind.startsWith('gaster-')&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
     if(typeof prop.userData.pose==='function')prop.userData.pose(1-life);
     if(e.kind==='shears')prop.userData.arms.forEach((arm,k)=>arm.rotation.y=(k?1:-1)*(.02+.57*Math.max(0,(life-.38)/.62)));
     if(e.kind==='bell')prop.rotation.z=.32*Math.sin(life*9);

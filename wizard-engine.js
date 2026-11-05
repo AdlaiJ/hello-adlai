@@ -1,4 +1,4 @@
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=throne-volley';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=gaster';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=keyboard-play';
 export {MAPS,makeTiles} from './wizard-world.js?v=keyboard-play';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));

@@ -274,5 +274,22 @@ export function extraSpells(){
  add('Demiplane of Cinders','♨',270,2.8,'Open a cracked volcanic pocket realm with a 130-unit radius for 10 seconds. Grounded enemies take 7 damage each second and burn; jumping above its floor avoids the eruption. Allies gain armor while inside.',(a,p)=>realm(a,p,'demiplane-of-cinders','#ff8259',130,10,1,(w,o,qs)=>{
   for(const q of qs)if(q.side===o.side)w.status(q,'armor',1.2);else if(q.ground||q.boss){w.hurt(q,7);w.status(q,'burn',1.2)}
  }));
+ school('Evocation','orbit','#9beaff');
+ add('Gaster Blaster','☠',150,1.5,'Summon a floating skull cannon. After a 0.7-second charge it fires a 480-unit piercing beam for three pulses of 18 damage, breaking blocks along its path. Its aim locks when the skull appears.',(a,p,pitch)=>{
+  const yaw=p.yaw,dx=Math.cos(pitch)*Math.cos(yaw),dy=Math.sin(pitch),dz=Math.cos(pitch)*Math.sin(yaw);
+  const x=p.x+dx*28,y=p.y-35+dy*28,z=p.z+dz*28;
+  a.fx(x,y,25,'#b7f5ff','gaster-blaster',z,yaw,pitch,1.4);
+  let pulses=0;
+  const beam=a.zone(p,x,y,1,1.4,.7,(w,o)=>{
+   if(o.hp<=0||pulses>=3)return;
+   if(pulses===0)w.fx(x,y,1/1.12,'#c5faff','gaster-beam',z,yaw,pitch,.6);
+   for(const q of w.enemies(o)){
+    const rx=q.x-x,ry=q.y-12-y,rz=q.z-z,along=rx*dx+ry*dy+rz*dz;
+    if(along>=0&&along<=480&&rx*rx+ry*ry+rz*rz-along*along<=(16+(q.boss?40:9))**2)w.hurt(q,18);
+   }
+   for(let d=12;d<=480;d+=24)w.cutTerrain(x+dx*d,y+dy*d,17,30,z+dz*d);
+   pulses++;beam.interval=.2;
+  },'#b7f5ff',z,'gaster-timer');
+ });
  return book;
 }
