@@ -1,8 +1,8 @@
-import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=bone-ribs';
+import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=labyrinth-keepers';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=bone-ribs';
-import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=bone-ribs';
-export {MAPS,makeTiles} from './wizard-world.js?v=bone-ribs';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=labyrinth-keepers';
+import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=labyrinth-keepers';
+export {MAPS,makeTiles} from './wizard-world.js?v=labyrinth-keepers';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -76,6 +76,10 @@ export function createGame(settings,loadouts,mode){
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds,source=activeSource)=>{if(key==='burn'&&source)burnSources.set(p,source);p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,cutTerrain:tileDamage,
+  sightPoint(p){
+   const range=crosshairRange(s,p,p.yaw,p.aim),horizontal=range*Math.cos(p.aim);
+   return {x:p.x+Math.cos(p.yaw)*horizontal,y:p.y-14+Math.sin(p.aim)*range,z:p.z+Math.sin(p.yaw)*horizontal};
+  },
   thunderRoad(p,pitch){
    const start={x:p.x,y:p.y-14,z:p.z},yaw=p.yaw,range=crosshairRange(s,p,yaw,pitch);
    const dx=Math.cos(yaw)*Math.cos(pitch),dy=Math.sin(pitch),dz=Math.sin(yaw)*Math.cos(pitch);
@@ -97,7 +101,7 @@ export function createGame(settings,loadouts,mode){
    trail.road=road;
   },
   stopTime(p){s.timeStop={side:p.side,until:s.time+5};fx(p.x,p.y-15,100,'#a7e8ff','timestop',p.z,0,0,5)},
-  dungeon(p){
+  dungeon(p,placeArm){
    const seed=(Math.floor(Math.random()*0x7ffffffe)+1)>>>0;
    s.dungeonSeed=seed;s.tiles=dungeonTiles(seed);s.changedChunks=new Map();s.terrainVersion++;dirty.clear();
    s.summons=s.summons.filter(f=>!f.dungeonPost);s.zones=s.zones.filter(z=>!z.dungeonFixture);
@@ -105,8 +109,12 @@ export function createGame(settings,loadouts,mode){
    for(const q of api.occupants())placeInDungeon(q);
    for(let i=0;i<COLS*ROWS;i++){
     const x=(i%COLS*CW+CW/2+.5)*T,z=(Math.floor(i/COLS)*CD+CD/2+.5)*T;
-    if(i%3===seed%3){api.spike(p,x+T*2,floor,z);Object.assign(s.zones.at(-1),{life:60,armedAt:s.time+1,dungeonFixture:true})}
-    if(i%8===seed%8){const f=summon(p,i%16<8?'squire':'archer',60);Object.assign(f,{x,y:floor,z,dungeonPost:{x,y:floor,z}})}
+    if(i%3===seed%3)placeDungeonTrap(p,x+2*T,floor,z,Math.floor(i/3)%3);
+    if(i%16===(seed%16+4)%16)placeArm(x,floor,z,0);
+    if(i%8===seed%8){
+     const archer=i%16>=8,f=summon(p,archer?'archer':'squire',60),hp=archer?82:110;
+     Object.assign(f,{x,y:floor,z,giant:true,hp,maxHp:hp,dungeonPost:{x,y:floor,z}});
+    }
     if(i%4===0){api.zone(p,x-3*T,floor,20,90,100,()=>{},'#b97dff',z+2*T,i%12===0?'dungeon-brazier':i%12===4?'dungeon-reliquary':'dungeon-standard');s.zones.at(-1).dungeonFixture=true}
    }
    fx(p.x,p.y-8,38,'#c28cff','dungeon-master',p.z,0,0,1.5);
@@ -211,6 +219,33 @@ export function createGame(settings,loadouts,mode){
    const yaw=p.yaw+(o.yawOffset||0),dx=Math.cos(angle)*Math.cos(yaw),dz=Math.cos(angle)*Math.sin(yaw),dy=Math.sin(angle);
    s.shots.push({p,style:p.kind?(o.style||'familiar-'+p.kind):o.style,x:origin?.x??p.x+dx*10,y:origin?.y??p.y-14+dy*10,z:origin?.z??p.z+dz*10,vx:dx*o.speed,vy:dy*o.speed,vz:dz*o.speed,life:4,color:'#ffd76d',...o,r:spellRadius(o.r??3),hit:new Set()})}
  };
+ function placeDungeonTrap(owner,x,y,z,type){
+  const style=['dungeon-clockblade','dungeon-chain-seal','dungeon-fire-grate'][type];
+  let age=0,ready=1,ignition=null;
+  const trap=api.zone(owner,x,y,26,60,.15,()=>{
+   age+=.15;
+   const phase=age*2.5,angle=Math.sin(phase)*1.13;
+   trap.trapPose=type===0?angle:0;
+   if(age<ready)return;
+   const candidates=enemies(owner).filter(q=>Math.abs(q.y-y)<48&&Math.abs(q.z-z)<30&&Math.abs(q.x-x)<54&&api.clearLine({x,y,z},q));
+   if(type===0){
+    const bladeX=x+Math.sin(angle)*trap.r*1.3,bladeY=y-(1.65-Math.cos(angle)*1.3)*trap.r;
+    const hit=candidates.filter(q=>Math.abs(q.x-bladeX)<15&&Math.abs(q.z-z)<18&&Math.abs(q.y-12-bladeY)<22);
+    for(const q of hit)damage(q,19,owner);if(hit.length)ready=age+.6;
+   }else if(type===1){
+    const victim=candidates.find(q=>Math.hypot(q.x-x,q.z-z)<23&&Math.abs(q.y-y)<12);
+    if(victim){api.status(victim,'root',2);damage(victim,8,owner);ready=age+4;fx(victim.x,victim.y-4,20,'#80e7de','dungeon-bind',victim.z,0,0,2)}
+   }else{
+    if(ignition===null&&candidates.some(q=>Math.hypot(q.x-x,q.z-z)<26))ignition=age+.9;
+    if(ignition!==null){trap.trapPose=1;if(age>=ignition){
+     fx(x,y,35,'#ff952e','dungeon-firejet',z,0,0,.65);
+     for(const q of candidates)if(Math.hypot(q.x-x,q.z-z)<36){damage(q,22,owner);api.status(q,'burn',2,owner)}
+     ignition=null;trap.trapPose=0;ready=age+3;
+    }}
+   }
+  },'#dba960',z,style);
+  trap.dungeonFixture=true;
+ }
  function summon(owner,kind,duration=12){
   const familiar=!SUMMON_KINDS.has(kind);
   const active=s.summons.filter(f=>f.owner===owner&&f.familiar&&f.hp>0);
@@ -377,14 +412,14 @@ export function createGame(settings,loadouts,mode){
       },'#9563df',center.z,'void-gravity-burst');
      }
     }else if(contact){
-     if(dist(foe)>32){f.pulse=.1;continue}
+     if(dist(foe)>(f.giant?48:32)){f.pulse=.1;continue}
      const blockedStrike=[.25,.5,.75].some(t=>solid(f.x+dx*t,f.y-12+(foe.y-f.y)*t,f.z+dz*t));
      if(blockedStrike)continue;
      const before=foe.hp;
-     damage(foe,f.kind==='squire'?11:8,f);
+     damage(foe,f.giant?20:f.kind==='squire'?11:8,f);
      if(f.kind==='wraith')api.heal(f.owner,Math.max(0,before-foe.hp));else f.pulse=.85;
      fx(foe.x,foe.y-12,12,f.kind==='wraith'?'#8fffe1':'#d3e4a8','ring',foe.z);
-    }else if(f.kind==='archer')api.bolt(f,pitch,{speed:365,damage:13,pierce:1,r:3,color:'#cfadff'});
+    }else if(f.kind==='archer')api.bolt(f,pitch,{speed:365,damage:f.giant?21:13,pierce:1,r:f.giant?5:3,color:'#cfadff'});
     else if(f.kind==='burrow'&&dist(foe)<40)api.area(f,f.x+Math.cos(f.yaw)*15,f.y-7,23,12,'#e3a669',f.z+Math.sin(f.yaw)*15);
     else if(f.kind==='storm'){for(const yawOffset of [-.09,0,.09])api.bolt(f,pitch,{speed:310,damage:4,r:2,yawOffset,color:'#ffe784'})}
     else if(f.kind==='frost')api.bolt(f,pitch,{speed:265,damage:6,r:3,color:'#86e9ff',onHit:(a,c,q)=>{if(q){if(c.statuses.court>0&&q.statuses.slow>0)a.status(q,'root',1);a.status(q,'slow',2)}}});
@@ -440,7 +475,7 @@ export function createGame(settings,loadouts,mode){
    if(trait==='lunge')move(p,24*Math.cos(facing),0,24*Math.sin(facing));
    for(const q of enemies(p).concat(s.zones.filter(z=>z.style==="spikes"&&z.hp>0))){
     const dx=q.x-p.x,dz=q.z-p.z,dy=q.y-p.y;
-    const radius=q.voidBoss?76:q.boss?48:q.kind==='purple-wurm'?30:9;
+    const radius=q.voidBoss?76:q.boss?48:q.kind==='purple-wurm'?30:q.giant?20:9;
     if(Math.hypot(dx,dy,dz)>reach+radius||Math.abs(dy)>28+radius)continue;
     const angle=Math.atan2(dz,dx)-facing;
     const allowance=Math.asin(Math.min(1,radius/Math.max(1,Math.hypot(dx,dz))));
@@ -672,8 +707,8 @@ export function createGame(settings,loadouts,mode){
    for(let i=0;i<n&&!b.dead;i++){
     const ox=b.x,oy=b.y,oz=b.z;b.z+=b.vz*dt/n;b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
     const target=candidates.find(q=>{
-     const size=q.voidBoss?76:q.boss?48:q.kind==='purple-wurm'?30:8,reach=size+b.r;
-     return q.hp>0&&Math.abs(q.y-13-b.y)<size+6+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q);
+     const size=q.voidBoss?76:q.boss?48:q.kind==='purple-wurm'?30:q.giant?20:8,reach=size+b.r;
+     return q.hp>0&&Math.abs(q.y-(q.giant?22:13)-b.y)<size+6+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q);
     });
     if(b.terrainPierce){
      const cut=b.lastCut;
@@ -703,7 +738,7 @@ export function createGame(settings,loadouts,mode){
    }
    if(!b.dead&&(b.life<=0||b.x<0||b.x>W*T||b.y>550||b.y< -150||b.z<0||b.z>D*T)){b.onExpire?.(api,b.p,b.x,b.y,b.z);b.dead=true}
   }
-  s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){if(frozen(z.p))continue;z.life-=dt;
+  s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){if(frozen(z.p))continue;if(!z.permanent)z.life-=dt;
    if(z.style==='spikes'){
     if(z.hp<=0||!solid(z.x,z.y+1,z.z)){z.life=0;fx(z.x,z.y-9,16,z.color,'burst',z.z);continue}
     if(z.armedAt>s.time)continue;
@@ -738,6 +773,6 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
- function snapshot(includeTiles=true){return {dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,life})=>({x,y,z,r,color,style,hp,yaw,rivers,road,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})=>({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

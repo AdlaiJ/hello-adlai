@@ -1,11 +1,11 @@
-import {boneWallChunk} from './wizard-bone-wall.js?v=bone-ribs';
-import {makeSpellModels} from './wizard-spell-models.js?v=bone-ribs';
+import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
+import {makeSpellModels} from './wizard-spell-models.js?v=labyrinth-keepers';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=bone-ribs';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=labyrinth-keepers';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {crosshairRange,W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=bone-ribs';
+import {crosshairRange,W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=labyrinth-keepers';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -459,7 +459,7 @@ function makeFamiliars(scene){
    if(rig.lastId!==f.id){rig.root.rotation.y=-yaw;rig.lastId=f.id}
    const turn=-yaw-rig.root.rotation.y;
    rig.root.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*.22;
-   rig.root.scale.setScalar((f.voidBoss?4:f.kind==='crimson-king'?1:f.monster?2.15:1)*(f.cinematicScale??1));
+   rig.root.scale.setScalar((f.voidBoss?4:f.kind==='crimson-king'?1:f.giant?2.45:f.monster?2.15:1)*(f.cinematicScale??1));
    rig.root.position.y+=f.monster?4:0;
    if(!rig.health){
     rig.health=joint(rig.root,0,9,0);part(rig.health,shape.box,mat(0x282538,true),0,0,0,9,1,.2);
@@ -578,7 +578,7 @@ function makeSpellParts(scene){
     if(!b.props.has(e.kind))b.props.set(e.kind,buildProp(b.root,e.kind));
     const prop=b.props.get(e.kind);prop.visible=true;prop.scale.setScalar(e.r*Math.min(1,life*5));
     prop.rotation.set(0,-(e.yaw||0),-(e.pitch||0),'YXZ');
-    if(models[e.kind]&&!e.kind.startsWith('gaster-')&&e.kind!=='smoky-tentacle'&&e.kind!=='fault-tear'&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
+    if(models[e.kind]&&!e.kind.startsWith('vault-')&&!e.kind.startsWith('gaster-')&&e.kind!=='smoky-tentacle'&&e.kind!=='fault-tear'&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
     if(typeof prop.userData.pose==='function')prop.userData.pose(1-life);
     if(e.kind==='shears')prop.userData.arms.forEach((arm,k)=>arm.rotation.y=(k?1:-1)*(.02+.57*Math.max(0,(life-.38)/.62)));
     if(e.kind==='bell')prop.rotation.z=.32*Math.sin(life*9);
@@ -665,7 +665,7 @@ function makeSpellParts(scene){
       if(tile)pool.position.set((tile.x-z.x)/z.r,(z.y-tile.y+.5)/z.r,(tile.z-z.z)/z.r);
      });
     }
-    patch.userData.pose?.(z.style==='demon-arm'?(2.4-z.life)/2.4:t);
+    if(z.style==='demon-arm'){patch.rotation.y=Math.PI/2-(z.yaw||0);patch.userData.pose?.(z.permanent?2.4:9.2-z.life,z)}else patch.userData.pose?.(z.trapPose??t);
     if(z.style==='nest')patch.scale.y=1+.09*Math.sin(t*TAU/.6);
     if(z.style==='wind')patch.rotation.y=t*2;
     if(patch.userData.hand)patch.userData.hand.rotation.y=-t*TAU;
@@ -934,7 +934,7 @@ export function makeRenderer(canvas){
      else titleBursts.push({x,y:420,z:178+i*15,r:26,life:(1-fall)/.14,maxLife:1,color:'#a1cfff'});
     }
    }else if(titleScene===2){
-    zones.push({style:'demon-arm',x:490,y:420,z:185,r:55,life:2.4*(1-cycle/4),color:'#c74563'});
+    zones.push({style:'demon-arm',x:490,y:420,z:185,r:55,life:9.2-cycle,color:'#c74563'});
     if(cycle>1.9&&cycle<2.4)titleBursts.push({x:510,y:420,z:192,r:32,life:1-(cycle-1.9)*2,maxLife:1,color:'#ff6954'});
     shots.forEach(shot=>{shot.style='cone-of-cold';shot.r=5});
    }else if(titleScene===3){

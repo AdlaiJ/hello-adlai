@@ -99,13 +99,47 @@ export function makeSpellModels({joint,part,shape,mat}){
   return u=>tips.forEach((tip,i)=>{tip.rotation.z=Math.sin(u*9+i)*.3;tip.rotation.x=Math.cos(u*8+i)*.2});
  };
  models['demon-arm']=g=>{
-  const portal=joint(g,0,.65,-.65);piece(portal,'ring',0xb14eff,0,0,0,.64,.64,.1,0,true);
-  const arm=joint(g,0,.6,-.55);
-  piece(arm,'ball',0x8e273a,0,0,.35,.30,.32,.75);
-  piece(arm,'ball',0xc34648,0,-.04,.85,.32,.30,.5);
-  piece(arm,'box',0xa33145,0,-.08,1.10,.48,.28,.37);
-  for(let i=-2;i<=2;i++)piece(arm,'cone',bone,i*.10,-.20,1.27,.05,.30,.06,.15);
-  return u=>{arm.scale.z=Math.min(1,u*4);arm.rotation.x=-.8+Math.min(1,u*2)*1.2;portal.rotation.z=u*2};
+  const portal=joint(g,0,.68,-.71),flesh=0x98374b,light=0xca5961,armor=0x4c253d;
+  piece(portal,'ball',0x27142f,0,0,0,.54,.60,.06);
+  piece(portal,'ring',0xd95afe,0,0,.02,.55,.61,.1,0,true);
+  const swivel=joint(g,0,.68,-.65),upper=joint(swivel,0,0,0),upperLen=.88,foreLen=1.05;
+  piece(upper,'ball',armor,0,0,.05,.38,.36,.34);
+  piece(upper,'ball',flesh,0,.035,.43,.25,.25,.48);
+  piece(upper,'ball',light,0,.14,.44,.20,.18,.34);
+  const fore=joint(upper,0,0,upperLen);piece(fore,'ball',armor,0,0,0,.23,.23,.24);
+  piece(fore,'cone',bone,0,.21,-.05,.09,.39,.1,-.22);
+  piece(fore,'ball',flesh,0,0,.48,.21,.18,.55);
+  for(const side of [-1,1])piece(fore,'gem',light,side*.12,.08,.47,.07,.08,.43);
+  piece(fore,'box',armor,0,0,.94,.33,.26,.18);
+  const palm=joint(fore,0,0,foreLen);piece(palm,'ball',flesh,0,0,.16,.29,.12,.27);
+  const fingers=[];
+  for(let i=0;i<4;i++){
+   const base=joint(palm,(i-1.5)*.135,.008,.32),length=[.26,.31,.28,.21][i];
+   base.rotation.y=(i-1.5)*.14;piece(base,'ball',light,0,0,0,.077,.08,.085);
+   piece(base,'ball',flesh,0,0,length/2,.064,.063,length*.61);
+   const tip=joint(base,0,0,length);piece(tip,'ball',light,0,0,.078,.053,.055,.105);
+   piece(tip,'cone',bone,0,-.042,.182,.046,.19,.047,0,2.25);fingers.push([base,tip]);
+  }
+  const thumb=joint(palm,-.22,-.015,.09);thumb.rotation.y=-1.04;
+  piece(thumb,'ball',light,0,0,.13,.085,.08,.19);const thumbTip=joint(thumb,0,0,.27);
+  piece(thumbTip,'cone',bone,0,-.03,.075,.065,.23,.065,0,1.95);
+  return (age,zone={})=>{
+   const emergence=Math.max(.04,Math.min(1,age/.55));swivel.scale.setScalar(emergence);
+   let sx=0,sy=age<1.2?.35+.85*Math.sin(Math.PI*Math.min(1,age/1.2)):.43+.06*Math.sin(age*2),sz=.68;
+   const grip=zone.grip,curl=grip?.curl||0;
+   if(grip){const dx=(grip.x-zone.x)/zone.r,dz=(grip.z-zone.z)/zone.r,yaw=zone.yaw||0;
+    sx=(dx*Math.sin(yaw)-dz*Math.cos(yaw))*grip.reach;
+    sz+=(dx*Math.cos(yaw)+dz*Math.sin(yaw)-sz)*grip.reach;sy+=((zone.y-grip.y)/zone.r-sy)*grip.reach;
+   }
+   // Bend the elbow above the forearm while keeping the palm at the grasp point.
+   const forward=Math.hypot(sx,sz+.65),rise=sy-.68,reach=Math.max(.02,forward-.29),d=Math.max(.22,Math.min(upperLen+foreLen-.01,Math.hypot(reach,rise)));
+   const line=Math.atan2(rise,reach),angle=(v)=>Math.acos(Math.max(-1,Math.min(1,v)));
+   const shoulder=line+angle((upperLen**2+d*d-foreLen**2)/(2*upperLen*d));
+   const elbow=line-angle((foreLen**2+d*d-upperLen**2)/(2*foreLen*d));
+   swivel.rotation.y=Math.atan2(sx,sz+.65);upper.rotation.x=-shoulder;fore.rotation.x=shoulder-elbow;palm.rotation.x=elbow+.13;
+   fingers.forEach(([base,tip],i)=>{base.rotation.x=.08+.10*Math.sin(age*2+i)+curl*1.05;tip.rotation.x=.35+curl*.98});
+   thumb.rotation.x=.18+curl*.72;thumbTip.rotation.y=.48+curl*.5;portal.rotation.z=age*.48;
+  };
  };
  models['purple-wurm']=g=>{
   const segments=[];
@@ -552,5 +586,43 @@ export function makeSpellModels({joint,part,shape,mat}){
   for(let i=0;i<5;i++)piece(g,'box',i%2?0xff813b:0xffdc82,(i-2)*.27,0,.08*Math.sin(i*2),.34,.045,.12,0,true).rotation.y=.35*Math.cos(i*2);
  };
  models['bone-regrowth']=()=>{};
+ function vaultWeapon(g,style){
+  const spear=style==='vault-spear',axe=style==='vault-axe';
+  box(g,0x744326,-.48,0,spear?2.4:1.1,.11,.12);
+  piece(g,'gem',0x70dce8,-1,0,0,.15,.13,.13,0,true);
+  if(axe){for(const side of [-1,1])piece(g,'gem',gold,.25,side*.28,0,.39,.36,.13,side*.42);box(g,gold,.34,0,.28,.23,.22)}
+  else{piece(g,'gem',white,spear?.92:.61,0,0,spear?.5:.87,spear?.22:.16,.09,0,true);box(g,gold,-.15,0,.13,spear?.33:.77,.22);piece(g,'gem',gold,.25,0,0,.52,.11,.1)}
+ }
+ for(const style of ['vault-sword','vault-spear','vault-axe']){
+  models[style]=g=>vaultWeapon(g,style);
+  models[style+'-gate']=g=>{
+   const seal=joint(g,0,0,0);seal.rotation.y=Math.PI/2;
+   piece(seal,'ball',0x4b2a52,0,0,0,.82,.82,.07);
+   piece(seal,'ring',0xffcb4e,0,0,.08,.87,.87,.8,0,true);
+   const runes=joint(seal,0,0,.12);
+   for(let i=0;i<8;i++){const angle=i*Math.PI/4;piece(runes,'gem',0xffeaaa,Math.cos(angle)*.98,Math.sin(angle)*.98,0,.11,.06,.05,angle,true)}
+   const blade=joint(g,0,0,0);blade.scale.setScalar(.78);vaultWeapon(blade,style);
+   return t=>{runes.rotation.z=t*1.8;blade.position.x=.15+Math.min(1,t*3)*.6};
+  };
+ }
+ models['dungeon-clockblade']=g=>{
+  for(const side of [-1,1]){box(g,iron,side*1.22,.82,.12,1.65,.25);box(g,gold,side*1.22,.08,.38,.14,.48)}
+  box(g,iron,0,1.67,2.58,.15,.24);
+  const pendulum=joint(g,0,1.65,0);rod(pendulum,gold,0,-.6,1.2,.065);
+  piece(pendulum,'gem',iron,0,-1.27,0,.46,.31,.11);box(pendulum,0xefe1b5,0,-1.34,.76,.07,.17);
+  return angle=>{pendulum.rotation.z=angle};
+ };
+ models['dungeon-chain-seal']=g=>{
+  piece(g,'pole',iron,0,.03,0,1.35,.06,1.35);
+  const seal=piece(g,'ring',0x87e7d8,0,.075,0,.67,.67,.67,0,true);seal.rotation.x=Math.PI/2;
+  for(let i=0;i<4;i++){const arm=joint(g,0,.1,0);arm.rotation.y=i*Math.PI/2;for(let j=0;j<3;j++){const link=piece(arm,'ring',gold,.22+j*.16,0,0,.13,.085,.1);link.rotation.x=j%2?.5:1.5}}
+ };
+ models['dungeon-bind']=g=>{for(let i=0;i<3;i++){const ring=piece(g,'ring',0x70eece,0,.22+i*.28,0,.56,.56,.56,0,true);ring.rotation.x=1.35+i*.18}};
+ models['dungeon-fire-grate']=g=>{
+  box(g,iron,0,.025,1.55,.08,1.55);const coals=piece(g,'box',0xff8b30,0,.065,0,1.32,.04,1.32,0,true);
+  for(let i=-2;i<=2;i++)box(g,0x3f3540,i*.27,.11,.13,.10,1.48);
+  return armed=>{coals.visible=armed>.5};
+ };
+ models['dungeon-firejet']=g=>{const jets=[];for(let i=0;i<7;i++){const a=i*2.4;jets.push(piece(g,'cone',i%2?0xffce60:0xff722b,.52*Math.cos(a),.75,.52*Math.sin(a),.22,1.5,.22,0,true))}return t=>jets.forEach((jet,i)=>{jet.scale.y=1+Math.sin(t*9+i)*.5;jet.position.y=jet.scale.y/2})};
  return models;
 }

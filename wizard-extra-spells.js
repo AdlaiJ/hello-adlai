@@ -1,3 +1,36 @@
+function placeDemonArm(a,p,x,floor,z,yaw,permanent){
+  // Bring the arm in from the side so the portal does not hide the hand from its caster.
+  const facing=yaw+Math.PI/2;
+  const offset=permanent?32:54;
+  const socket={x:x-offset*Math.cos(facing),y:floor-offset*.78,z:z-offset*Math.sin(facing)};
+  let slammed=permanent,target=null,last=null,reachAt=0,readyAt=0;
+  let clock=0;
+  const arm=a.zone(p,x,floor,permanent?50:80,9.2,.1,(w,owner)=>{
+   clock+=.1;const age=permanent?clock:9.2-arm.life;
+   if(!slammed&&age>=1.2){
+    slammed=true;w.area(owner,x,floor,80,55,'#ff6954',z);
+    for(const q of w.enemies(owner))if(Math.hypot(q.x-x,q.z-z)<90&&Math.abs(q.y-floor)<90){q.vy=-390;q.ground=false}
+    readyAt=age+.35;
+   }
+   if(!slammed||age<readyAt)return;
+   const inReach=q=>q.hp>0&&!q.boss&&!(q.statuses.phased>0)&&Math.hypot(q.x-x,q.y-floor,q.z-z)<(permanent?78:118)&&w.clearLine(socket,q);
+   if(target&&!inReach(target)){target=null;arm.grip=null;readyAt=age+.25;return}
+   if(!target){
+    if(!permanent&&arm.life<1.55)return;
+    const candidates=w.enemies(owner).filter(inReach).sort((q,r)=>Math.hypot(q.x-x,q.z-z)-Math.hypot(r.x-x,r.z-z));
+    target=candidates.find(q=>q!==last)||candidates[0];if(!target)return;reachAt=age;
+   }
+   const elapsed=age-reachAt;
+   if(elapsed>=.35){
+    w.status(target,'root',.16);target.vx=target.vy=target.vz=0;
+    w.blink(target,(x-target.x)*.23,(floor-38-target.y)*.23,(z-target.z)*.23);
+   }
+   arm.grip={x:target.x,y:target.y-12,z:target.z,reach:Math.min(1,(elapsed+.1)/.4),curl:Math.min(1,Math.max(0,(elapsed-.25)*5))};
+   if(elapsed>=1.45){w.hurt(target,18);target.vy=-310;target.ground=false;last=target;target=null;arm.grip=null;readyAt=age+.6}
+  },'#c74563',z,'demon-arm');arm.yaw=facing;
+  if(permanent){arm.permanent=true;arm.dungeonFixture=true}
+}
+
 export function extraSpells(){
  const book=[];
  let category,motion,tint;
@@ -8,7 +41,7 @@ export function extraSpells(){
   book.push({id,name,symbol,cost,time,description,category,design:{motion,color:spellColor},cast(api,p,pitch){
    const reach=id==='thunder-tongs'?42:18;
    const offset=id==='thunder-tongs'?0:18;
-   if(!['smoky-tentacle','asteroid-strike','cataclysm','furnace-arrow'].includes(id))api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
+   if(!['smoky-tentacle','asteroid-strike','cataclysm','furnace-arrow','gates-of-babylon','demon-arm'].includes(id))api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
    cast(api,p,pitch);
   }});
  }
@@ -114,12 +147,10 @@ export function extraSpells(){
   },'#985acb',z,'tentacle-field');
  });
  school('Summoning','gate','#eb6556');
- add('Demon Arm','✊',320,3,'Open a portal ahead. A massive clawed arm reaches out, slams for 55 damage, and launches nearby enemies upward.',(a,p)=>{
-  const x=p.x+110*Math.cos(p.yaw),z=p.z+110*Math.sin(p.yaw),y=a.surface(x,z,0);if(y===null)return;
-  let hit=false;a.zone(p,x,y,80,2.4,1.2,(w,o,cx,cy,cz)=>{
-   if(hit)return;hit=true;w.area(o,cx,cy,80,55,'#ff6954',cz);
-   for(const q of w.enemies(o))if(Math.hypot(q.x-cx,q.z-cz)<90&&Math.abs(q.y-cy)<90){q.vy=-390;q.ground=false}
-  },'#c74563',z,'demon-arm');
+ add('Demon Arm','✊',320,3,'A clawed arm slams out of a portal for 55 damage. It lingers for eight seconds, reaching for nearby enemies one at a time. Its hand drags and holds each victim, then crushes for 18 damage and tosses them. Bosses resist the grab.',(a,p)=>{
+  const yaw=p.yaw,x=p.x+110*Math.cos(yaw),z=p.z+110*Math.sin(yaw),floor=a.surface(x,z,p.y-100);
+  if(floor===null)return;
+  placeDemonArm(a,p,x,floor,z,yaw,false);
  });
  school('Summoning','flock','#b983ef');
  add('Summon Purple Wurm','♜',360,3.5,'Summon a massive purple wurm with 220 health for 20 seconds. It tunnels through blocks, erupts every five seconds for 32 area damage and launches enemies upward, then bites for 24 damage.',(a,p)=>a.summon(p,'purple-wurm',20));
@@ -333,7 +364,7 @@ export function extraSpells(){
   },'#ff9c59',z,'tentacle-timer');
  });
  school('Summoning','orbit','#c4bc96');
- add('Dungeon Master','▤',300,2.5,'Transform the entire arena into the Iron Labyrinth: 96 connected chambers, vaulted passageways and walls that meet the ceiling. Take the doors or break through. For one minute, 32 spike traps and 12 allied skeleton guardians defend its halls.',(a,p)=>a.dungeon(p));
+ add('Dungeon Master','▤',300,2.5,'Transform the entire arena into the Iron Labyrinth: 96 connected chambers, vaulted passageways and walls that meet the ceiling. Take the doors or break through. Dodge swinging blades, binding chain seals and fire grates. Six permanent Demon Arms guard the halls until the labyrinth is replaced. Twelve towering skeletal wardens defend it for one minute.',(a,p)=>a.dungeon(p,(x,y,z,yaw)=>placeDemonArm(a,p,x,y,z,yaw,true)));
  school('Evocation','fault','#ff7357');
  add('Cataclysm','✹',700,4,'Split the earth along three branching faults in front of you. Each advancing fault launches enemies for 75 damage and leaves a trench beside a permanent, breakable stone ridge. Jump a fault or dodge sideways before it arrives.',(a,p)=>{
   const x=p.x,z=p.z,y=p.y,yaw=p.yaw,struck=new Set();let step=0;
@@ -352,6 +383,29 @@ export function extraSpells(){
     }
    }
   },'#ff7357',z,'tentacle-timer');
+ });
+ school('Summoning','orbit','#ffcf60');
+ add('Gates of Babylon','♛',280,2.4,'Open nine golden gates behind you. They fire in sequence toward your current crosshair. Swords fly fast, spears pierce two enemies, and axes burst on impact. Keep aiming to steer the volley.',(a,p)=>{
+  const weapons=[
+   {style:'vault-sword',damage:19,speed:535,r:3},
+   {style:'vault-spear',damage:23,speed:460,r:3,pierce:1},
+   {style:'vault-axe',damage:12,speed:350,r:4,blast:24}
+  ];
+  const facing=p.yaw,cos=Math.cos(facing),sin=Math.sin(facing);
+  const gates=[-4,4,-3,3,-2,2,-1,1,0].map((rank,i)=>{
+   const side=rank*14,origin={x:p.x-22*cos-side*sin,y:p.y-40-42*Math.cos(rank*Math.PI/9),z:p.z-22*sin+side*cos};
+   const weapon=weapons[i%weapons.length];
+   a.fx(origin.x,origin.y,10,'#ffd469',weapon.style+'-gate',origin.z,facing,0,.55+i*.18+.12);
+   return {origin,weapon};
+  });
+  let next=0;
+  const volley=a.zone(p,p.x,p.y,1,2.05,.55,(w,owner)=>{
+   if(next>=gates.length||owner.hp<=0)return;
+   const {origin,weapon}=gates[next++],aim=w.sightPoint(owner);
+   const dx=aim.x-origin.x,dy=aim.y-origin.y,dz=aim.z-origin.z;
+   w.bolt(owner,Math.atan2(dy,Math.hypot(dx,dz)),{...weapon,color:'#ffd469',yawOffset:Math.atan2(dz,dx)-owner.yaw},origin);
+   volley.interval=.18;
+  },'#ffd469',p.z,'tentacle-timer');
  });
  return book;
 }
