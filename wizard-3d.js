@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=crimson-campaign';
+import {makeSpellModels} from './wizard-spell-models.js?v=less-lag';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=crimson-campaign';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=less-lag';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=crimson-campaign';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=less-lag';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -141,9 +141,31 @@ function updateArmament(r,p,time){
  }
  r.held=grip;grip.visible=true;
  const progress=clamp((time-weapon.swing)/model.delay,0,1);
- const stroke=weapon.swing<0?0:Math.sin(progress*Math.PI);
- r.arms[1].shoulder.rotation.z+=stroke*1.35;
- grip.rotation.z=-.6-stroke*1.6;grip.rotation.y=stroke*(model.form==='scythe'?2:.7);
+ const active=weapon.swing>=0&&progress<1;
+ const ease=x=>x*x*(3-2*x);
+ const stroke=active?(progress<.22?-ease(progress/.22)*.35:progress<.52?-.35+ease((progress-.22)/.3)*1.35:1-ease((progress-.52)/.48)):0;
+ const side=(weapon.combo||0)%2?1:-1;
+ const thrust=model.form==='rapier',heavy=model.form==='hammer',wide=model.form==='scythe';
+ grip.position.set(0,0,0);grip.rotation.set(0,0,-.6);
+ if(thrust){
+  r.arms[1].shoulder.rotation.z-=stroke*1.4;r.arms[1].elbow.rotation.z-=stroke*.5;
+  grip.rotation.z=-1.25;grip.position.x=stroke*7;r.chest.rotation.z-=stroke*.25;
+ }else if(heavy){
+  r.arms[1].shoulder.rotation.z+=stroke*2.3;r.arms[0].shoulder.rotation.z+=stroke*1.6;
+  r.arms[1].elbow.rotation.z+=stroke*.6;grip.rotation.z=-.5-stroke*2;
+  r.chest.rotation.z-=stroke*.35;r.pelvis.position.y-=Math.max(0,stroke)*1.5;
+ }else{
+  r.arms[1].shoulder.rotation.y+=side*stroke*(wide?2.2:1.5);
+  r.arms[1].shoulder.rotation.z+=stroke*.8;r.arms[1].elbow.rotation.z-=stroke*.35;
+  grip.rotation.y=side*stroke*(wide?2.1:1.3);grip.rotation.z=-.6-stroke*(model.form==='axe'?1.7:1);
+  r.chest.rotation.y+=side*stroke*.48;r.arms[0].shoulder.rotation.y-=side*stroke*.65;
+ }
+ // Short ghost blades emphasize the follow-through without replacing the weapon.
+ if(!grip.userData.trail){grip.userData.trail=[];for(let i=0;i<3;i++){
+  const ghost=part(grip,shape.gem,new THREE.MeshBasicMaterial({color:model.tint,transparent:true,opacity:.16,depthWrite:false}),0,9,0,.35,6,.3);
+  grip.userData.trail.push(ghost);
+ }}
+ grip.userData.trail.forEach((ghost,i)=>{ghost.visible=active&&progress>.22&&progress<.6;ghost.position.z=side*(i+1)*1.5;ghost.material.opacity=.18-i*.04});
 }
 function animateWizard(r,p,time,index,cast,matchTime){
  const moving=clamp(Math.hypot(p.vx||0,p.vz||0)/120,0,1),air=Math.abs(p.vy||0)>25,beat=time*10+index*1.9,sw=Math.sin(time*2.1+index),pitch=clamp(p.aim||0,-1.1,1.1);
@@ -424,7 +446,7 @@ function makeFamiliars(scene){
    if(rig.lastId!==f.id){rig.root.rotation.y=-yaw;rig.lastId=f.id}
    const turn=-yaw-rig.root.rotation.y;
    rig.root.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*.22;
-   rig.root.scale.setScalar(f.kind==='crimson-king'?1:f.monster?2.15:1);
+   rig.root.scale.setScalar((f.voidBoss?4:f.kind==='crimson-king'?1:f.monster?2.15:1)*(f.cinematicScale??1));
    rig.root.position.y+=f.monster?4:0;
    if(!rig.health){
     rig.health=joint(rig.root,0,9,0);part(rig.health,shape.box,mat(0x282538,true),0,0,0,9,1,.2);
@@ -816,12 +838,12 @@ export function makeRenderer(canvas){
    frames++;frameSeconds+=elapsed;
    if(frameSeconds>=2){
     const fps=frames/frameSeconds;
-    if(fps<45)pixelScale=Math.max(.65,pixelScale-.1);
-    else if(fps>58)pixelScale=Math.min(1,pixelScale+.05);
+    if(fps<45)pixelScale=Math.max(.5,pixelScale-.1);
+    else if(fps>59)pixelScale=Math.min(1,pixelScale+.025);
     frames=0;frameSeconds=0;
    }
   }
-  const width=canvas.clientWidth||canvas.width||960,height=canvas.clientHeight||canvas.height||540,dpr=Math.min(window.devicePixelRatio||1,1.5)*pixelScale;
+  const width=canvas.clientWidth||canvas.width||960,height=canvas.clientHeight||canvas.height||540,dpr=Math.min(window.devicePixelRatio||1,1.25)*pixelScale;
   if(width!==logicalW||height!==logicalH||dpr!==oldDPR){
    logicalW=width;logicalH=height;oldDPR=dpr;renderer.setPixelRatio(dpr);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();
   }
@@ -908,7 +930,13 @@ export function makeRenderer(canvas){
      visibleShots.push({style:'quarry-volley',r:6,x:block.x+(x-block.x)*rise,y:block.y+(y-block.y)*rise,z:block.z+(z-block.z)*rise,vx:0,vy:-1,vz:0});
     });
    }
-   paintSpells(visibleShots,state.effects||[],state.zones||[],clock,camera);
+   const nearby=(v,extra=0)=>{
+    const reach=1050+(v.r||0)+extra;
+    return (v.x-camera.position.x)**2+(HEIGHT-v.y-camera.position.y)**2+(v.z-camera.position.z)**2<reach*reach;
+   };
+   // Cosmetic bursts have a budget; every projectile and hazard still simulates normally.
+   const effects=(state.effects||[]).filter(v=>nearby(v)).slice(-96);
+   paintSpells(visibleShots.filter(v=>nearby(v)),effects,(state.zones||[]).filter(v=>nearby(v)),clock,camera);
   }
   paintCasting(demo?[]:players,state?.time??0,camera,me,hideLocal);
   renderer.render(scene,camera);

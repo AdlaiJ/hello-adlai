@@ -1,14 +1,22 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=crimson-campaign';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=crimson-campaign';
-export {MAPS,makeTiles} from './wizard-world.js?v=crimson-campaign';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=less-lag';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=less-lag';
+export {MAPS,makeTiles} from './wizard-world.js?v=less-lag';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
+export function campaignTiles(map,stage){
+ const tiles=makeTiles(map);
+ if(stage===4||stage===8)for(let z=Math.floor(midZ/T)-32;z<=Math.floor(midZ/T)+32;z++)for(let x=Math.floor(midX/T)-40;x<=Math.floor(midX/T)+40;x++)for(let y=0;y<H;y++)tiles[(z*H+y)*W+x]=y<36?0:127;
+ return tiles;
+}
 export function createGame(settings,loadouts,mode){
  const s={map:settings.map,tiles:makeTiles(settings.map),players:[],summons:[],changedChunks:new Map(),shots:[],effects:[],zones:[],time:0,wave:0,over:'',mode};
  const dirty=new Set();s.terrainVersion=0;
  let activeSpell=null;
  const inputs=[],maxMana=settings.mana;let waveWait=0,nextSummon=0;
+ const heroCount=mode==='campaign'?loadouts.length:1;
+ const livingHeroes=()=>s.players.slice(0,heroCount).filter(p=>p.hp>0&&!p.disconnected);
+ const nearestHero=p=>livingHeroes().reduce((best,q)=>!best||Math.hypot(q.x-p.x,q.z-p.z)<Math.hypot(best.x-p.x,best.z-p.z)?q:best,s.players[0].hp>0?s.players[0]:null)||s.players[0];
  function actor(side,x,ids,bot=false){
   const p={outfit:Math.floor(Math.random()*16),side,x,y:320,z:midZ,vz:0,yaw:side?Math.PI:0,vx:0,vy:0,hp:100,maxHp:100,mana:maxMana,maxMana,shield:0,aim:0,ids:[...ids],bank:ids.map(()=>0),store:-1,cast:0,pending:-1,statuses:{},bot,ground:false,brain:1};
   inputs.push({strafe:0,move:0,jump:false});s.players.push(p);return p;
@@ -21,11 +29,12 @@ export function createGame(settings,loadouts,mode){
    p.z=midZ+(free?300*Math.sin(theta):(Math.floor(i/2)-(loadouts.length/2-1)/2)*70);
    p.yaw=Math.atan2(midZ-p.z,midX-p.x);
   });
- }else actor(0,midX-300,loadouts[0]);
+ }else if(mode==='campaign')loadouts.forEach((ids,i)=>{const p=actor(0,midX-300,ids);p.z+=i*35});
+ else actor(0,midX-300,loadouts[0]);
  function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0,duration=.45){s.effects.push({x,y,z,r,color,kind:kind==='ring'&&activeSpell?activeSpell:kind,yaw,pitch,life:duration,maxLife:duration})}
  const index=(x,y,z)=>Math.floor(x/T)+W*(Math.floor(y/T)+H*Math.floor(z/T));
  function solid(x,y,z){return x>=0&&x<W*T&&y>=0&&y<540&&z>=0&&z<D*T&&s.tiles[index(x,y,z)]>0}
- function setBlock(k,hp){if(s.tiles[k]===hp)return;s.tiles[k]=hp;s.terrainVersion++;markChangedChunk(s.changedChunks,k);if(mode==='multi')dirty.add(k)}
+ function setBlock(k,hp){if(s.tiles[k]===hp)return;s.tiles[k]=hp;s.terrainVersion++;markChangedChunk(s.changedChunks,k);if(mode==='multi'||settings.coop)dirty.add(k)}
  function blocked(x,y,z){for(const dx of [-5,5])for(const dz of [-5,5])for(const dy of [-1,-12,-24])if(solid(x+dx,y+dy,z+dz))return true;return false}
  function move(p,dx,dy,dz=0){
   const n=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))/4));
@@ -47,10 +56,13 @@ export function createGame(settings,loadouts,mode){
  }
  const enemies=p=>s.players.concat(s.summons).filter(q=>q.side!==p.side&&q.hp>0);
  function tileDamage(x,y,r,n,z){
+  const radiusSquared=(r+8)*(r+8);
   for(let d=clamp(Math.floor((z-r)/T),0,D-1);d<=clamp(Math.floor((z+r)/T),0,D-1);d++)
   for(let j=clamp(Math.floor((y-r)/T),0,H-1);j<=clamp(Math.floor((y+r)/T),0,H-1);j++)
    for(let i=clamp(Math.floor((x-r)/T),0,W-1);i<=clamp(Math.floor((x+r)/T),0,W-1);i++){
-    if(Math.hypot(i*T+6-x,j*T+6-y,d*T+6-z)<=r+8){const k=(d*H+j)*W+i;const hp=Math.max(0,(s.tiles[k]&127)-n);setBlock(k,hp>0?(s.tiles[k]&128)+hp:0)}
+    const k=(d*H+j)*W+i,value=s.tiles[k];if(!value)continue;
+    const dx=i*T+6-x,dy=j*T+6-y,dz=d*T+6-z;
+    if(dx*dx+dy*dy+dz*dz<=radiusSquared){const hp=Math.max(0,(value&127)-n);setBlock(k,hp>0?(value&128)+hp:0)}
    }
  }
  const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds)=>{p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
@@ -303,19 +315,19 @@ export function createGame(settings,loadouts,mode){
  }
  function fireSword(index){
   const p=s.players[index];
-  if(!p?.onThrone||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0)||p.hp<=0||s.over||p.cast>0||p.statuses.silence>0||p.swordReady>s.time)return false;
+  if(!p?.onThrone||!s.zones.some(z=>z.style==='throne'&&z.p===p&&z.life>0)||p.hp<=0||s.over||s.cutscene||p.cast>0||p.statuses.silence>0||p.swordReady>s.time)return false;
   api.bolt(p,p.aim,{style:'skull-throne',speed:390,damage:26,r:4,color:'#fc274b'});
   p.swordReady=s.time+.32;return true;
  }
  function fireBlood(index){
   const p=s.players[index];
-  if(!p?.bloodAmmo||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  if(!p?.bloodAmmo||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   const weapon=bloodWeapons[(6-p.bloodAmmo)%bloodWeapons.length];
   api.bolt(p,p.aim,{...weapon,color:'#da1741'});p.bloodAmmo--;return true;
  }
  function fireBlock(index){
   const p=s.players[index];
-  if(!p?.blocks?.length||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  if(!p?.blocks?.length||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   p.blocks.pop();
   api.bolt(p,p.aim,{style:'quarry-volley',speed:355,r:5,damage:17,color:'#bf9e72'});
   return true;
@@ -326,22 +338,34 @@ export function createGame(settings,loadouts,mode){
  }
  function command(index,slot,store=false){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
-  if(!Number.isInteger(slot)||!spell||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  if(!Number.isInteger(slot)||!spell||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
   if(spell.channel)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
   if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
   if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
   const held=p.weapon;
   if(held?.id===spell.id&&held.until>s.time&&held.strikes>0){
-   if(s.time<held.ready)return false;
+   if(s.time<held.ready){if(held.ready-s.time<.18){held.queued=true;return true}return false}
    const {reach,arc,damage:power,delay,trait}=spell.melee;
-   held.strikes--;held.ready=s.time+delay;held.swing=s.time;p.store=-1;
-   if(trait==='lunge')move(p,24*Math.cos(p.yaw),0,24*Math.sin(p.yaw));
+   held.strikes--;held.ready=s.time+delay;held.swing=s.time;held.combo=(held.combo||0)+1;held.hitAt=s.time+delay*.3;held.swingYaw=p.yaw;p.store=-1;
+   return true;
+  }
+  if(held?.id===spell.id&&s.time<held.ready)return false;
+  const price=Math.max(0,spell.cost-p.bank[slot]);if(p.mana+.00001<price)return false;
+  p.castDuration=spell.cost>0?spell.time*price/spell.cost:spell.time;
+  p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castVisual=spell.id;p.castStarted=s.time;p.cast=Math.max(.016,p.castDuration);return true;
+ }
+ function meleeImpact(p,held){
+   const {reach,arc,damage:power,trait}=byId.get(held.id).melee;
+   const facing=held.swingYaw;
+   if(trait==='lunge')move(p,24*Math.cos(facing),0,24*Math.sin(facing));
    for(const q of enemies(p).concat(s.zones.filter(z=>z.style==="spikes"&&z.hp>0))){
     const dx=q.x-p.x,dz=q.z-p.z,dy=q.y-p.y;
-    if(Math.hypot(dx,dy,dz)>reach||Math.abs(dy)>28)continue;
-    const angle=Math.atan2(dz,dx)-p.yaw;
-    if(Math.cos(angle)<Math.cos(arc/2))continue;
+    const radius=q.voidBoss?76:q.boss?48:q.kind==='purple-wurm'?30:9;
+    if(Math.hypot(dx,dy,dz)>reach+radius||Math.abs(dy)>28+radius)continue;
+    const angle=Math.atan2(dz,dx)-facing;
+    const allowance=Math.asin(Math.min(1,radius/Math.max(1,Math.hypot(dx,dz))));
+    if(Math.cos(angle)<Math.cos(Math.min(Math.PI,arc/2+allowance)))continue;
     const steps=Math.ceil(Math.hypot(dx,dy,dz)/5);
     let covered=false;
     for(let i=1;i<steps;i++)if(solid(p.x+dx*i/steps,p.y-12+dy*i/steps,p.z+dz*i/steps)){covered=true;break}
@@ -353,12 +377,6 @@ export function createGame(settings,loadouts,mode){
     if(trait==='slow'||trait==='burn')api.status(q,trait,2);
     fx(q.x,q.y-12,12,'#ffd691','burst',q.z);
    }
-   return true;
-  }
-  if(held?.id===spell.id&&s.time<held.ready)return false;
-  const price=Math.max(0,spell.cost-p.bank[slot]);if(p.mana+.00001<price)return false;
-  p.castDuration=spell.cost>0?spell.time*price/spell.cost:spell.time;
-  p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castVisual=spell.id;p.castStarted=s.time;p.cast=Math.max(.016,p.castDuration);return true;
  }
  function input(i,forward,jump,pitch,strafe=0,yaw=0,channel=-1){
   const p=s.players[i];if(!p||![forward,pitch,strafe,yaw].every(Number.isFinite))return;
@@ -381,32 +399,68 @@ export function createGame(settings,loadouts,mode){
  }
  function startWave(){s.wave++;for(let i=0;i<Math.min(1+Math.floor(s.wave/2),6);i++)spawn();waveWait=0}
  if(mode==='waves')startWave();
- const campaignMaps=['Bellfall Keep','Ember Quarry','Thornroot Ruins','Void Cathedral'];
- const campaignNames=['The Broken Gate','Ashfall Foundry','The Cursed Grove','Throne of the Crimson King'];
+ const campaignMaps=['Bellfall Keep','Ember Quarry','Thornroot Ruins','Void Cathedral','Frostglass Bridge','Sunken Oasis','Thornroot Ruins','Void Cathedral'];
+ const campaignNames=['The Broken Gate','Ashfall Foundry','The Cursed Grove','Throne of the Crimson King','Beyond the Rift','The Hollow Sea','Garden of Lost Souls','Heart of the Void'];
  function campaignWave(){
   s.wave++;waveWait=0;
-  for(let j=0;j<s.stage+2;j++){
+  for(let j=0;j<Math.min(7,s.stage+2);j++){
    const foe=spawn();foe.monster=['squire','ember','wraith','archer'][(j+s.stage)%4];
    foe.hp=foe.maxHp=38+s.stage*14;foe.mana=foe.maxMana=100;
   }
  }
  function campaignStage(stage){
   s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
-  s.map=campaignMaps[stage-1];s.tiles=makeTiles(s.map);s.terrainVersion++;
-  s.changedChunks=new Map();s.players.splice(1);inputs.splice(1);s.summons=[];s.shots=[];s.zones=[];s.effects=[];
+  s.map=campaignMaps[stage-1];s.tiles=campaignTiles(s.map,stage);s.terrainVersion++;dirty.clear();
+  s.changedChunks=new Map();s.players.splice(heroCount);inputs.splice(heroCount);s.summons=[];s.shots=[];s.zones=[];s.effects=[];
   const p=s.players[0];Object.assign(p,{x:midX-150,z:midZ,y:200,vx:0,vy:0,vz:0,hp:p.maxHp,mana:p.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null});
   p.bank.fill(0);waveWait=0;
-  if(stage<4){campaignWave();return}
-  // Clear a broad fighting floor so the giant can move and its telegraphs stay visible.
-  for(let z=Math.floor(midZ/T)-32;z<=Math.floor(midZ/T)+32;z++)for(let x=Math.floor(midX/T)-40;x<=Math.floor(midX/T)+40;x++){
-   for(let y=0;y<36;y++)s.tiles[(z*H+y)*W+x]=0;
-   for(let y=36;y<H;y++)s.tiles[(z*H+y)*W+x]=127;
+  for(let i=0;i<heroCount;i++){
+   const hero=s.players[i];Object.assign(hero,{x:midX-150,z:midZ+i*35,y:stage===4||stage===8?430:200,vx:0,vy:0,vz:0,hp:hero.disconnected?0:hero.maxHp,mana:hero.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null});hero.bank.fill(0);
   }
+  if(stage!==4&&stage!==8){campaignWave();return}
+  // Clear a broad fighting floor so the giant can move and its telegraphs stay visible.
   p.y=430;
   const king=actor(1,midX+190,[]);Object.assign(king,{monster:'crimson-king',boss:true,hp:1400,maxHp:1400,y:430,z:midZ,attackClock:2.5,attackCycle:0});
+  if(stage===8)Object.assign(king,{monster:'void-entity',voidBoss:true,hp:2200,maxHp:2200});
+  king.hp=king.maxHp=Math.round(king.maxHp*(1+(heroCount-1)*.65));
+ }
+ function beginRift(){
+  const king=s.players.find(p=>p.boss),hero=s.players[0];
+  s.cutscene={time:0,x:king.x,z:king.z,heroX:hero.x,heroZ:hero.z,heroes:s.players.slice(0,heroCount).map(p=>({x:p.x,z:p.z}))};
+  king.hp=1;s.shots=[];s.zones=[];s.summons=[];s.effects=[];
+  hero.cast=0;hero.pending=-1;hero.store=-1;hero.vx=hero.vy=hero.vz=0;
+  fx(king.x,king.y-40,80,'#ffb3c6','king-slam',king.z,0,0,2);
+ }
+ function riftTick(dt){
+  const c=s.cutscene;c.time+=dt;s.time+=dt;
+  const king=s.players.find(p=>p.boss),hero=s.players[0],portalX=c.x+95;
+  s.cinematicText=c.time<2?'The Crimson King is shattered.':c.time<6?'Something beyond the void claims him…':'You follow him into the rift.';
+  if(c.time>=2){
+   const t=clamp((c.time-2)/4,0,1);king.x=c.x+95*t;king.y=430-25*t;king.cinematicScale=1-t*.98;
+   s.effects=[{x:portalX,y:380,z:c.z,r:115,color:'#a156ff',kind:'campaign-rift',yaw:0,pitch:0,life:1,maxLife:1}];
+   if(t===1)king.hp=0;
+  }
+  if(c.time>=6){const t=clamp((c.time-6)/4,0,1);for(let i=0;i<heroCount;i++){const h=s.players[i],from=c.heroes[i];h.x=from.x+(portalX-from.x)*t;h.z=from.z+(c.z-from.z)*t;h.y=430-30*t;h.yaw=Math.atan2(c.z-from.z,portalX-from.x)}}
+  if(c.time>=10){s.cutscene=null;s.cinematicText='';campaignStage(5)}
+ }
+ function stepVoid(p,dt){
+  const q=nearestHero(p);p.yaw=Math.atan2(q.z-p.z,q.x-p.x);p.phase=p.hp<p.maxHp*.5?2:1;p.attackClock-=dt;
+  if(p.attackClock>0)return;p.attackClock=p.phase===2?2.7:4;
+  const attack=p.attackCycle++%3;
+  if(attack===0){
+   for(let j=-3;j<=3;j++)api.bolt(p,Math.atan2(q.y-p.y,Math.hypot(q.x-p.x,q.z-p.z)),{style:'void-orb',speed:170,damage:14,r:9,yawOffset:j*.17,color:'#a987ff',life:5});
+   fx(p.x,p.y-45,70,'#aa77ff','void-eye-beam',p.z,p.yaw,0,1);
+  }else{
+   const x=q.x,z=q.z,r=attack===1?100:155;
+   let done=false;
+   api.zone(p,x,430,r,1.6,1.4,(w,o)=>{if(done||o.hp<=0)return;done=true;
+    for(const e of w.enemies(o))if(Math.hypot(e.x-x,e.z-z)<r&&Math.abs(e.y-430)<70){w.hurt(e,attack===1?32:22);if(attack===2){w.blink(e,(x-e.x)*.65,-20,(z-e.z)*.65);w.status(e,'slow',1.5)}}
+    fx(x,430,r,'#a987ff',attack===1?'tentacle-field':'lapse-blue',z,0,0,1.1);
+   },'#a987ff',z,'void-warning');
+  }
  }
  function stepKing(p,dt){
-  const q=s.players[0],dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);
+  const q=nearestHero(p),dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);
   p.yaw=Math.atan2(dz,dx);p.phase=p.hp<p.maxHp*.45?2:1;
   const speed=p.phase===2?65:45;
   if(d>100)move(p,dx/Math.max(1,d)*speed*dt,0,dz/Math.max(1,d)*speed*dt);
@@ -434,6 +488,7 @@ export function createGame(settings,loadouts,mode){
  if(mode==='campaign')campaignStage(1);
  function tick(dt){
   if(s.over)return;
+  if(s.cutscene){riftTick(dt);return}
   const previousSecond=Math.floor(s.time+1e-8);
   s.time+=dt;
   const second=Math.floor(s.time+1e-8);
@@ -441,17 +496,22 @@ export function createGame(settings,loadouts,mode){
   const manaFraction=(second-previousSecond)*.005+pulses*.1;
   for(const [i,p] of s.players.entries()){
    if(p.hp<=0)continue;const st=p.statuses;
-   if(p.weapon&&(s.time>=p.weapon.until||(!p.weapon.strikes&&s.time>=p.weapon.ready)))p.weapon=null;
+   if(p.weapon){
+    const held=p.weapon;
+    if(held.hitAt!==undefined&&s.time>=held.hitAt){delete held.hitAt;if(!(st.silence>0))meleeImpact(p,held)}
+    if(held.queued&&s.time>=held.ready){held.queued=false;if(held.strikes>0)command(i,p.ids.indexOf(held.id))}
+    if((s.time>=held.until&&s.time>=held.ready)||(!held.strikes&&s.time>=held.ready))p.weapon=null;
+   }
    for(const k of Object.keys(st))st[k]=Math.max(0,st[k]-dt);
    if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt);
    if(manaFraction)p.mana=Math.min(p.maxMana,p.mana+p.maxMana*manaFraction);
-   if(p.boss){stepKing(p,dt);continue}
+   if(p.boss){if(p.voidBoss)stepVoid(p,dt);else stepKing(p,dt);continue}
    if(p.store>=0&&!(st.silence>0)){
     const slot=p.store,cost=byId.get(p.ids[slot]).cost,deposit=Math.min(p.mana,p.maxMana/20*dt,cost-p.bank[slot]);
     p.mana-=deposit;p.bank[slot]+=deposit;if(p.bank[slot]>=cost-.00001){p.bank[slot]=cost;p.store=-1}
    }
    if(p.bot){
-    const q=s.players[0],dx=q.x-p.x,dy=q.y-p.y,dz=q.z-p.z,dist=Math.hypot(dx,dz),active=mode!=='sandbox';
+    const q=nearestHero(p),dx=q.x-p.x,dy=q.y-p.y,dz=q.z-p.z,dist=Math.hypot(dx,dz),active=mode!=='sandbox';
     input(i,active&&dist>170?1:0,active&&p.ground&&(Math.hypot(p.vx,p.vz)<30||dy< -25),Math.atan2(dy,dist),active?.35*Math.sin(s.time+i):0,Math.atan2(dz,dx));
     p.brain-=dt;if(mode!=='sandbox'&&p.brain<=0){p.brain=1.2+Math.random()*1.2;const options=p.ids.map((id,k)=>byId.get(id).cost<=p.mana?k:-1).filter(k=>k>=0);if(options.length)command(i,options[Math.floor(Math.random()*options.length)])}
    }
@@ -496,10 +556,16 @@ export function createGame(settings,loadouts,mode){
    for(let i=0;i<n&&!b.dead;i++){
     const ox=b.x,oy=b.y,oz=b.z;b.z+=b.vz*dt/n;b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
     const target=candidates.find(q=>{
-     const size=q.boss?48:q.kind==='purple-wurm'?30:8,reach=size+b.r;
+     const size=q.voidBoss?76:q.boss?48:q.kind==='purple-wurm'?30:8,reach=size+b.r;
      return q.hp>0&&Math.abs(q.y-13-b.y)<size+6+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q);
     });
-    if(b.terrainPierce)tileDamage(b.x,b.y,Math.max(8,b.r),200,b.z);
+    if(b.terrainPierce){
+     const cut=b.lastCut;
+     // Overlapping cuts retain a continuous tunnel without rescanning it every substep.
+     if(!cut||(b.x-cut.x)**2+(b.y-cut.y)**2+(b.z-cut.z)**2>=16){
+      tileDamage(b.x,b.y,Math.max(8,b.r),200,b.z);b.lastCut={x:b.x,y:b.y,z:b.z};
+     }
+    }
     const wall=!b.terrainPierce&&solid(b.x,b.y,b.z),hitX=wall&&solid(b.x,oy,oz),hitZ=wall&&solid(ox,oy,b.z);
     if(!wall&&!target&&!(b.impactY!==undefined&&oy<b.impactY&&b.y>=b.impactY)){
      const spike=s.zones.find(t=>t.style==='spikes'&&t.hp>0&&Math.hypot(t.x-b.x,t.z-b.z)<spellRadius(16)+b.r&&b.y>=t.y-t.r-b.r&&b.y<=t.y+b.r);
@@ -543,17 +609,18 @@ export function createGame(settings,loadouts,mode){
   if(mode==='multi'){
    const alive=new Set(s.players.filter(p=>p.hp>0).map(p=>p.side));
    if(alive.size<=1)s.over=alive.size?['Blue','Red','Gold'][[...alive][0]]+(loadouts.length>3?' team wins':' wizard wins'):'Draw';
-  }else if(s.players[0].hp<=0)s.over='The tower falls';
+  }else if(mode==='campaign'?!livingHeroes().length:s.players[0].hp<=0)s.over='The tower falls';
   else if(mode==='waves'&&!enemies(s.players[0]).length){waveWait+=dt;if(waveWait>2){s.players.splice(1);inputs.splice(1);startWave()}}
   else if(mode==='campaign'&&!enemies(s.players[0]).length){
    waveWait+=dt;
    if(waveWait>3){
-    if(s.stage===4)s.over='The Crimson King has fallen';
-    else if(s.wave<2){s.players.splice(1);inputs.splice(1);campaignWave()}
+    if(s.stage===8)s.over='The void is silenced. Your journey is complete.';
+    else if(s.stage===4)beginRift();
+    else if(s.wave<2){s.players.splice(heroCount);inputs.splice(heroCount);campaignWave()}
     else campaignStage(s.stage+1);
    }
   }
  }
- function snapshot(includeTiles=true){return {time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

@@ -419,5 +419,11 @@ export function makeSpellModels({joint,part,shape,mat}){
  models['king-warning']=g=>{for(let i=0;i<3;i++){const r=rim(g,0xff3758,0,.02,1-i*.14,1-i*.14);r.rotation.x=Math.PI/2}};
  models['king-slam']=g=>{for(let i=0;i<12;i++){const a=i*Math.PI/6;piece(g,'cone',0xff5874,Math.cos(a)*.8,.2,Math.sin(a)*.8,.13,.7,.13,0,true)}};
  models['king-volley']=g=>{for(let i=0;i<4;i++)fire(g,(i-1.5)*.3,0)};
+ models['campaign-rift']=g=>{
+  piece(g,'ball',0x170c2f,0,0,0,.82,1.1,.05);
+  const rings=[];for(let i=0;i<4;i++){const r=rim(g,i%2?0xbc7aff:0x7436db,0,0,.85+i*.07,1.1+i*.07);rings.push(r)}
+  return t=>rings.forEach((r,i)=>{r.rotation.z=t*(i%2?1:-1)*.3;r.scale.x=1+Math.sin(t*2+i)*.04});
+ };
+ models['void-warning']=g=>{const r=rim(g,0xbc79ff,0,.02,1,1);r.rotation.x=Math.PI/2;for(let i=0;i<8;i++){const a=i*Math.PI/4;gem(g,0xb79aff,Math.cos(a)*.8,.03,.06,.12)}};
  return models;
 }

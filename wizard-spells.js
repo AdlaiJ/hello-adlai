@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=crimson-campaign';
+import {extraSpells} from './wizard-extra-spells.js?v=less-lag';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
 export const spellRadius = radius => radius * 1.12;
 
@@ -673,7 +673,7 @@ const grandSpells = [
 
 function armament(id,name,symbol,cost,time,form,tint,strikes,reach,arc,damage,delay,trait,extra){
   const entry=spell('Summoning',id,name,symbol,cost,time,
-    'Summon for 12 seconds. Press this slot again to attack for free. '+strikes+' swings, '+damage+' damage each. '+extra,
+    'Summon for 12 seconds. Click the arena or press this slot again to swing for free. Hits land during the swing; press shortly before recovery ends to queue the next attack. '+strikes+' swings, '+damage+' damage each. '+extra,
     (api,p)=>{p.weapon={id,until:api.now()+12,strikes,ready:api.now(),swing:-1}});
   entry.melee={form,tint,reach,arc,damage,delay,trait};
   return entry;
