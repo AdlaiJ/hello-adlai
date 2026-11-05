@@ -201,8 +201,8 @@ document.addEventListener('mousemove',e=>{
 canvas.onpointerdown=e=>{
  if(page==='hud'&&e.button===0&&(state.players[me]?.bloodAmmo||state.players[me]?.onThrone||state.players[me]?.blocks?.length)){
   const {bloodAmmo,onThrone:sword}=state.players[me];
-  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);if(bloodAmmo)game.fireBlood(me);else if(sword)game.fireSword(me);else game.fireBlock(me)}
-  else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:bloodAmmo?'blood':sword?'sword':'block'})}
+  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);if(bloodAmmo)game.fireBlood(me);else if(sword)game.fireSword(me);else game.fireBlock(me)}
+  else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:bloodAmmo?'blood':sword?'sword':'block'})}
  }
  if(page!=='hud'||windowAim||document.pointerLockElement===canvas)return;canvas.setPointerCapture(e.pointerId);drag=[e.clientX,e.clientY]};
 canvas.onpointermove=e=>{if(!drag||page!=='hud'||windowAim||document.pointerLockElement===canvas)return;turn((e.clientX-drag[0])*.007,(e.clientY-drag[1])*.006);drag=[e.clientX,e.clientY]};
@@ -211,10 +211,10 @@ let prev=performance.now(),acc=0,uiClock=0;
 function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)/1000);prev=now;
  if(page!=='hud'){draw(null,0,0,0,now/1000);return}
  turn((Number(keys.has('arrowright'))-Number(keys.has('arrowleft')))*dt*2.1,(Number(keys.has('arrowdown'))-Number(keys.has('arrowup')))*dt*1.4);
- if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);acc+=dt;while(acc>=1/60){game.tick(1/60);acc-=1/60}}
+ if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);acc+=dt;while(acc>=1/60){game.tick(1/60);acc-=1/60}}
  netClock+=dt;if(mode==='multi'&&(netClock>=.05||state.over)){netClock=0;
   if(host){const tiles=[];for(const k of game.dirty){tiles.push([k,state.tiles[k]]);game.dirty.delete(k);if(tiles.length===160)break}room.send({t:'frame',state:game.snapshot(false),tiles})}
-  else room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw})}
+  else room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell})}
  if(!state||page!=='hud')return;
  cameraDistance+=(distances[zoomLevel]-cameraDistance)*(1-Math.exp(-14*dt));
  draw(state,me,yaw,angle,now/1000,cameraDistance);uiClock+=dt;if(uiClock>.1){hud();uiClock=0}if(state.over)finish();
