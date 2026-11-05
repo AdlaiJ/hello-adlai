@@ -1,24 +1,25 @@
-import {SPELLS} from './wizard-spells.js?v=void-wurm';
-import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=void-wurm';
+import {SPELLS} from './wizard-spells.js?v=channel-spells';
+import {MAPS,makeTiles,createGame} from './wizard-engine.js?v=channel-spells';
 
-import {markChangedChunk,T} from './wizard-world.js?v=void-wurm';
-import {openRoom} from './wizard-room.js?v=void-wurm';
+import {markChangedChunk,T} from './wizard-world.js?v=channel-spells';
+import {openRoom} from './wizard-room.js?v=channel-spells';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=void-wurm');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=channel-spells');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
 const seats=new Map(),sizes={'1v1':2,'1v1v1':3,'2v2':4,'3v3':6,'4v4':8};
 const colors=['Blue','Red','Gold'];
 const keys=new Set();
+let heldSpell=-1;
 for(const map of MAPS)$('map').add(new Option(map,map));
 const schools=[...new Set(SPELLS.map(s=>s.category))].sort();
 for(const cat of schools)$('school').add(new Option(cat,cat));
 function show(id){page=id;if(id!=='hud'&&windowAim)setWindowAim(false);if(id!=='hud'&&document.pointerLockElement===canvas)document.exitPointerLock();document.body.classList.toggle('playing',id==='hud');for(const x of ['home','setup','book','end','hud'])$(x).hidden=x!==id;document.querySelector('main').style.display=id==='hud'?'none':''}
-function clean(){room?.stop();room=null;game=state=null;code='';locked=false;seats.clear();me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
+function clean(){heldSpell=-1;room?.stop();room=null;game=state=null;code='';locked=false;seats.clear();me=0;keys.clear();message='';messageUntil=0;yaw=0;angle=0;armed=false}
 function setup(m){clean();mode=m;show('setup');$('formatLabel').hidden=m!=='multi';$('modeName').textContent={waves:'Singleplayer · Waves',multi:'Multiplayer · Room match',sandbox:'Sandbox · Training grounds'}[m];
  $('proceed').textContent=m==='multi'?'Create room':'Choose spells';$('joining').hidden=m!=='multi';$('setupStatus').textContent=m==='multi'?'The host sets the rules. Choose a match format and share the room word with your friends.':'Choose how many spells you want to bring.';$('join').disabled=$('proceed').disabled=false}
 $('multiplayer').onclick=()=>setup('multi');$('waves').onclick=()=>setup('waves');$('sandbox').onclick=()=>setup('sandbox');
@@ -57,16 +58,22 @@ function drawBook(){previewStarter();const list=$('cards');list.replaceChildren(
   if(!entries.length)continue;heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
   for(const s of entries){
  const i=selected.indexOf(s.id),b=document.createElement('button');b.setAttribute('aria-pressed',String(i>=0));b.disabled=locked||(i<0&&selected.length>=settings.count);
- const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+((i+1)%10)+'] ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+s.cost+' mana · '+(s.time?s.time+'s':'Instant');desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
+ const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+((i+1)%10)+'] ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+(s.channel?s.channel.mana+' mana/second · Hold to cast':s.cost+' mana · '+(s.time?s.time+'s':'Instant'));desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
  }
  $('selection').textContent=selected.length+' / '+settings.count+' bound';$('ready').disabled=locked||selected.length!==settings.count}
 $('school').onchange=drawBook;
 $('grandToggle').onclick=()=>{$('school').value=$('school').value==='grand'?'All':'grand';drawBook();$('cards').scrollTop=0};
 function validIds(ids){return Array.isArray(ids)&&ids.length===settings.count&&new Set(ids).size===ids.length&&ids.every(id=>spells.has(id))}
 function notify(text){message=text;messageUntil=performance.now()+1600}
-function start(){show('hud');keys.clear();armed=false;yaw=state.players[me].yaw;angle=0;netClock=0;
+function start(){heldSpell=-1;show('hud');keys.clear();armed=false;yaw=state.players[me].yaw;angle=0;netClock=0;
  $('practice').hidden=mode!=='sandbox';$('slots').replaceChildren();
- selected.forEach((id,i)=>{const b=document.createElement('button');b.onclick=()=>act(i);b.title=spells.get(id).description;$('slots').append(b)});hud()}
+ selected.forEach((id,i)=>{const b=document.createElement('button');if(spells.get(id).channel){
+  b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);holdSpell(i)};
+  b.onlostpointercapture=()=>releaseSpell(i);
+  b.onkeydown=e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();holdSpell(i)}};
+  b.onkeyup=e=>{if(e.key===' '||e.key==='Enter')releaseSpell(i)};
+  b.onblur=()=>releaseSpell(i);
+ }else b.onclick=()=>act(i);b.title=spells.get(id).description;$('slots').append(b)});hud()}
 function lobby(){
  const total=sizes[settings.format],joined=1+seats.size,ready=Number(locked)+[...seats.values()].filter(Boolean).length;
  const text=joined+' / '+total+' wizards joined · '+ready+' ready';
@@ -89,7 +96,7 @@ function network(isHost,word=''){
    if(!seats.has(seat))return;
    if(m.t==='ready'&&!game&&!seats.get(seat)&&validIds(m.ids)){seats.set(seat,m.ids);lobby();return}
    if(!game||game.state.over)return;
-   if(m.t==='input')game.input(seat,m.move,m.jump===true,m.angle,m.strafe,m.yaw);
+   if(m.t==='input')game.input(seat,m.move,m.jump===true,m.angle,m.strafe,m.yaw,m.channel);
    if(m.t==='blood')game.fireBlood(seat);
    if(m.t==='sword')game.fireSword(seat);
    if(m.t==='block')game.fireBlock(seat);
@@ -104,8 +111,17 @@ function network(isHost,word=''){
 $('proceed').onclick=()=>{settings=readSettings();if(!settings)return;if(mode==='multi')network(true);else book()};
 $('join').onclick=()=>{const word=$('word').value.trim().toLowerCase();if(!/^[a-z]{4,6}$/.test(word)){$('setupStatus').textContent='Enter the 4–6 letter room word.';return}network(false,word)};
 $('copy').onclick=async()=>{const url=new URL(location.href);url.search='';url.searchParams.set('room',code);try{await navigator.clipboard.writeText(url.href);$('bookStatus').textContent='Invite link copied.'}catch{$('bookStatus').textContent='Share room word '+code}};
-function act(i){if(page!=='hud'||!selected[i])return;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="blood-arsenal"&&p.bloodAmmo)&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
- if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw});room.send({t:'cast',slot:i,store})}}
+function holdSpell(i){
+ if(armed){armed=false;notify('Hold to cast this spell. It uses mana per second.');return}
+ heldSpell=i;
+}
+function releaseSpell(i){
+ if(heldSpell!==i)return;heldSpell=-1;
+ if(game)game.input(me,movement(),jumping(),angle,strafe(),yaw,-1);
+ else room?.send({t:'input',move:0,jump:false,angle,strafe:0,yaw,channel:-1});
+}
+function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).channel){holdSpell(i);return}heldSpell=-1;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="blood-arsenal"&&p.bloodAmmo)&&!(spell.id==="skull-throne"&&p.onThrone)&&!(spell.id==="quarry-volley"&&p.blocks?.length)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
+ if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:'cast',slot:i,store})}}
 function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  $('vitals').textContent=colors[p.side]+' · HP '+Math.ceil(p.hp)+' / '+p.maxHp+' · Mana '+Math.floor(p.mana)+' / '+p.maxMana+(p.shield?' · Shield '+Math.ceil(p.shield):'');
  $('opponent').textContent=mode==='waves'?'Wave '+state.wave:mode==='multi'?settings.format+' · '+(p.hp<=0?'Eliminated · ':'')+state.players.filter(q=>q.side!==p.side&&q.hp>0).length+' rivals alive':'Sandbox';
@@ -116,8 +132,8 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   const bearing=['ahead','ahead right','right','behind right','behind','behind left','left','ahead left'][(Math.round(turn/(Math.PI/4))%8+8)%8];
   $('opponent').textContent+=' · '+(rival.monster?'Monster ':'Rival ')+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
- $('signal').textContent=armed?'STORE · Choose a spell':p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
- selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent='Blood Arsenal · '+p.bloodAmmo+' left';if(id==='skull-throne'&&p.onThrone)b.textContent='Click to fire crimson swords';if(id==='quarry-volley'&&p.blocks?.length)b.textContent='Click to fire · '+p.blocks.length+' blocks';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
+ $('signal').textContent=armed?'STORE · Choose a spell':p.channel>=0?'Channeling '+spells.get(p.ids[p.channel]).name:p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
+ selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent='Blood Arsenal · '+p.bloodAmmo+' left';if(id==='skull-throne'&&p.onThrone)b.textContent='Click to fire crimson swords';if(id==='quarry-volley'&&p.blocks?.length)b.textContent='Click to fire · '+p.blocks.length+' blocks';if(s.channel)b.textContent=((i+1)%10)+' '+s.name+' · HOLD · '+s.channel.mana+' mana/s';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
 function finish(){show('end');$('result').textContent=state.over;$('resultInfo').textContent=mode==='waves'?'Reached wave '+state.wave+' in '+Math.floor(state.time)+' seconds.':settings.map+' · '+Math.floor(state.time)+' seconds';keys.clear()}
 $('dummy').onclick=()=>{if(game&&game.state.players.length<24)game.spawn()};
 $('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana};$('restore').onclick=()=>{state.tiles=makeTiles(settings.map);state.terrainVersion++};$('change').onclick=()=>{game=state=null;book()};
@@ -130,7 +146,10 @@ addEventListener('keydown',e=>{if(page!=='hud'||e.ctrlKey||e.metaKey||e.altKey)r
  if(k==='+'||k==='='||k==='-'){e.preventDefault();zoomBy(k==='-'?1:-1);return}
  if(k==='shift'){toggleShiftLock();return}
  if(k==='f')armed=!armed;else if(/^\d$/.test(k))act((Number(k)+9)%10);
-});addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));addEventListener('blur',()=>keys.clear());
+});addEventListener('keyup',e=>{keys.delete(e.key.toLowerCase());if(/^\d$/.test(e.key))releaseSpell((Number(e.key)+9)%10)});
+function clearHeld(){keys.clear();releaseSpell(heldSpell)}
+addEventListener('blur',clearHeld);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)clearHeld()});
 document.querySelectorAll('[data-control]').forEach(b=>{b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);keys.add(b.dataset.control)};b.onlostpointercapture=()=>keys.delete(b.dataset.control)});$('touchStore').onclick=()=>armed=!armed;
 let drag=null;
 const distances=[0,18,32,47,65,86,110,140,175];

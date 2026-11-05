@@ -1,6 +1,6 @@
-import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=void-wurm';
-import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=void-wurm';
-export {MAPS,makeTiles} from './wizard-world.js?v=void-wurm';
+import {bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=channel-spells';
+import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=channel-spells';
+export {MAPS,makeTiles} from './wizard-world.js?v=channel-spells';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
@@ -21,7 +21,7 @@ export function createGame(settings,loadouts,mode){
    p.yaw=Math.atan2(midZ-p.z,midX-p.x);
   });
  }else actor(0,midX-300,loadouts[0]);
- function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0){s.effects.push({x,y,z,r,color,kind,yaw,pitch,life:.45,maxLife:.45})}
+ function fx(x,y,r,color,kind='burst',z=midZ,yaw=0,pitch=0,duration=.45){s.effects.push({x,y,z,r,color,kind,yaw,pitch,life:duration,maxLife:duration})}
  const index=(x,y,z)=>Math.floor(x/T)+W*(Math.floor(y/T)+H*Math.floor(z/T));
  function solid(x,y,z){return x>=0&&x<W*T&&y>=0&&y<540&&z>=0&&z<D*T&&s.tiles[index(x,y,z)]>0}
  function setBlock(k,hp){if(s.tiles[k]===hp)return;s.tiles[k]=hp;s.terrainVersion++;markChangedChunk(s.changedChunks,k);if(mode==='multi')dirty.add(k)}
@@ -105,7 +105,10 @@ export function createGame(settings,loadouts,mode){
    for(let j=clamp(Math.floor((y-h/2)/T),0,H-1);j<=clamp(Math.floor((y+h/2)/T),0,H-1);j++)
    for(let i=clamp(Math.floor((x-halfX)/T),0,W-1);i<=clamp(Math.floor((x+halfX)/T),0,W-1);i++){
     if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-i*T-6)<14&&Math.abs(q.y-12-j*T-6)<22&&Math.abs(q.z-d*T-6)<14))setBlock((d*H+j)*W+i,26)}},
-  zone:(p,x,y,r,duration,interval,cb,color,z=p.z,style)=>s.zones.push({p,x,y,z,r:spellRadius(r),life:duration,interval,tick:interval,cb,color,style}),
+  zone:(p,x,y,r,duration,interval,cb,color,z=p.z,style)=>{
+   const zone={p,x,y,z,r:spellRadius(r),life:duration,interval,tick:interval,cb,color,style};
+   s.zones.push(zone);return zone;
+  },
   area:(p,x,y,r,n,color,z=p.z)=>{r=spellRadius(r);fx(x,y,r,color,'burst',z);tileDamage(x,y,r,n,z);for(const trap of s.zones){
     if(trap.style==='spikes'&&Math.hypot(trap.x-x,trap.y-12-y,trap.z-z)<=r+spellRadius(12))trap.hp-=n;
    }for(const q of enemies(p))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<=r+9)damage(q,n)},
@@ -119,7 +122,7 @@ export function createGame(settings,loadouts,mode){
   const f={id:++nextSummon,kind,familiar,owner,side:owner.side,x:owner.x,y:owner.y,z:owner.z,hp:28,maxHp:28,
    shield:0,statuses:{},vx:0,vy:0,vz:0,yaw:owner.yaw,time:0,duration,pulse:.35};
   if(kind==='purple-wurm'){f.hp=f.maxHp=220;f.burrowFloor=api.surface(f.x,f.z,0)??440;f.digClock=0;f.erupted=false}
-  if(kind==='void-entity'){f.hp=f.maxHp=85}
+  if(kind==='void-entity'){f.hp=f.maxHp=85;f.attackCycle=0}
   move(f,Math.cos(owner.yaw)*20,-12,Math.sin(owner.yaw)*20);s.summons.push(f);return f;
  }
  function stepWurm(f,foe,dt){
@@ -182,8 +185,32 @@ export function createGame(settings,loadouts,mode){
     const pitch=Math.atan2(foe.y-f.y,Math.max(1,Math.hypot(foe.x-f.x,foe.z-f.z)));
     f.yaw=Math.atan2(foe.z-f.z,foe.x-f.x);
     if(f.kind==='void-entity'){
-     for(const q of enemies(f))if(dist(q)<100&&api.clearLine(f,q))move(q,(f.x-q.x)*.12,0,(f.z-q.z)*.12);
-     api.bolt(f,pitch,{style:'void-orb',speed:210,damage:18,r:6,color:'#a38aff',onHit:(a,o,q)=>{if(q)a.status(q,'slow',2)}});
+     const attack=f.attackCycle++%4;f.pulse=2.4;
+     if(attack===0){
+      for(const yawOffset of [-.16,0,.16])api.bolt(f,pitch,{style:'void-orb',speed:210,damage:9,r:5,yawOffset,color:'#a38aff',onHit:(a,o,q)=>{if(q)a.status(q,'slow',1.5)}});
+     }else if(attack===1){
+      fx(f.x,f.y-12,23,'#dfbcff','void-eye-beam',f.z,f.yaw,pitch);
+      api.bolt(f,pitch,{style:'void-eye-beam',speed:650,life:1.1,damage:26,pierce:3,r:5,color:'#dfbcff'});
+     }else if(attack===2){
+      // Lunge toward the target before sweeping the nearby space.
+      const reach=Math.min(70,Math.max(0,dist(foe)-45));
+      move(f,Math.cos(f.yaw)*reach,0,Math.sin(f.yaw)*reach);
+      fx(f.x,f.y-12,65,'#bf79f2','void-tentacle-lash',f.z,f.yaw,0);
+      for(const q of enemies(f))if(dist(q)<78&&api.clearLine(f,q)){
+       damage(q,22);api.status(q,'root',.8);
+       const away=Math.max(1,Math.hypot(q.x-f.x,q.z-f.z));
+       move(q,(q.x-f.x)/away*22,-8,(q.z-f.z)/away*22);
+      }
+     }else{
+      const center={x:foe.x,y:foe.y-12,z:foe.z};let pulses=0;
+      api.zone(f,center.x,center.y,76,1.85,.3,(w,o,x,y,z)=>{
+       if(o.hp<=0||o.owner.hp<=0||o.statuses.silence>0)return;
+       for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<85&&w.clearLine({x,y:y+12,z},q)){
+        w.blink(q,(x-q.x)*.15,0,(z-q.z)*.15);
+       }
+       if(++pulses===6)w.area(o,x,y,76,30,'#b183ff',z);
+      },'#9563df',center.z,'void-gravity-burst');
+     }
     }else if(contact){
      if(dist(foe)>32){f.pulse=.1;continue}
      const blockedStrike=[.25,.5,.75].some(t=>solid(f.x+dx*t,f.y-12+(foe.y-f.y)*t,f.z+dz*t));
@@ -222,6 +249,7 @@ export function createGame(settings,loadouts,mode){
  function command(index,slot,store=false){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
   if(!Number.isInteger(slot)||!spell||s.over||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
+  if(spell.channel)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
   if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
   if(spell.id==='blood-arsenal'&&p.bloodAmmo)return fireBlood(index);
@@ -256,8 +284,11 @@ export function createGame(settings,loadouts,mode){
   p.castDuration=spell.cost>0?spell.time*price/spell.cost:spell.time;
   p.store=-1;p.mana=Math.max(0,p.mana-price);p.bank[slot]=0;p.pending=slot;p.castVisual=spell.id;p.castStarted=s.time;p.cast=Math.max(.016,p.castDuration);return true;
  }
- function input(i,forward,jump,pitch,strafe=0,yaw=0){
+ function input(i,forward,jump,pitch,strafe=0,yaw=0,channel=-1){
   const p=s.players[i];if(!p||![forward,pitch,strafe,yaw].every(Number.isFinite))return;
+  const wanted=Number.isInteger(channel)&&byId.get(p.ids[channel])?.channel?channel:-1;
+  if(wanted!==p.channelRequested){p.channelBlocked=false;p.channelClock=0}
+  p.channelRequested=wanted;p.channelUntil=s.time+.4;
   const len=Math.max(1,Math.hypot(forward,strafe));
   inputs[i]={move:(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len,strafe:(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len,jump:!!jump};
   p.yaw=yaw;p.aim=clamp(pitch,-1.45,1.45);
@@ -311,6 +342,17 @@ export function createGame(settings,loadouts,mode){
    }
    if(p.y>580){damage(p,22);p.x=midX+(p.side?300:-300);p.z=midZ;p.y=40;p.vy=0}
    if(p.rocketSpent&&p.ground)p.rocketSpent=false;
+   p.channel=-1;
+   const stream=byId.get(p.ids[p.channelRequested]);
+   if(stream?.channel&&p.channelUntil>s.time&&!p.channelBlocked&&p.hp>0&&p.cast<=0&&!(st.silence>0)){
+    p.store=-1;p.channelClock=(p.channelClock||0)-dt;
+    if(p.channelClock<=0){
+     const price=stream.channel.mana*stream.channel.interval;
+     if(p.mana+.00001<price)p.channelBlocked=true;
+     else{p.mana=Math.max(0,p.mana-price);stream.cast(api,p,p.aim);p.channelClock+=stream.channel.interval}
+    }
+    if(!p.channelBlocked)p.channel=p.channelRequested;
+   }
    if(p.pending>=0){p.cast=Math.max(0,p.cast-dt);if(!p.cast){const sp=byId.get(p.ids[p.pending]);p.pending=-1;fx(p.x,p.y-14,14,'#ffdc94','cast',p.z);sp.cast(api,p,p.aim)}}
   }
   stepFamiliars(dt);
@@ -358,6 +400,12 @@ export function createGame(settings,loadouts,mode){
      else{damage(victim,26);api.status(victim,'root',1.7)}
      fx(z.x,z.y-8,30,z.color,'burst',z.z)}
     continue;
+   }
+   if(z.style==='tornado'){
+    z.x+=z.vx*dt;z.z+=z.vz*dt;
+    if(z.x<20||z.x>W*T-20||z.z<20||z.z>D*T-20){z.life=0;continue}
+    const ground=api.surface(z.x,z.z,0);
+    if(ground!==null)z.y=ground;
    }
    z.tick-=dt;if(z.tick<=0){z.cb(api,z.p,z.x,z.y,z.z);z.tick+=z.interval}}
   s.zones=s.zones.filter(z=>z.life>0);for(const e of s.effects)e.life-=dt;s.effects=s.effects.filter(e=>e.life>0);

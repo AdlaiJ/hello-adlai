@@ -1,10 +1,10 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=void-wurm';
+import {makeSpellModels} from './wizard-spell-models.js?v=channel-spells';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {bloodWeapons,SPELLS} from './wizard-spells.js?v=void-wurm';
+import {bloodWeapons,SPELLS} from './wizard-spells.js?v=channel-spells';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=void-wurm';
+import {W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=channel-spells';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;
@@ -523,7 +523,7 @@ function makeSpellParts(scene){
     if(!b.props.has(e.kind))b.props.set(e.kind,buildProp(b.root,e.kind));
     const prop=b.props.get(e.kind);prop.visible=true;prop.scale.setScalar(e.r*Math.min(1,life*5));
     prop.rotation.set(0,-(e.yaw||0),-(e.pitch||0),'YXZ');
-    if(models[e.kind])prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
+    if(models[e.kind]&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
     if(typeof prop.userData.pose==='function')prop.userData.pose(1-life);
     if(e.kind==='shears')prop.userData.arms.forEach((arm,k)=>arm.rotation.y=(k?1:-1)*(.02+.57*Math.max(0,(life-.38)/.62)));
     if(e.kind==='bell')prop.rotation.z=.32*Math.sin(life*9);
@@ -837,7 +837,7 @@ export function makeRenderer(canvas){
    const r=getRig(i,a.side||0,a.outfit??(a.side?4:0));r.root.visible=a.hp>0&&!(hideLocal&&i===me);r.grounding.visible=r.root.visible;
    r.gauge.visible=r.root.visible&&!demo&&i!==me&&a.hp<a.maxHp;
    if(!r.root.visible)continue;
-   const cast=demo?(Math.cos((cycle-i*2)*Math.PI/2)*.5+.5):(a.cast>0?1:a.store>=0?.45:0);
+   const cast=demo?(Math.cos((cycle-i*2)*Math.PI/2)*.5+.5):(a.cast>0||a.channel>=0?1:a.store>=0?.45:0);
    animateWizard(r,a,clock,i,cast,state?.time??clock);r.root.scale.setScalar(demo?demoScale:1);
    if(r.gauge.visible){const fraction=clamp(a.hp/a.maxHp,0,1);r.gauge.position.copy(r.root.position);r.gauge.position.y+=34;r.gauge.quaternion.copy(camera.quaternion);r.hpBar.scale.x=11.4*fraction;r.hpBar.position.x=(fraction-1)*5.7}
    let floor=HEIGHT-a.y;

@@ -142,6 +142,28 @@ export function makeSpellModels({joint,part,shape,mat}){
    }));
   };
  };
+ models['void-eye-beam']=g=>{
+  box(g,0xb47aff,0,0,4,.14,.14);
+  box(g,white,0,0,3.8,.055,.055);
+  return u=>{g.scale.y=1+Math.sin(u*20)*.2};
+ };
+ models['void-tentacle-lash']=g=>{
+  const lashes=[];
+  for(let i=0;i<6;i++){
+   const arm=joint(g,0,0,0);arm.rotation.y=i*Math.PI/3;lashes.push(arm);
+   for(let j=0;j<5;j++)piece(arm,'ball',0x8751b0,j*.16,Math.sin(j*.6)*.1,0,.13-j*.02,.09,.09);
+  }
+  return u=>lashes.forEach((arm,i)=>arm.rotation.y=i*Math.PI/3+u*2.2);
+ };
+ models['void-gravity-burst']=g=>{
+  const rings=[];
+  for(let i=0;i<3;i++){
+   const ring=rim(g,0xa985ff,0,0,.35+i*.28,.35+i*.28);
+   ring.rotation.x=Math.PI/2+i*.3;rings.push(ring);
+  }
+  oval(g,0x20102f,0,.1,.18,.18,.18);
+  return u=>rings.forEach((ring,i)=>{ring.rotation.z=u*(i+1);ring.scale.setScalar(.7+.25*Math.sin(u*5+i))});
+ };
  models['undead-army']=g=>{
   for(let i=-1;i<=1;i++){
    skull(g,i*.55,.25-Math.abs(i)*.15);
@@ -149,5 +171,57 @@ export function makeSpellModels({joint,part,shape,mat}){
   }
   return u=>{g.position.y=u*.4;g.rotation.y=u*.6};
  };
+ function swirlingCone(g,cold){
+  const layers=[];
+  for(let i=0;i<7;i++){
+   const depth=(i+1)/8,layer=joint(g,depth,0,0);
+   const radius=depth*.5;
+   // Overlapping opaque clouds make a solid-looking, widening spell volume.
+   piece(layer,'ball',cold?0xc6e5f2:0xa8442f,0,0,0,.13,radius*.85,radius*.85);
+   for(let j=0;j<5;j++){
+    const angle=j*Math.PI*2/5+i*.7;
+    const tint=cold?(j%2?0xeafaff:0x8fc8e8):(j%3===0?0x663c43:j%2?0xffa631:0xf25b22);
+    piece(layer,'ball',tint,0,Math.sin(angle)*radius*.62,Math.cos(angle)*radius*.62,
+     .16,radius*.62,radius*.62,0,!cold&&j%3!==0);
+   }
+   layers.push(layer);
+  }
+  return u=>layers.forEach((layer,i)=>{
+   layer.rotation.x=u*12*(i%2?1:-1)+i*.4;
+   layer.position.x=(i+1)/8+Math.sin(u*18-i)*.025;
+   const pulse=1+Math.sin(u*22-i*.7)*.08;
+   layer.scale.set(1,pulse,pulse);
+  });
+ }
+ models['cold-cone-stream']=g=>swirlingCone(g,true);
+ models['fire-cone-stream']=g=>swirlingCone(g,false);
+ models['tornado']=g=>{
+  const bands=[],debris=[];
+  for(let i=0;i<9;i++){
+   const y=i*.17,width=.13+i*.075,band=joint(g,0,y,0);
+   for(let j=0;j<5;j++){
+    const a=j*Math.PI*2/5;
+    piece(band,'ball',i%2?0x9baebb:0xc8dce3,Math.cos(a)*width,0,Math.sin(a)*width,width*.62,.12,width*.62);
+   }
+   bands.push(band);
+  }
+  for(let i=0;i<10;i++){
+   const chunk=piece(g,'box',i%2?0x857464:0x777e89,0,0,0,.06,.05,.08);
+   debris.push(chunk);
+  }
+  return t=>{
+   bands.forEach((band,i)=>{
+    band.rotation.y=t*(5+i*.25);
+    band.position.x=Math.sin(t*2-i*.3)*i*.012;
+   });
+   debris.forEach((chunk,i)=>{
+    const h=(t*.45+i/10)%1,r=.18+h*.65,a=t*6+i*2.4;
+    chunk.position.set(Math.cos(a)*r,h*1.6,Math.sin(a)*r);
+    chunk.rotation.set(t*3+i,t*4,t*2);
+   });
+  };
+ };
+ models.frack=g=>{gem(g,0xb59a80,0,0,.5,.8);gem(g,0x796e65,-.4,.1,.25,.4)};
+ models['fire-jet']=g=>{fire(g,0,0);fire(g,-.3,0)};
  return models;
 }

@@ -90,15 +90,13 @@ export function extraSpells(){
    if(d>reach||d>0&&(x*dx+y*dy+z*dz)/d<Math.cos(spread)||!a.clearLine(p,q))continue;
    a.hurt(q,cold?24:30);a.status(q,cold?'slow':'burn',cold?4:3);
   }
-  for(let i=0;i<16;i++){
-   const yaw=p.yaw+Math.sin(i*2.4)*spread*.75,tilt=pitch+Math.cos(i*2.4)*spread*.45,d=25+i*6;
-   a.fx(p.x+Math.cos(tilt)*Math.cos(yaw)*d,p.y-12+Math.sin(tilt)*d,8+i*.6,cold?'#a1eaff':'#ff7335',cold?'cone-of-cold':'cone-of-fire',p.z+Math.cos(tilt)*Math.sin(yaw)*d,yaw,tilt);
-  }
+  a.fx(p.x,p.y-12,125/1.12,cold?'#a1eaff':'#ff7335',
+   cold?'cold-cone-stream':'fire-cone-stream',p.z,p.yaw,pitch,1.2);
  }
  school('Evocation','fountain','#9eeaff');
- add('Cone of Cold','❄',38,.65,'Sweep a 125-unit cone for 24 damage and slow enemies for four seconds. Cover blocks the frost.',(a,p,t)=>cone(a,p,t,true));
+ add('Cone of Cold','❄',38,.65,'Unleash a dense swirling cone of icy mist, reaching 125 units for 24 damage and slow enemies for four seconds. Cover blocks the frost.',(a,p,t)=>cone(a,p,t,true));
  school('Evocation','fountain','#ff863f');
- add('Cone of Fire','♨',42,.8,'Sweep a 125-unit cone for 30 damage and ignite enemies for three seconds. Cover blocks the flames.',(a,p,t)=>cone(a,p,t,false));
+ add('Cone of Fire','♨',42,.8,'Unleash a dense swirling cone of flame and smoke, reaching 125 units for 30 damage and ignite enemies for three seconds. Cover blocks the flames.',(a,p,t)=>cone(a,p,t,false));
  add('Incendiary Volley','⁂',88,1.3,'Launch five explosive firebolts in a spread. Each deals 10 impact and 10 splash damage, and ignites direct hits for three seconds.',(a,p,t)=>{
   for(let i=-2;i<=2;i++)shot(a,p,t,'incendiary-volley',{speed:290,damage:10,blast:24,yawOffset:i*.12,onHit:(w,o,q)=>{if(q)w.status(q,'burn',3)}});
  });
@@ -126,7 +124,7 @@ export function extraSpells(){
  school('Summoning','flock','#b983ef');
  add('Summon Purple Wurm','♜',360,3.5,'Summon a massive purple wurm with 220 health for 20 seconds. It tunnels through blocks, erupts every five seconds for 32 area damage and launches enemies upward, then bites for 24 damage.',(a,p)=>a.summon(p,'purple-wurm',20));
  school('Summoning','vortex','#9a8bff');
- add('Summon Void Entity','◈',480,4,'Summon a floating void entity with 85 health for 20 seconds. It pulls nearby enemies inward and fires slowing void orbs for 18 damage.',(a,p)=>a.summon(p,'void-entity',20));
+ add('Summon Void Entity','◈',480,4,'Summon a floating void entity with 85 health for 20 seconds. It cycles through a slowing three-orb volley, a piercing eye beam, a rooting tentacle sweep, and a delayed gravity explosion that pulls enemies inward.',(a,p)=>a.summon(p,'void-entity',20));
  school('Summoning','ribs','#b6e4b0');
  add('Undead Army','☠',800,6,
   'Raise twelve undead for 25 seconds: six skeleton swordsmen, four skeletal archers, and two life-draining wraiths. Each has 28 health. They hunt enemies and can be killed.',
@@ -142,5 +140,35 @@ export function extraSpells(){
     }
    }finally{p.yaw=yaw}
   });
+ school('Evocation','vortex','#b7dbe7');
+ add('Tornado','🌪',220,2.5,
+  'Send a tornado forward for eight seconds. It pulls enemies into its 90-unit reach, lifts them, deals 6 damage every half second, and shreds terrain.',
+  (a,p)=>{
+   const yaw=p.yaw,x=p.x+55*Math.cos(yaw),z=p.z+55*Math.sin(yaw);
+   const floor=a.surface(x,z,0)??p.y;
+   const storm=a.zone(p,x,floor,80,8.05,.5,(w,o,cx,cy,cz)=>{
+    w.cutTerrain(cx,cy-12,32,28,cz);
+    for(const q of w.enemies(o)){
+     const dx=cx-q.x,dz=cz-q.z,d=Math.hypot(dx,dz);
+     if(d>90||Math.abs(q.y-cy)>130||!w.clearLine({x:cx,y:cy,z:cz},q))continue;
+     const scale=Math.min(1,20/Math.max(1,d));
+     w.blink(q,dx*scale-dz*.08,0,dz*scale+dx*.08);
+     q.vy=-240;q.ground=false;w.hurt(q,6);
+    }
+   },'#b7dbe7',z,'tornado');
+   storm.vx=Math.cos(yaw)*48;storm.vz=Math.sin(yaw)*48;
+  });
+
+ school('Evocation','fault','#d9b18a');
+ add('Frack','⛏',16,0,'Hold this spell key or button to spray piercing rock shards at 16 mana per second. Each shard deals 4 damage and breaks blocks.',(a,p,t)=>{
+  shot(a,p,t,'frack',{speed:430,damage:4,r:3,pierce:1,life:.75});
+ });
+ book.at(-1).channel={mana:16,interval:.15};
+ school('Evocation','fountain','#ff8a3c');
+ add('Fire Jet','♨',22,0,'Hold this spell key or button to pour out a short-range stream of flame at 22 mana per second. Each flame deals 3 damage and refreshes a brief burn.',(a,p,t)=>{
+  shot(a,p,t,'fire-jet',{speed:280,damage:3,r:6,life:.45,onHit:(w,o,q)=>{if(q)w.status(q,'burn',.5)}});
+  a.fx(p.x,p.y-12,100/1.12,'#ff8338','fire-cone-stream',p.z,p.yaw,t,.18);
+ });
+ book.at(-1).channel={mana:22,interval:.15};
  return book;
 }
