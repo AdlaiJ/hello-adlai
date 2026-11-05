@@ -1,4 +1,6 @@
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=secret-four';
+import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=starfall-faults';
+export {dungeonTiles};
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=starfall-faults';
 import {W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=keyboard-play';
 export {MAPS,makeTiles} from './wizard-world.js?v=keyboard-play';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -76,27 +78,35 @@ export function createGame(settings,loadouts,mode){
   blink:move,hurt:damage,cutTerrain:tileDamage,
   stopTime(p){s.timeStop={side:p.side,until:s.time+5};fx(p.x,p.y-15,100,'#a7e8ff','timestop',p.z,0,0,5)},
   dungeon(p){
-   const cx=clamp(Math.floor((p.x+150*Math.cos(p.yaw))/T),15,W-16),cz=clamp(Math.floor((p.z+150*Math.sin(p.yaw))/T),15,D-16);
-   const floor=api.surface(cx*T,cz*T,p.y-60);if(floor===null)return;
-   const fy=Math.floor(floor/T),occupants=api.occupants();
-   for(let x=-12;x<=12;x++)for(let z=-12;z<=12;z++){
-    const edge=Math.abs(x)===12||Math.abs(z)===12;
-    const entrance=(Math.abs(x)<=1||Math.abs(z)<=1)&&edge;
-    const divider=!edge&&x%4===0&&Math.abs(z)<11&&Math.abs(z-((x/4)%2===0?7:-7))>1;
-    const wall=(edge&&!entrance)||divider;
-    for(let y=0;y<5;y++){
-     const wx=(cx+x)*T,wz=(cz+z)*T,wy=(fy-y)*T;if(wy<0)continue;
-
-     if((y===0||wall)&&occupants.some(q=>Math.abs(q.x-wx-6)<16&&Math.abs(q.z-wz-6)<16&&Math.abs(q.y-12-wy-6)<28))continue;
-     setBlock(((cz+z)*H+fy-y)*W+cx+x,y===0||wall?42:0);
+   const seed=(Math.floor(Math.random()*0x7ffffffe)+1)>>>0;
+   s.dungeonSeed=seed;s.tiles=dungeonTiles(seed);s.changedChunks=new Map();s.terrainVersion++;dirty.clear();
+   s.summons=s.summons.filter(f=>!f.dungeonPost);s.zones=s.zones.filter(z=>!z.dungeonFixture);
+   const floor=FLOOR*T;
+   for(const q of api.occupants())placeInDungeon(q);
+   for(let i=0;i<COLS*ROWS;i++){
+    const x=(i%COLS*CW+CW/2+.5)*T,z=(Math.floor(i/COLS)*CD+CD/2+.5)*T;
+    if(i%3===seed%3){api.spike(p,x+T*2,floor,z);Object.assign(s.zones.at(-1),{life:60,armedAt:s.time+1,dungeonFixture:true})}
+    if(i%8===seed%8){const f=summon(p,i%16<8?'squire':'archer',60);Object.assign(f,{x,y:floor,z,dungeonPost:{x,y:floor,z}})}
+    if(i%4===0){api.zone(p,x-3*T,floor,20,90,100,()=>{},'#b97dff',z+2*T,i%12===0?'dungeon-brazier':i%12===4?'dungeon-reliquary':'dungeon-standard');s.zones.at(-1).dungeonFixture=true}
+   }
+   fx(p.x,p.y-8,38,'#c28cff','dungeon-master',p.z,0,0,1.5);
+  },
+  reshapeGround(x,y,z,radius,depth){
+   // Positive depth cuts a bowl. Negative depth builds a ridge out of solid tiles.
+   const floor=clamp(Math.floor(y/T),1,H-1),actors=depth<0?api.occupants():[];
+   for(let col=Math.max(0,Math.floor((x-radius)/T));col<=Math.min(W-1,Math.floor((x+radius)/T));col++){
+    for(let row=Math.max(0,Math.floor((z-radius)/T));row<=Math.min(D-1,Math.floor((z+radius)/T));row++){
+     const wx=(col+.5)*T,wz=(row+.5)*T,falloff=1-((wx-x)**2+(wz-z)**2)/(radius*radius);
+     if(falloff<=0)continue;
+     const end=clamp(floor+Math.sign(depth)*Math.ceil(Math.abs(depth)*falloff),1,H-1);
+     const tileAt=level=>(row*H+level)*W+col;
+     if(depth>0){for(let level=floor;level<end;level++)setBlock(tileAt(level),0);if(!s.tiles[tileAt(end)])setBlock(tileAt(end),72)}
+     else for(let level=end;level<=floor;level++){
+      if(actors.some(q=>Math.abs(q.x-wx)<12&&Math.abs(q.z-wz)<12&&Math.abs(q.y-12-(level+.5)*T)<22))continue;
+      if(!s.tiles[tileAt(level)])setBlock(tileAt(level),72);
+     }
     }
    }
-   for(let i=0;i<6;i++){
-    const x=(cx-10+i*4)*T+6,z=(cz+(i%2?5:-5))*T+6;
-    api.spike(p,x,floor,z);
-    const monster=summon(p,i%2?'archer':'squire',35);monster.x=x;monster.z=(cz+(i%2?-7:7))*T+6;monster.y=floor-1;
-   }
-   fx(cx*T,floor-3,150,'#b3b98c','dungeon-master',cz*T,0,0,1);
   },
   wallwalk(p){if(!blocked(p.x,p.y,p.z))wallSafe.set(p,{x:p.x,y:p.y,z:p.z});api.status(p,'wallwalk',6)},
   stoneCoffin(q){
@@ -153,7 +163,7 @@ export function createGame(settings,loadouts,mode){
   },
   spike:(owner,x,y,z)=>s.zones.push({p:owner,x,y,z,r:spellRadius(28),life:14,hp:18,style:'spikes',color:'#f3dfa7'}),
   occupants:()=>s.players.concat(s.summons).filter(q=>q.hp>0),
-  surface:(x,z,y)=>{for(let j=clamp(Math.floor(y/T),0,H-1);j<H;j++)if(solid(x,j*T,z)&&!solid(x,j*T-1,z))return j*T;return null},
+  surface:(x,z,y)=>{for(let j=clamp(Math.floor(y/T),s.dungeonSeed?20:0,H-1);j<H;j++)if(solid(x,j*T,z)&&!solid(x,j*T-1,z))return j*T;return null},
   bone:(x,y,z)=>{if(x<0||x>=W*T||z<0||z>=D*T||y<0||y>=H*T||solid(x,y,z))return;
    if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-x)<17&&Math.abs(q.z-z)<17&&Math.abs(q.y-12-y)<24))setBlock(index(x,y,z),186)},
   build:(p,x,y,w,h,z=p.z)=>{
@@ -273,7 +283,7 @@ export function createGame(settings,loadouts,mode){
    }
    const support=f.kind==='medic'||f.kind==='bastion';
    const chasing=!support&&foe&&dist(foe)<400;
-   const target=chasing&&!f.familiar?foe:f.owner,dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
+   const target=chasing&&!f.familiar?foe:(f.dungeonPost||f.owner),dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
    const contact=f.kind==='squire'||f.kind==='wraith';
    const hold=chasing&&!f.familiar?(contact?14:f.kind==='archer'?165:105):22;
    const grounded=f.kind==='squire'||f.kind==='archer';
@@ -436,6 +446,10 @@ export function createGame(settings,loadouts,mode){
   inputs[i]={move:(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len,strafe:(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len,jump:!!jump};
   p.yaw=yaw;p.aim=clamp(pitch,-1.45,1.45);
  }
+ function placeInDungeon(q){
+  q.y=FLOOR*T;q.vy=0;q.ground=true;
+  if(blocked(q.x,q.y,q.z)){q.x=(clamp(Math.floor(q.x/(CW*T)),0,COLS-1)*CW+CW/2+.5)*T;q.z=(clamp(Math.floor(q.z/(CD*T)),0,ROWS-1)*CD+CD/2+.5)*T}
+ }
  function spawn(){
   const pool=SPELLS.filter(sp=>['glass-fan','north-star','corner-pocket','root-needle'].includes(sp.id)&&sp.cost<=maxMana);
   const wizard=s.players[0],bearing=wizard.yaw+(Math.random()-.5)*1.8,range=mode==='sandbox'?150:340+Math.random()*110;
@@ -444,6 +458,7 @@ export function createGame(settings,loadouts,mode){
   p.z=clamp(wizard.z+range*Math.sin(bearing),18,D*T-18);
   p.y=120;
   while(p.y<480&&!blocked(p.x,p.y+4,p.z))p.y+=4;
+  if(s.dungeonSeed)placeInDungeon(p);
   p.hp=p.maxHp=mode==='sandbox'?150:44+8*s.wave;return p;
  }
  function startWave(){s.wave++;for(let i=0;i<Math.min(1+Math.floor(s.wave/2),6);i++)spawn();waveWait=0}
@@ -458,7 +473,7 @@ export function createGame(settings,loadouts,mode){
   }
  }
  function campaignStage(stage){
-  s.timeStop=null;s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
+  s.dungeonSeed=0;s.timeStop=null;s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
   s.map=campaignMaps[stage-1];s.tiles=campaignTiles(s.map,stage);s.terrainVersion++;dirty.clear();
   s.changedChunks=new Map();s.players.splice(heroCount);inputs.splice(heroCount);s.summons=[];s.shots=[];s.zones=[];s.effects=[];
   const p=s.players[0];Object.assign(p,{x:midX-150,z:midZ,y:200,vx:0,vy:0,vz:0,hp:p.maxHp,mana:p.maxMana,shield:0,statuses:{},cast:0,pending:-1,store:-1,blocks:[],bloodAmmo:0,weapon:null,throneVolley:0,onThrone:false});
@@ -671,7 +686,8 @@ export function createGame(settings,loadouts,mode){
   s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){if(frozen(z.p))continue;z.life-=dt;
    if(z.style==='spikes'){
     if(z.hp<=0||!solid(z.x,z.y+1,z.z)){z.life=0;fx(z.x,z.y-9,16,z.color,'burst',z.z);continue}
-    const victim=api.occupants().find(q=>Math.hypot(q.x-z.x,q.z-z.z)<=spellRadius(24)&&q.y>=z.y-spellRadius(26)&&q.y<=z.y+5);
+    if(z.armedAt>s.time)continue;
+    const victim=api.occupants().find(q=>(!z.dungeonFixture||q.side!==z.p.side)&&Math.hypot(q.x-z.x,q.z-z.z)<=spellRadius(24)&&q.y>=z.y-spellRadius(26)&&q.y<=z.y+5);
     if(victim){z.life=0;if(victim.side===z.p.side){victim.vy=-440;victim.ground=false}
      else{damage(victim,26,z.p);api.status(victim,'root',1.7)}
      fx(z.x,z.y-8,30,z.color,'burst',z.z)}
@@ -702,6 +718,6 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
- function snapshot(includeTiles=true){return {timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,life})=>({x,y,z,r,color,style,hp,yaw,rivers,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

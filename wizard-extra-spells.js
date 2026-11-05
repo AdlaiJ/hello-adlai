@@ -8,7 +8,7 @@ export function extraSpells(){
   book.push({id,name,symbol,cost,time,description,category,design:{motion,color:spellColor},cast(api,p,pitch){
    const reach=id==='thunder-tongs'?42:18;
    const offset=id==='thunder-tongs'?0:18;
-   if(id!=='smoky-tentacle')api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
+   if(!['smoky-tentacle','asteroid-strike','cataclysm'].includes(id))api.fx(p.x+Math.cos(p.yaw)*offset,p.y-18,reach,spellColor,id,p.z+Math.sin(p.yaw)*offset,p.yaw,pitch);
    cast(api,p,pitch);
   }});
  }
@@ -310,21 +310,47 @@ export function extraSpells(){
  school('Hexes','orbit','#9bdfff');
  add('Timestop','◷',200,1.2,'Freeze enemy wizards, monsters, projectiles and spell fields for five seconds. You and your allies can move and attack freely.',(a,p)=>a.stopTime(p));
  school('Evocation','fall','#ff9c59');
- add('Asteroid Strike','☄',450,3,'Call a massive asteroid onto the ground ahead. A 1.8-second warning precedes a 120-damage impact across a 160-unit radius that shatters terrain.',(a,p,pitch)=>{
-  const distance=Math.max(100,Math.min(350,250-pitch*140)),x=p.x+Math.cos(p.yaw)*distance,z=p.z+Math.sin(p.yaw)*distance,y=a.surface(x,z,p.y-100);if(y===null)return;
-  a.fx(x,y,90,'#ff9c59','asteroid-strike',z,0,0,1.8);a.fx(x,y-2,160,'#ff9c59','tentacle-warning',z,0,0,1.8);
-  let hit=false;a.zone(p,x,y,1,1.9,1.8,(w,o)=>{if(hit)return;hit=true;w.area(o,x,y-15,160,120,'#ffbc75',z)},'#ff9c59',z,'tentacle-timer');
+ add('Asteroid Strike','☄',450,3,'A falling asteroid drags enemies toward its landing site for 1.8 seconds. Impact deals 120 damage and carves a deep crater. Its exposed core pulls nearby enemies back toward the bottom for six seconds.',(a,p,pitch)=>{
+  const distance=Math.max(100,Math.min(350,250-pitch*140));
+  const x=p.x+Math.cos(p.yaw)*distance,z=p.z+Math.sin(p.yaw)*distance,y=a.surface(x,z,p.y-100);
+  if(y===null)return;
+  function pull(w,owner,height,radius,strength){
+   for(const q of w.enemies(owner)){
+    const dx=x-q.x,dz=z-q.z,d=Math.hypot(dx,dz);
+    if(d<1||d>radius||Math.abs(q.y-height)>100)continue;
+    const stride=Math.min(d,strength*(1-.65*d/radius));w.blink(q,dx/d*stride,0,dz/d*stride);
+   }
+  }
+  a.fx(x,y,90,'#ff9c59','asteroid-strike',z,0,0,1.8);
+  a.fx(x,y-2,160,'#ff9c59','tentacle-warning',z,0,0,1.8);
+  let beats=0;
+  a.zone(p,x,y,1,1.85,.15,(w,o)=>{
+   pull(w,o,y,185,10);if(++beats!==12)return;
+   for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-12-y,q.z-z)<=170)w.hurt(q,120);
+   w.reshapeGround(x,y,z,145,6);
+   const bottom=w.surface(x,z,y-1)??y;
+   w.zone(o,x,bottom-10,26,6,.25,(v,owner)=>pull(v,owner,bottom,135,12),'#88d9ff',z,'asteroid-core');
+  },'#ff9c59',z,'tentacle-timer');
  });
  school('Summoning','orbit','#c4bc96');
- add('Dungeon Master','▤',300,2.5,'Build a 300-unit maze of breakable walls, connecting hallways and four entrances ahead. Six spike traps guard its halls; six allied skeleton guardians hunt enemies for 35 seconds.',(a,p)=>a.dungeon(p));
+ add('Dungeon Master','▤',300,2.5,'Transform the entire arena into the Iron Labyrinth: 96 connected chambers, vaulted passageways and walls that meet the ceiling. Take the doors or break through. For one minute, 32 spike traps and 12 allied skeleton guardians defend its halls.',(a,p)=>a.dungeon(p));
  school('Evocation','fault','#ff7357');
- add('Cataclysm','✹',700,4,'Unleash six expanding eruptions around you over three seconds. Each blasts a different area for 40 damage. The final 220-unit shockwave deals 60 damage and launches surviving enemies upward.',(a,p)=>{
-  const x=p.x,y=p.y-10,z=p.z;let pulse=0;
-  a.fx(x,y,200,'#ff7357','cataclysm',z,0,0,3.5);
-  a.zone(p,x,y,1,3.1,.5,(w,o)=>{
-   if(pulse>=6)return;const angle=pulse*Math.PI/3,r=65+pulse*25;
-   w.area(o,x+Math.cos(angle)*r,y,90,40,'#ff9964',z+Math.sin(angle)*r);pulse++;
-   if(pulse===6){w.area(o,x,y,220,60,'#ffc06c',z);for(const q of w.enemies(o))if(Math.hypot(q.x-x,q.y-y,q.z-z)<250){q.vy=-350;q.ground=false}}
+ add('Cataclysm','✹',700,4,'Split the earth along three branching faults in front of you. Each advancing fault launches enemies for 75 damage and leaves a trench beside a permanent, breakable stone ridge. Jump a fault or dodge sideways before it arrives.',(a,p)=>{
+  const x=p.x,z=p.z,y=p.y,yaw=p.yaw,struck=new Set();let step=0;
+  a.zone(p,x,y,1,3.08,.25,(w,o)=>{
+   step++;const reach=18+step*28;
+   for(const branch of [-1,0,1]){
+    const heading=yaw+branch*(.36+step*.014),dx=Math.cos(heading),dz=Math.sin(heading);
+    const tx=x+dx*reach,tz=z+dz*reach,floor=w.surface(tx,tz,y-80);
+    if(floor===null)continue;
+    w.reshapeGround(tx,floor,tz,24,3);
+    const side=branch||1;w.reshapeGround(tx-dz*side*40,floor,tz+dx*side*40,22,-5);
+    w.fx(tx,floor-2,26,'#ffb455','fault-tear',tz,heading,0,2.4);
+    for(const q of w.enemies(o)){
+     if(struck.has(q)||Math.abs(q.y-floor)>40||Math.hypot(q.x-tx,q.z-tz)>42)continue;
+     struck.add(q);w.hurt(q,75);q.vy=-330;q.ground=false;
+    }
+   }
   },'#ff7357',z,'tentacle-timer');
  });
  return book;

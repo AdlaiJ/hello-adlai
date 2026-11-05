@@ -1,6 +1,6 @@
-import {makeSpellModels} from './wizard-spell-models.js?v=secret-four';
+import {makeSpellModels} from './wizard-spell-models.js?v=starfall-faults';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=secret-four';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=starfall-faults';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -11,6 +11,7 @@ const clamp=THREE.MathUtils.clamp;
 const frac=n=>n-Math.floor(n);
 const noise=n=>frac(Math.sin(n*127.1+311.7)*43758.5453);
 const worlds={
+ 'Iron Labyrinth':{dungeon:true,sky:0x171628,haze:0x36354a,ridge:0x282339,ruin:0x554666,top:0x827c8c,rock:0x554f67,sun:0xffc88b},
  'Bellfall Keep':{sky:0x242744,haze:0xd4a6a2,ridge:0x756987,ruin:0x5e5875,top:0x9da78e,rock:0x665e72,sun:0xffe6be},
  'Ember Quarry':{sky:0x311f3b,haze:0xf4a172,ridge:0x936269,ruin:0x774e60,top:0xc8946c,rock:0x724b52,sun:0xffc498},
  'Frostglass Bridge':{sky:0x172f4d,haze:0xb7dce7,ridge:0x7297b8,ruin:0x59819a,top:0xc3e2df,rock:0x66869e,sun:0xe5fff3},
@@ -284,14 +285,14 @@ function chunkSurface(tiles,xc,zc,palette,masks){
  if(!count)return null;
  const position=new Float32Array(count*12),normal=new Int8Array(count*12),color=new Uint8Array(count*12),uv=new Uint8Array(count*8);
  const index=count*4>65535?new Uint32Array(count*6):new Uint16Array(count*6);
- const top=new THREE.Color(palette.top),stone=new THREE.Color(palette.rock);
+ const top=new THREE.Color(palette.top),stone=new THREE.Color(palette.rock),brass=new THREE.Color(0xbb8953),rune=new THREE.Color(0x76bbc9);
  let quad=0;slot=0;
  for(let z=z0;z<z1;z++)for(let y=0;y<Y;y++)for(let x=x0;x<x1;x++){
   const mask=masks[slot++];if(!mask)continue;
   const i=x+X*(y+Y*z),hp=tiles[i],tint=(.87+((i*13+(i>>3)*7)%43)/43*.14)*(hp<8?.68:hp<14?.84:1);
   for(let f=0;f<6;f++){
    if(!(mask&(1<<f)))continue;
-   const {n,v}=faces[f],base=(hp&128)?boneTint:f===2?top:stone,r=Math.round(base.r*tint*255),g=Math.round(base.g*tint*255),b=Math.round(base.b*tint*255),k=quad*4;
+   const {n,v}=faces[f],base=(hp&128)?(palette.dungeon?(y%5===1?rune:brass):boneTint):f===2?top:stone,r=Math.round(base.r*tint*255),g=Math.round(base.g*tint*255),b=Math.round(base.b*tint*255),k=quad*4;
    for(let j=0;j<4;j++){
     const a=(k+j)*3,j3=j*3;position[a]=(x+v[j3])*TILE;position[a+1]=HEIGHT+(v[j3+1]-y-1)*TILE;position[a+2]=(z+v[j3+2])*TILE;
     normal[a]=n[0]*127;normal[a+1]=n[1]*127;normal[a+2]=n[2]*127;color[a]=r;color[a+1]=g;color[a+2]=b;
@@ -572,7 +573,7 @@ function makeSpellParts(scene){
     if(!b.props.has(e.kind))b.props.set(e.kind,buildProp(b.root,e.kind));
     const prop=b.props.get(e.kind);prop.visible=true;prop.scale.setScalar(e.r*Math.min(1,life*5));
     prop.rotation.set(0,-(e.yaw||0),-(e.pitch||0),'YXZ');
-    if(models[e.kind]&&!e.kind.startsWith('gaster-')&&e.kind!=='smoky-tentacle'&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
+    if(models[e.kind]&&!e.kind.startsWith('gaster-')&&e.kind!=='smoky-tentacle'&&e.kind!=='fault-tear'&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
     if(typeof prop.userData.pose==='function')prop.userData.pose(1-life);
     if(e.kind==='shears')prop.userData.arms.forEach((arm,k)=>arm.rotation.y=(k?1:-1)*(.02+.57*Math.max(0,(life-.38)/.62)));
     if(e.kind==='bell')prop.rotation.z=.32*Math.sin(life*9);
@@ -869,7 +870,7 @@ export function makeRenderer(canvas){
   if(width!==logicalW||height!==logicalH||dpr!==oldDPR){
    logicalW=width;logicalH=height;oldDPR=dpr;renderer.setPixelRatio(dpr);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();
   }
-  const p=worlds[state?.map]||worlds['Bellfall Keep'];
+  const p=worlds[state?.dungeonSeed?'Iron Labyrinth':state?.map]||worlds['Bellfall Keep'];
   if(p!==palette){sky.update(p);scene.fog.color.setHex(p.haze);palette=p}
   const demo=!state||!state.players?.length;title.visible=demo;groundGroup.visible=!demo;sky.layout(demo);
   if(demo&&!wasDemo){titleScene=Math.floor(Math.random()*4);titleEpoch=time;titleOutfits=[Math.floor(Math.random()*16),Math.floor(Math.random()*16)]}

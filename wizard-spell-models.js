@@ -507,5 +507,25 @@ export function makeSpellModels({joint,part,shape,mat}){
   const spikes=[];for(let i=0;i<12;i++){const a=i*Math.PI/6;spikes.push(piece(g,'cone',i%2?0xff9960:0x7a3343,Math.cos(a)*.8,0,Math.sin(a)*.8,.12,1,.12,0,i%2===1))}
   return t=>spikes.forEach((spike,i)=>{spike.scale.y=.1+Math.max(0,Math.sin(t*12-i*.5))*.9;spike.position.y=spike.scale.y/2});
  };
+ models['dungeon-brazier']=g=>{
+  box(g,0x333046,0,.12,.9,.24,.9);rod(g,0x72617e,0,.55,.9,.18);piece(g,'ball',gold,0,1,0,.4,.19,.4);
+  const flame=piece(g,'gem',0xb777ff,0,1.4,0,.25,.55,.25,0,true);const spark=piece(g,'gem',0x87eaff,0,1.65,0,.09,.25,.09,0,true);
+  return t=>{flame.rotation.y=t*2;flame.scale.y=.46+.1*Math.sin(t*5);spark.position.y=1.75+.1*Math.sin(t*4)};
+ };
+ models['dungeon-reliquary']=g=>{
+  box(g,0x39334a,0,.15,1,.3,1);rod(g,0xb08a61,0,.65,.8,.3);
+  const relic=joint(g,0,1.5,0);piece(relic,'gem',0x76e2f3,0,0,0,.36,.58,.36,0,true);
+  const halo=piece(relic,'hoop',0xd1a46b,0,0,0,.6,.6,.6);halo.rotation.x=.7;
+  return t=>{relic.rotation.y=t;relic.position.y=1.5+.12*Math.sin(t*2)};
+ };
+ models['dungeon-standard']=g=>{rod(g,0xb69b70,0,1.35,2.7,.075);piece(g,'box',0x5e315d,.33,1.92,0,.62,1.12,.065);piece(g,'gem',0xeeb666,.33,1.92,.055,.14,.23,.03,0,true);box(g,0x343144,0,.1,.52,.2,.52)};
+ models['asteroid-core']=g=>{
+  const shard=piece(g,'gem',0x91eaff,0,.3,0,.58,1.15,.58,0,true);
+  const debris=joint(g,0,.45,0);for(let i=0;i<6;i++){const a=i*Math.PI/3;piece(debris,'gem',0x58495f,1.2*Math.cos(a),.15*Math.sin(a),1.2*Math.sin(a),.19,.25,.16,a)}
+  return t=>{debris.rotation.y=t*2;shard.rotation.y=-t;shard.position.y=.35+.12*Math.sin(t*3)};
+ };
+ models['fault-tear']=g=>{
+  for(let i=0;i<5;i++)piece(g,'box',i%2?0xff813b:0xffdc82,(i-2)*.27,0,.08*Math.sin(i*2),.34,.045,.12,0,true).rotation.y=.35*Math.cos(i*2);
+ };
  return models;
 }

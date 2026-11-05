@@ -1,5 +1,6 @@
-import {SPELLS} from './wizard-spells.js?v=secret-four';
-import {MAPS,makeTiles,createGame,campaignTiles} from './wizard-engine.js?v=secret-four';
+import {setupControls} from './wizard-controls.js?v=controls';
+import {SPELLS} from './wizard-spells.js?v=starfall-faults';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=starfall-faults';
 
 import {markChangedChunk,T} from './wizard-world.js?v=keyboard-play';
 import {openRoom} from './wizard-room.js?v=keyboard-play';
@@ -7,13 +8,13 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=secret-four');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=starfall-faults');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
 const seats=new Map(),sizes={'1v1':2,'1v1v1':3,'2v2':4,'3v3':6,'4v4':8,'Co-op 2':2,'Co-op 3':3,'Co-op 4':4};
 const colors=['Blue','Red','Gold'];
-const keys=new Set();
+const keys=new Set(),pressedActions=new Map();
 let heldSpell=-1;
 for(const map of MAPS)$('map').add(new Option(map,map));
 const schools=[...new Set(SPELLS.map(s=>s.category))].sort();
@@ -44,7 +45,7 @@ function starterIds(kit){
 function previewStarter(){
  const kit=starterKits[$('starterStyle').value],ids=starterIds(kit);
  $('starterTip').textContent=kit.tip;
- $('starterSlots').textContent=ids.map((id,i)=>((i+1)%10)+' · '+spells.get(id).name).join('   /   ');
+ $('starterSlots').textContent=ids.map((id,i)=>slotLabel(i)+' · '+spells.get(id).name).join('   /   ');
  $('starterStyle').disabled=locked;
  const equipped=ids.length===selected.length&&ids.every((id,i)=>selected[i]===id);
  $('equipStarter').disabled=locked||equipped;
@@ -68,7 +69,7 @@ function drawBook(){const focused=document.activeElement?.dataset?.spell;preview
   if(!entries.length)continue;heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
   for(const s of entries){
  const i=selected.indexOf(s.id),b=document.createElement('button');b.dataset.spell=s.id;b.setAttribute('aria-pressed',String(i>=0));b.disabled=locked||(i<0&&selected.length>=settings.count);
- const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+((i+1)%10)+'] ':'')+(s.passwordProtected?'🔒 ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+(s.channel?s.channel.mana+' mana/second · Hold to cast':s.cost+' mana · '+(s.time?s.time+'s':'Instant'));desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0&&s.passwordProtected){requestSecretSpell(s.id);return}if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
+ const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+slotLabel(i)+'] ':'')+(s.passwordProtected?'🔒 ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+(s.channel?s.channel.mana+' mana/second · Hold to cast':s.cost+' mana · '+(s.time?s.time+'s':'Instant'));desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0&&s.passwordProtected){requestSecretSpell(s.id);return}if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
  }
  $('selection').textContent=selected.length+' / '+settings.count+' bound';$('ready').disabled=locked||selected.length!==settings.count;
  if(focused){if(!$('ready').disabled)$('ready').focus();else [...list.querySelectorAll('button')].find(b=>b.dataset.spell===focused)?.focus()}}
@@ -119,6 +120,7 @@ function network(isHost,word=''){
   else if(m.t==='start'&&locked&&page==='book'&&m.state?.map===settings.map){state={...m.state,tiles:makeTiles(settings.map),terrainVersion:0,changedChunks:new Map()};start()}
   else if(m.t==='frame'&&page==='hud'&&m.state&&Array.isArray(m.tiles)){
    if(settings.coop&&m.state.stage!==state.stage){state.tiles=campaignTiles(m.state.map,m.state.stage);state.changedChunks=new Map();state.terrainVersion++}
+   if(m.state.dungeonSeed&&m.state.dungeonSeed!==state.dungeonSeed){state.tiles=dungeonTiles(m.state.dungeonSeed);state.changedChunks=new Map();state.terrainVersion++}
    for(const [i,v] of m.tiles){state.tiles[i]=v;markChangedChunk(state.changedChunks,i)}state={...m.state,tiles:state.tiles,changedChunks:state.changedChunks,terrainVersion:state.terrainVersion+Number(m.tiles.length>0)};if(state.over)finish()}
  }},isHost?sizes[settings.format]:2);
 }
@@ -171,6 +173,7 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
  const boss=state.players.find(q=>q.boss&&q.hp>0);$('bossHealth').hidden=!boss;
  if(boss){$('bossHealth').textContent=(boss.voidBoss?'VOID SOVEREIGN ':'CRIMSON KING ')+Math.ceil(boss.hp)+' / '+boss.maxHp+(boss.phase===2?' · ENRAGED':'');$('bossHealth').style.background='linear-gradient(90deg,#a51b3b '+boss.hp/boss.maxHp*100+'%,#281e29 0)';$('bossHealth').style.padding='7px 14px';$('bossHealth').style.border='1px solid #ff7e95'}
  $('opponent').textContent=(mode==='campaign'||settings.coop)?'Stage '+state.stage+'/8 · '+state.stageName+(state.stage!==4&&state.stage!==8?' · Battle '+state.wave+'/2':''):mode==='waves'?'Wave '+state.wave:mode==='multi'?settings.format+' · '+(p.hp<=0?'Eliminated · ':'')+state.players.filter(q=>q.side!==p.side&&q.hp>0).length+' rivals alive':'Sandbox';
+ if(state.dungeonSeed)$('opponent').textContent+=' · Iron Labyrinth · Hall '+String.fromCharCode(65+Math.floor(p.z/(16*T)))+(1+Math.floor(p.x/(20*T)));
  const rivals=state.players.filter(q=>q.side!==p.side&&q.hp>0);
  if(rivals.length){
   const distance=q=>Math.hypot(q.x-p.x,q.z-p.z),rival=rivals.reduce((a,b)=>distance(a)<distance(b)?a:b);
@@ -179,33 +182,33 @@ function hud(){if(!state)return;const p=state.players[me];if(!p)return;
   $('opponent').textContent+=' · '+(rival.monster?'Monster ':'Rival ')+Math.round(distance(rival)/T)+' blocks '+bearing;
  }
  $('signal').textContent=state.cinematicText?state.cinematicText:settings.coop&&p.hp<=0?'Downed · Your allies can finish the stage to revive you':armed?'STORE · Choose a spell':p.channel>=0?'Channeling '+spells.get(p.ids[p.channel]).name:p.pending>=0?'Casting '+spells.get(p.ids[p.pending]).name+' · '+p.cast.toFixed(1)+'s':p.store>=0?'Storing '+spells.get(p.ids[p.store]).name+' · '+Math.floor(100*p.bank[p.store]/spells.get(p.ids[p.store]).cost)+'% charged':performance.now()<messageUntil?message:'Mana pulse in '+Math.ceil(10-state.time%10)+'s';
- selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=((i+1)%10)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=((i+1)%10)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent=((i+1)%10)+' Stack Arsenal · '+p.bloodAmmo+'/30 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(id==='skull-throne'&&p.onThrone)b.textContent=p.throneVolley>state.time?'Conjuring six swords…':'G / click: six-sword volley';if(id==='quarry-volley'&&p.blocks?.length)b.textContent=((i+1)%10)+' Gather blocks · '+p.blocks.length+'/9 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(s.channel)b.textContent=((i+1)%10)+' '+s.name+' · HOLD · '+s.channel.mana+' mana/s';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
+ selected.forEach((id,i)=>{const b=$('slots').children[i],s=spells.get(id);b.textContent=slotLabel(i)+' '+s.symbol+' '+s.name+' · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+(p.bank[i]>0?' ◈':'');if(p.weapon?.id===id&&p.weapon.strikes>0)b.textContent=slotLabel(i)+' Swing '+s.name+' · '+p.weapon.strikes+' left';if(id==='blood-arsenal'&&p.bloodAmmo)b.textContent=slotLabel(i)+' Stack Arsenal · '+p.bloodAmmo+'/30 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(id==='skull-throne'&&p.onThrone)b.textContent=p.throneVolley>state.time?'Conjuring six swords…':controls.label('g')+' / click: six-sword volley';if(id==='quarry-volley'&&p.blocks?.length)b.textContent=slotLabel(i)+' Gather blocks · '+p.blocks.length+'/9 · '+Math.ceil(Math.max(0,s.cost-p.bank[i]))+' mana';if(s.channel)b.textContent=slotLabel(i)+' '+s.name+' · HOLD · '+s.channel.mana+' mana/s';b.title=s.description+' · Stored '+p.bank[i].toFixed(1)+' / '+s.cost})}
 function finish(){show('end');$('result').textContent=state.over;$('resultInfo').textContent=mode==='waves'?'Reached wave '+state.wave+' in '+Math.floor(state.time)+' seconds.':settings.map+' · '+Math.floor(state.time)+' seconds';keys.clear()}
 $('dummy').onclick=()=>{if(game&&game.state.players.length<24)game.spawn()};
-$('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana};$('restore').onclick=()=>{state.tiles=makeTiles(settings.map);state.terrainVersion++};$('change').onclick=()=>{game=state=null;book()};
+$('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana};$('restore').onclick=()=>{state.tiles=makeTiles(settings.map);state.dungeonSeed=0;state.zones=state.zones.filter(z=>!z.dungeonFixture);state.summons=state.summons.filter(f=>!f.dungeonPost);state.terrainVersion++};$('change').onclick=()=>{game=state=null;book()};
 function movement(){return Number(keys.has('w'))-Number(keys.has('s'))}
 function strafe(){return Number(keys.has('d'))-Number(keys.has('a'))}
 function jumping(){return keys.has(' ')}
-function turn(dx,dy){yaw+=dx;angle=Math.max(-1.35,Math.min(1.35,angle+dy))}
+function turn(dx,dy,gain=controls.mouse){yaw+=dx*gain;angle=Math.max(-1.35,Math.min(1.35,angle+dy*gain))}
 function fireHeld(){
  if(page!=='hud'||!state)return;const p=state.players[me];
  if(p.weapon?.strikes>0){const slot=selected.indexOf(p.weapon.id);if(slot>=0){act(slot);return}}
  const action=p.bloodAmmo?'blood':p.onThrone?'sword':p.blocks?.length?'block':null;
- if(!action){notify('Use 1–0 to cast a spell. G fires held weapons or blocks.');return}
+ if(!action){notify('Use a spell slot to cast. '+controls.label('g')+' fires held weapons or blocks.');return}
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);if(action==='blood')game.fireBlood(me);else if(action==='sword')game.fireSword(me);else game.fireBlock(me)}
  else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:action})}
 }
-addEventListener('keydown',e=>{if(page!=='hud'||e.ctrlKey||e.metaKey||e.altKey||e.defaultPrevented)return;const k=e.key.toLowerCase();
- if(e.target.closest?.('button,input,select')&&(k===' '||k==='enter'||k.startsWith('arrow')))return;
- if(k===' '||k.startsWith('arrow'))e.preventDefault();keys.add(k);if(e.repeat)return;
+addEventListener('keydown',e=>{if(page!=='hud'||e.ctrlKey||e.metaKey||e.altKey||e.defaultPrevented)return;const raw=e.key.toLowerCase();if(controls.open)return;if(raw==='escape'&&windowAim){setWindowAim(false);return}const k=controls.action(raw);if(!k)return;
+ if(e.target.closest?.('button,input,select')&&(raw===' '||raw==='enter'||raw.startsWith('arrow')))return;
+ if(k===' '||k.startsWith('arrow'))e.preventDefault();if(e.repeat)return;pressedActions.set(e.code,k);keys.add(k);
  if(k==='g'){e.preventDefault();fireHeld();return}
  if(k==='r'){angle=0;return}
  if(k==='escape'&&windowAim){setWindowAim(false);return}
  if(k==='+'||k==='='||k==='-'){e.preventDefault();zoomBy(k==='-'?1:-1);return}
  if(k==='shift'){toggleShiftLock();return}
  if(k==='f')armed=!armed;else if(/^\d$/.test(k))act((Number(k)+9)%10);
-});addEventListener('keyup',e=>{keys.delete(e.key.toLowerCase());if(/^\d$/.test(e.key))releaseSpell((Number(e.key)+9)%10)});
-function clearHeld(){keys.clear();releaseSpell(heldSpell)}
+});addEventListener('keyup',e=>{const k=pressedActions.get(e.code);pressedActions.delete(e.code);if(!k)return;keys.delete(k);if(/^\d$/.test(k))releaseSpell((Number(k)+9)%10)});
+function clearHeld(){pressedActions.clear();keys.clear();releaseSpell(heldSpell)}
 addEventListener('blur',clearHeld);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearHeld()});
 document.querySelectorAll('[data-control]').forEach(b=>{b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);keys.add(b.dataset.control)};b.onlostpointercapture=()=>keys.delete(b.dataset.control)});$('touchStore').onclick=()=>armed=!armed;
@@ -237,7 +240,7 @@ function setWindowAim(on){
 }
 function lockFailed(){
  if(page!=='hud'||document.pointerLockElement===canvas)return;
- setWindowAim(true);notify('Window aim active. Move the mouse over the arena. Shift or Esc releases.');
+ setWindowAim(true);notify('Window aim active. Move the mouse over the arena. Esc releases.');
 }
 async function toggleShiftLock(){
  if(page!=='hud')return;
@@ -254,7 +257,7 @@ document.addEventListener('pointerlockchange',()=>{
  lockButton.textContent=locked?'Shift Lock: On':'Shift Lock: Off';
 });
 document.addEventListener('mousemove',e=>{
- if(page==='hud'&&(document.pointerLockElement===canvas||(windowAim&&e.target===canvas)))turn(e.movementX*.004,e.movementY*.004);
+ if(page==='hud'&&!controls.open&&(document.pointerLockElement===canvas||(windowAim&&e.target===canvas)))turn(e.movementX*.004,e.movementY*.004);
 });
 canvas.onpointerdown=e=>{
  if(page==='hud'&&e.button===0){canvas.focus();if(state.players[me]?.weapon?.strikes>0||state.players[me]?.bloodAmmo||state.players[me]?.onThrone||state.players[me]?.blocks?.length)fireHeld()}
@@ -264,8 +267,9 @@ canvas.onlostpointercapture=()=>drag=null;
 let prev=performance.now(),acc=0,uiClock=0;
 function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)/1000);prev=now;
  if(document.hidden&&(mode!=='multi'||page!=='hud'))return;
+ if(controls.open&&page==='hud'&&mode!=='multi')return;
  if(page!=='hud'){draw(null,0,0,0,now/1000);return}
- turn((Number(keys.has('arrowright'))-Number(keys.has('arrowleft')))*dt*2.1,(Number(keys.has('arrowdown'))-Number(keys.has('arrowup')))*dt*1.4);
+ turn((Number(keys.has('arrowright'))-Number(keys.has('arrowleft')))*dt*2.1,(Number(keys.has('arrowdown'))-Number(keys.has('arrowup')))*dt*1.4,controls.keyboard);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);acc+=dt;while(acc>=1/60){game.tick(1/60);acc-=1/60}}
  netClock+=dt;if(mode==='multi'&&(netClock>=.05||state.over)){netClock=0;
   if(host){const tiles=[];for(const k of game.dirty){tiles.push([k,state.tiles[k]]);game.dirty.delete(k);if(tiles.length===160)break}room.send({t:'frame',state:game.snapshot(false),tiles})}
@@ -276,7 +280,10 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)
  draw(state,me,state.cutscene?Math.atan2(state.cutscene.z-state.players[me].z,state.cutscene.x+95-state.players[me].x):yaw,state.cutscene?-.15:angle,now/1000,state.cutscene?140:cameraDistance);uiClock+=dt;if(uiClock>.1){hud();uiClock=0}if(state.over)finish();
 }
 window.addEventListener('pagehide',()=>room?.stop());
-home();const invite=new URL(location.href).searchParams.get('room');if(invite&&/^[a-z]{4,6}$/.test(invite)){setup('multi');$('word').value=invite}
+function slotLabel(i){return controls.label(String((i+1)%10))}
+function refreshHints(){const key=id=>controls.label(id);$('controlHint').textContent=['w','a','s','d'].map(key).join('/')+' move · '+key(' ')+' jump · '+key('g')+' fire · '+key('f')+' store · '+key('r')+' level aim';if(page==='hud')hud()}
+const controls=setupControls(()=>{clearHeld();setWindowAim(false);if(document.pointerLockElement===canvas)document.exitPointerLock()},refreshHints,()=>{if(page==='hud')canvas.focus()});
+refreshHints();home();const invite=new URL(location.href).searchParams.get('room');if(invite&&/^[a-z]{4,6}$/.test(invite)){setup('multi');$('word').value=invite}
 modeButtons.forEach(button=>button.disabled=false);
 requestAnimationFrame(frame);
 
