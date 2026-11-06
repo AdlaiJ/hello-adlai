@@ -624,5 +624,29 @@ export function makeSpellModels({joint,part,shape,mat}){
   return armed=>{coals.visible=armed>.5};
  };
  models['dungeon-firejet']=g=>{const jets=[];for(let i=0;i<7;i++){const a=i*2.4;jets.push(piece(g,'cone',i%2?0xffce60:0xff722b,.52*Math.cos(a),.75,.52*Math.sin(a),.22,1.5,.22,0,true))}return t=>jets.forEach((jet,i)=>{jet.scale.y=1+Math.sin(t*9+i)*.5;jet.position.y=jet.scale.y/2})};
+
+ models['ultimate-wizbee']=g=>{
+  const disc=joint(g,0,0,0);
+  piece(disc,'ball',0xd6ff59,0,0,0,1,.14,1);
+  const rim=piece(disc,'ring',0x30d6c7,0,.04,0,.92,.92,.08,0,true);rim.rotation.x=Math.PI/2;
+  for(let i=0;i<3;i++){const a=i*Math.PI*2/3;piece(disc,'gem',0xffffff,.48*Math.cos(a),.1,.48*Math.sin(a),.18,.07,.18,0,true)}
+  return t=>{disc.rotation.y=t*12};
+ };
+ models['wizzone-ball']=g=>{
+  piece(g,'ball',0xc4f12c,0,0,0,.5,.5,.5);
+  for(const side of [-1,1]){
+   const seam=piece(g,'ring',0xfff9dc,side*.15,0,0,.42,.42,.018);
+   seam.rotation.y=side*.7;
+  }
+ };
+ models.wizzone=g=>{
+  piece(g,'box',0x226c68,0,.008,0,1.35,.014,1.35);
+  for(const x of [-.66,0,.66])piece(g,'box',0xf1ffd9,x,.021,0,.012,.009,1.32);
+  for(const z of [-.66,0,.66])piece(g,'box',0xf1ffd9,0,.021,z,1.32,.009,.012);
+  const boundary=piece(g,'ring',0xc4f12c,0,.025,0,1,1,.018,0,true);boundary.rotation.x=Math.PI/2;
+  for(const x of [-.7,.7])piece(g,'pole',0xf1ffd9,x,.12,0,.014,.24,.014);
+  for(let i=1;i<6;i++)piece(g,'box',0xd5ffc1,0,i*.035,0,1.4,.004,.004);
+  for(let i=-9;i<=9;i++)piece(g,'box',0xd5ffc1,i*.07,.105,0,.003,.21,.003);
+ };
  return models;
 }

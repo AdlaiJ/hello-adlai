@@ -497,7 +497,7 @@ function makeSpellParts(scene){
    if(!model){if(models[style]){
      const root=new THREE.Group(),body=joint(root,0,0,0);const pose=models[style](body);
      body.rotation.z=Math.PI/2;body.scale.setScalar(style==='furnace-arrow'?2.8:2);
-     model={root,animate(time){if(style==='furnace-arrow')pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
+     model={root,animate(time){if(style==='furnace-arrow'||style==='ultimate-wizbee')pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
     }else model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
    pool.used++;
    model.root.visible=true;

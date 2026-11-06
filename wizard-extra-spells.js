@@ -33,6 +33,7 @@ function placeDemonArm(a,p,x,floor,z,yaw,permanent){
 
 export function extraSpells(){
  const book=[];
+ const tennisDomains=new WeakMap();
  let category,motion,tint;
  function school(name,formation,color){category=name;motion=formation;tint=color}
  function add(name,symbol,cost,time,description,cast){
@@ -407,6 +408,34 @@ export function extraSpells(){
    w.bolt(owner,Math.atan2(dy,Math.hypot(dx,dz)),{...weapon,color:'#ffd469',yawOffset:Math.atan2(dz,dx)-owner.yaw},origin);
    volley.interval=.18;
   },'#ffd469',p.z,'tentacle-timer');
+ });
+
+ school('Evocation','orbit','#d6ff59');
+ add('Ultimate Wizbee','◉',85,1.1,'Throw a giant spinning disc that curves right through the air, dealing 38 damage and piercing up to three enemies.',(a,p,pitch)=>{
+  shot(a,p,pitch,'ultimate-wizbee',{speed:290,r:14,damage:38,pierce:2,curve:.65,life:3.2,yawOffset:-.35,color:'#d6ff59'});
+ });
+ school('Wards','orbit','#a8ff63');
+ add('Wizzone','🎾',220,2.5,'Expand a tennis domain around you for 12 seconds. Move 65% faster while inside it. Every 0.6 seconds the court fires tennis balls at up to three enemies inside, each dealing 12 damage. Recasting replaces your previous court.',(a,p)=>{
+  const x=p.x,z=p.z,y=a.surface(x,z,p.y-24)??p.y;
+  // A fresh court retires the caster’s previous volley and speed field.
+  const previous=tennisDomains.get(p);
+  if(previous)previous.life=0;
+  let volley=0;
+  const domain=a.zone(p,x,y,150,12,.1,(w,owner)=>{
+   const inside=q=>Math.hypot(q.x-x,q.z-z)<=domain.r&&Math.abs(q.y-y)<100;
+   if(inside(owner))w.status(owner,'haste',.15);
+   volley+=.1;
+   if(volley<.6)return;
+   volley=0;
+   const targets=w.enemies(owner).filter(inside).sort((a,b)=>Math.hypot(a.x-x,a.z-z)-Math.hypot(b.x-x,b.z-z)).slice(0,3);
+   for(const enemy of targets){
+    const angle=Math.atan2(enemy.z-z,enemy.x-x);
+    const origin={x:x+Math.cos(angle)*domain.r*.75,y:y-38,z:z+Math.sin(angle)*domain.r*.75};
+    const dx=enemy.x-origin.x,dy=enemy.y-12-origin.y,dz=enemy.z-origin.z;
+    w.bolt(owner,Math.atan2(dy,Math.hypot(dx,dz)),{style:'wizzone-ball',speed:300,r:6,damage:12,life:1.5,homing:1.4,yawOffset:Math.atan2(dz,dx)-owner.yaw,color:'#d6ff59'},origin);
+   }
+  },'#a8ff63',z,'wizzone');
+  tennisDomains.set(p,domain);
  });
  return book;
 }

@@ -706,6 +706,12 @@ export function createGame(settings,loadouts,mode){
    if(b.homing){const distance=q=>Math.hypot(q.x-b.x,q.y-12-b.y,q.z-b.z),t=candidates.reduce((best,q)=>q.hp>0&&(!best||distance(q)<distance(best))?q:best,null);
     if(t){const blend=1-Math.exp(-b.homing*dt),f=b.speed/Math.max(1,distance(t));
      b.vx+=((t.x-b.x)*f-b.vx)*blend;b.vy+=((t.y-12-b.y)*f-b.vy)*blend;b.vz+=((t.z-b.z)*f-b.vz)*blend}}
+   if(b.curve){
+    const angle=b.curve*dt,cos=Math.cos(angle),sin=Math.sin(angle);
+    const vx=b.vx;
+    b.vx=vx*cos-b.vz*sin;
+    b.vz=vx*sin+b.vz*cos;
+   }
    b.life-=dt;b.vy+=(b.gravity||0)*dt;
    const n=Math.max(1,Math.ceil(Math.hypot(b.vx,b.vy,b.vz)*dt/4));
    for(let i=0;i<n&&!b.dead;i++){
