@@ -1,6 +1,6 @@
 import {setupControls} from './wizard-controls.js?v=controls';
 import {SPELLS} from './wizard-spells.js?v=mana-value';
-import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=void-abduction';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=stop-storing';
 
 import {markChangedChunk,T} from './wizard-world.js?v=labyrinth-keepers';
 import {openRoom} from './wizard-room.js?v=mana-value';
@@ -31,7 +31,7 @@ $('format').onchange=()=>{$('map').parentElement.hidden=$('format').value.starts
 document.querySelectorAll('.back').forEach(b=>b.onclick=home);$('leave').onclick=home;
 function readSettings(){const count=$('count').valueAsNumber,mana=$('mana').valueAsNumber;if(!Number.isInteger(count)||count<1||count>10||!Number.isInteger(mana)||mana<10||mana>5000){$('setupStatus').textContent='Choose 1–10 spells and 10–5000 mana.';return null}return {count,mana,format:$('format').value,map:$('map').value}}
 function book(){selected=[];locked=false;$('school').value='All';$('spellSearch').value='';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?settings.format+' room · '+code:mode==='waves'?'Singleplayer · Waves':mode==='campaign'?'Campaign · The Crimson King':'Sandbox';
- $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Regain 0.5% of your maximum mana every second, plus 10% every 10 seconds. F then a spell banks 5% of your pool per second. Storing half the cost halves both the mana due and the cast time. Fully stored spells cast instantly for free.';drawBook()}
+ $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Regain 0.5% of your maximum mana every second, plus 10% every 10 seconds. F then a spell banks 5% of your pool per second. Press F again to stop storing and keep the mana already stored. Storing half the cost halves both the mana due and the cast time. Fully stored spells cast instantly for free.';drawBook()}
 const starterKits={
  'All-rounder':{tip:'Use Witchspark for quick shots.',order:'witchspark pocket-poultice thimble-ward fold-step glass-fan rampart foxstep north-star iron-choir crater-bell'},
  'Close combat':{tip:'Summon Glass Knife, then press its slot again to swing. Aim for the back.',order:'glass-knife foxstep thimble-ward pocket-poultice vault-kick undertow rime-axe iron-choir winter-ring smoke-skin'},
@@ -121,6 +121,7 @@ function network(isHost,word=''){
    if(m.t==='sword')game.fireSword(seat);
    if(m.t==='block')game.fireBlock(seat);
    if(m.t==='cast')game.command(seat,m.slot,m.store===true);
+   if(m.t==='stop-store')game.stopStoring(seat);
   }else if(m.t==='full'){setup('multi');$('setupStatus').textContent='That room is full or already playing.'}
   else if(m.t==='lobby'&&page==='book')$('bookStatus').textContent=m.text;
   else if(m.t==='rules'&&page==='setup'&&Object.hasOwn(sizes,m.settings?.format)&&Number.isInteger(m.seat)&&m.seat>0&&m.seat<sizes[m.settings.format]&&MAPS.includes(m.settings?.map)&&Number.isInteger(m.settings.count)&&m.settings.count>=1&&m.settings.count<=10&&Number.isInteger(m.settings.mana)&&m.settings.mana>=10&&m.settings.mana<=5000){settings=m.settings;me=m.seat;book()}
@@ -142,6 +143,12 @@ function releaseSpell(i){
  if(heldSpell!==i)return;heldSpell=-1;
  if(game)game.input(me,movement(),jumping(),angle,strafe(),yaw,-1);
  else room?.send({t:'input',move:0,jump:false,angle,strafe:0,yaw,channel:-1});
+}
+function toggleStoring(){
+ if(page!=='hud'||!state?.players[me])return;
+ const p=state.players[me];
+ if(p.store>=0){armed=false;if(game)game.stopStoring(me);else{p.store=-1;room.send({t:'stop-store'})}notify('Storing stopped · Stored mana kept');hud();return}
+ armed=!armed;hud();
 }
 function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).channel){holdSpell(i);return}heldSpell=-1;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:'cast',slot:i,store})}}
@@ -213,12 +220,12 @@ addEventListener('keydown',e=>{if(page!=='hud'||e.ctrlKey||e.metaKey||e.altKey||
  if(k==='escape'&&windowAim){setWindowAim(false);return}
  if(k==='+'||k==='='||k==='-'){e.preventDefault();zoomBy(k==='-'?1:-1);return}
  if(k==='shift'){toggleShiftLock();return}
- if(k==='f')armed=!armed;else if(/^\d$/.test(k))act((Number(k)+9)%10);
+ if(k==='f')toggleStoring();else if(/^\d$/.test(k))act((Number(k)+9)%10);
 });addEventListener('keyup',e=>{const k=pressedActions.get(e.code);pressedActions.delete(e.code);if(!k)return;keys.delete(k);if(/^\d$/.test(k))releaseSpell((Number(k)+9)%10)});
 function clearHeld(){pressedActions.clear();keys.clear();releaseSpell(heldSpell)}
 addEventListener('blur',clearHeld);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearHeld()});
-document.querySelectorAll('[data-control]').forEach(b=>{b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);keys.add(b.dataset.control)};b.onlostpointercapture=()=>keys.delete(b.dataset.control)});$('touchStore').onclick=()=>armed=!armed;
+document.querySelectorAll('[data-control]').forEach(b=>{b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);keys.add(b.dataset.control)};b.onlostpointercapture=()=>keys.delete(b.dataset.control)});$('touchStore').onclick=toggleStoring;
 let drag=null;
 const distances=[0,18,32,47,65,86,110,140,175];
 let zoomLevel=4,cameraDistance=65;

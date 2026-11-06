@@ -454,6 +454,7 @@ export function createGame(settings,loadouts,mode){
   const previous=activeSpell,previousSource=activeSource;activeSpell=spell.id;activeSource=p;
   try{spell.cast(api,p,p.aim)}finally{activeSpell=previous;activeSource=previousSource}
  }
+ function stopStoring(index){const p=s.players[index];if(!p)return false;p.store=-1;return true}
  function command(index,slot,store=false){
   const p=s.players[index],spell=p&&byId.get(p.ids[slot]);
   if(!Number.isInteger(slot)||!spell||frozen(p)||s.over||s.cutscene||p.hp<=0||p.cast>0||p.statuses.silence>0)return false;
@@ -858,5 +859,5 @@ export function createGame(settings,loadouts,mode){
   }
  }
  function snapshot(includeTiles=true){return {arrivalUntil:s.arrivalUntil||0,dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})=>({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})),...(includeTiles?{tiles:s.tiles}:{})}}
- return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
+ return {dirty,state:s,command,stopStoring,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }
