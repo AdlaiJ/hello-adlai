@@ -266,10 +266,14 @@ export function createGame(settings,loadouts,mode){
   const step=Math.min(d,phase<3.3?speed:speed*.2);
   if(d>1){f.yaw=Math.atan2(dz,dx);f.x=clamp(f.x+dx/d*step,30,W*T-30);f.z=clamp(f.z+dz/d*step,30,D*T-30)}
   // Preserve a usable depth when the tunnel has removed the local floor.
-  const ground=api.surface(f.x,f.z,0);
-  if(ground!==null&&ground<520)f.burrowFloor=ground;
+  // Track nearby ground instead of snapping to overhead platforms or fresh tunnel edges.
+  const ground=api.surface(f.x,f.z,f.burrowFloor-48);
+  if(ground!==null&&ground<520){
+   f.burrowFloor+=clamp(ground-f.burrowFloor,-60*dt,60*dt);
+  }
   const rise=phase<3.3?0:Math.sin((phase-3.3)/1.7*Math.PI);
-  f.y=clamp(f.burrowFloor+26-rise*90,35,520);
+  const targetY=clamp(f.burrowFloor+26-rise*90,35,520);
+  f.y+=clamp(targetY-f.y,-200*dt,200*dt);
   f.digClock-=dt;
   if(f.digClock<=0){
    f.digClock=.12;tileDamage(f.x,f.y-12,32,100,f.z);
