@@ -1,7 +1,8 @@
+import {curseSpells} from './wizard-curse-spells.js?v=disaster-curses';
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
 import {extraSpells} from './wizard-extra-spells.js?v=mana-value';
-export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
+export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp','curse-fish','curse-puppet','curse-isomer','curse-double']);
 export const spellRadius = radius => radius * 1.12;
 
 const color = {
@@ -745,7 +746,7 @@ const creatureSpells = new Map([
  ...['ember-newt','rime-owl','balm-beetle','bastion-crab','storm-finch','quarry-mole','wild-hunt','winter-court','frost-kennel','traveling-infirmary','ember-courier','mole-survey','thunder-brood'].map(id=>[id,'familiar'])
 ]);
 export const SPELLS = [...damage, ...ranged, ...boost, ...healing, ...shields, ...evocationArts,
-  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal, ...extraSpells()]
+  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal, ...extraSpells(), ...curseSpells()]
   .map(entry => {
    const type=creatureSpells.get(entry.id);
    const cost=type&&type!=='familiar'?Math.ceil(entry.cost*1.25):entry.cost;

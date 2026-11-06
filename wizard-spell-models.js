@@ -1,3 +1,4 @@
+import {installCurseModels} from './wizard-curse-models.js?v=disaster-curses';
 /* Small reusable pieces keep the spell silhouettes inexpensive to draw. Models face +X. */
 export function makeSpellModels({joint,part,shape,mat}){
  const iron=0x64768b,gold=0xe9b955,wood=0x805039,bone=0xffe9bc,red=0xd94743,
@@ -686,5 +687,6 @@ export function makeSpellModels({joint,part,shape,mat}){
   for(let i=1;i<6;i++)piece(g,'box',0xd5ffc1,0,i*.035,0,1.4,.004,.004);
   for(let i=-9;i<=9;i++)piece(g,'box',0xd5ffc1,i*.07,.105,0,.003,.21,.003);
  };
+ installCurseModels(models,{joint,part,shape,mat});
  return models;
 }

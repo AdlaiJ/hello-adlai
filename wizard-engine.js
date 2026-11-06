@@ -1,6 +1,6 @@
 import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=compact-maps';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=water-valve';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=disaster-curses';
 import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=compact-maps';
 export {MAPS,makeTiles} from './wizard-world.js?v=compact-maps';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -344,9 +344,9 @@ export function createGame(settings,loadouts,mode){
    const support=f.kind==='medic'||f.kind==='bastion';
    const chasing=!support&&foe&&dist(foe)<400;
    const target=chasing&&!f.familiar?foe:(f.dungeonPost||f.owner),dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
-   const contact=f.kind==='squire'||f.kind==='wraith';
+   const contact=f.kind==='squire'||f.kind==='wraith'||f.kind.startsWith('curse-');
    const hold=chasing&&!f.familiar?(contact?14:f.kind==='archer'?165:105):22;
-   const grounded=f.kind==='squire'||f.kind==='archer';
+   const grounded=f.kind==='squire'||f.kind==='archer'||['curse-puppet','curse-isomer','curse-double'].includes(f.kind);
    const speed=f.statuses.root>0?0:f.statuses.slow>0?65:125;
    const approach=Math.min(Math.max(0,d-hold)*3,speed)/Math.max(1,d);
    let desiredX=dx*approach,desiredZ=dz*approach;
@@ -421,7 +421,7 @@ export function createGame(settings,loadouts,mode){
      const blockedStrike=[.25,.5,.75].some(t=>solid(f.x+dx*t,f.y-12+(foe.y-f.y)*t,f.z+dz*t));
      if(blockedStrike)continue;
      const before=foe.hp;
-     damage(foe,f.giant?20:f.kind==='squire'?11:8,f);
+     damage(foe,f.giant||f.kind==='curse-isomer'?20:f.kind==='squire'?11:8,f);
      if(f.kind==='wraith')api.heal(f.owner,Math.max(0,before-foe.hp));else f.pulse=.85;
      fx(foe.x,foe.y-12,12,f.kind==='wraith'?'#8fffe1':'#d3e4a8','ring',foe.z);
     }else if(f.kind==='archer')api.bolt(f,pitch,{speed:365,damage:f.giant?21:13,pierce:1,r:f.giant?5:3,color:'#cfadff'});
