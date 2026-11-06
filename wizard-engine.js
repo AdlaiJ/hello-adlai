@@ -13,7 +13,8 @@ export function campaignTiles(map,stage){
 }
 export function createGame(settings,loadouts,mode){
  const s={map:settings.map,tiles:makeTiles(settings.map),players:[],summons:[],changedChunks:new Map(),shots:[],effects:[],zones:[],time:0,wave:0,over:'',mode};
- const frozen=p=>s.timeStop&&s.time<s.timeStop.until&&p.side!==s.timeStop.side;
+ const arriving=()=>mode==='campaign'&&s.time<(s.arrivalUntil||0);
+ const frozen=p=>(arriving()&&p.side!==0)||(s.timeStop&&s.time<s.timeStop.until&&p.side!==s.timeStop.side);
  const dirty=new Set();s.terrainVersion=0;
  let activeSpell=null,activeSource=null;
  const burnSources=new WeakMap(),wallSafe=new WeakMap();
@@ -49,7 +50,7 @@ export function createGame(settings,loadouts,mode){
   }
  }
  function damage(p,n,source=activeSource){
-  if(p.hp<=0||p.statuses.phased>0||n<=0)return;
+  if(p.hp<=0||p.statuses.phased>0||n<=0||(arriving()&&p.side===0))return;
   const oldHp=p.hp,oldShield=p.shield;
   n*=p.statuses.armor>0?.5:1;
   const spent=Math.min(n,p.shield);p.shield-=spent;p.hp=Math.max(0,p.hp-n+spent);
@@ -532,6 +533,7 @@ export function createGame(settings,loadouts,mode){
   }
  }
  function campaignStage(stage){
+  s.arrivalUntil=s.time+5;
   s.dungeonSeed=0;s.timeStop=null;s.stage=stage;s.stageName=campaignNames[stage-1];s.wave=0;
   s.map=campaignMaps[stage-1];s.tiles=campaignTiles(s.map,stage);s.terrainVersion++;dirty.clear();
   s.changedChunks=new Map();s.players.splice(heroCount);inputs.splice(heroCount);s.summons=[];s.shots=[];s.zones=[];s.effects=[];
@@ -554,26 +556,35 @@ export function createGame(settings,loadouts,mode){
   king.entranceSeat=1-rise;king.entranceWalk=walk>0&&walk<1?Math.sin(walk*Math.PI):0;
   king.x=c.x-115*walk;king.y=396+34*walk;king.yaw=Math.PI;
   s.cinematicText=t<2?'The Crimson King awaits upon his skull throne.':t<3.8?'The four-armed monarch rises.':t<7?'He steps down to face you.':'THE CRIMSON KING';
-  if(t>=8){delete king.entranceSeat;delete king.entranceWalk;s.cutscene=null;s.cinematicText='';king.attackClock=2.5}
+  if(t>=8){delete king.entranceSeat;delete king.entranceWalk;s.cutscene=null;s.cinematicText='';king.attackClock=2.5;s.arrivalUntil=s.time+5}
  }
  function beginRift(){
-  const king=s.players.find(p=>p.boss),hero=s.players[0];
-  s.cutscene={time:0,x:king.x,z:king.z,heroX:hero.x,heroZ:hero.z,heroes:s.players.slice(0,heroCount).map(p=>({x:p.x,z:p.z}))};
+  const king=s.players.find(p=>p.boss);
+  s.cutscene={kind:'void-abduction',time:0,x:king.x,y:king.y,z:king.z,portalX:clamp(king.x+170,200,W*T-200),heroes:s.players.slice(0,heroCount).map(p=>({x:p.x,y:p.y,z:p.z}))};
   king.hp=1;s.shots=[];s.zones=[];s.summons=[];s.effects=[];
-  hero.cast=0;hero.pending=-1;hero.store=-1;hero.vx=hero.vy=hero.vz=0;
+  for(const h of s.players.slice(0,heroCount)){h.cast=0;h.pending=-1;h.store=-1;h.channel=-1;h.vx=h.vy=h.vz=0}
+  king.attackLabel='';king.attackProgress=0;
   fx(king.x,king.y-40,80,'#ffb3c6','king-slam',king.z,0,0,2);
  }
  function riftTick(dt){
   const c=s.cutscene;c.time+=dt;s.time+=dt;
-  const king=s.players.find(p=>p.boss),hero=s.players[0],portalX=c.x+95;
-  s.cinematicText=c.time<2?'The Crimson King is shattered.':c.time<6?'Something beyond the void claims him…':'You follow him into the rift.';
-  if(c.time>=2){
-   const t=clamp((c.time-2)/4,0,1);king.x=c.x+95*t;king.y=430-25*t;king.cinematicScale=1-t*.98;
-   s.effects=[{x:portalX,y:380,z:c.z,r:115,color:'#a156ff',kind:'campaign-rift',yaw:0,pitch:0,life:1,maxLife:1}];
-   if(t===1)king.hp=0;
-  }
-  if(c.time>=6){const t=clamp((c.time-6)/4,0,1);for(let i=0;i<heroCount;i++){const h=s.players[i],from=c.heroes[i];h.x=from.x+(portalX-from.x)*t;h.z=from.z+(c.z-from.z)*t;h.y=430-30*t;h.yaw=Math.atan2(c.z-from.z,portalX-from.x)}}
-  if(c.time>=10){s.cutscene=null;s.cinematicText='';campaignStage(5)}
+  const king=s.players.find(p=>p.boss),portalX=c.portalX,t=c.time;
+  const ease=value=>{const n=clamp(value,0,1);return n*n*(3-2*n)};
+  const pull=ease((t-7.5)/3.5),swallow=ease((t-10)/1.3);
+  s.cinematicText=t<2.5?'The Crimson King falls to his knees.':t<5?'The gates of the void tear open.':t<7.5?'An eye opens beyond the rift.':t<11.5?'The Void Sovereign claims its king.':'Follow him. End this beyond the veil.';
+  king.cinematicKneel=1-ease((t-6)/2);
+  king.cinematicStruggle=t>6&&t<11?Math.sin((t-6)*9)*(1-pull):0;
+  king.x=c.x+(portalX-c.x)*pull;king.y=c.y-75*pull;
+  king.z=c.z+Math.sin(t*7)*5*pull*(1-pull);
+  king.cinematicScale=1-swallow*.98;king.yaw=Math.PI;
+  if(t>=11.3)king.hp=0;
+  s.effects=[];
+  if(t>=12){const follow=ease((t-12)/4.5);for(let i=0;i<heroCount;i++){
+   const h=s.players[i],from=c.heroes[i];if(h.disconnected||h.hp<=0)continue;
+   h.x=from.x+(portalX-from.x)*follow;h.z=from.z+(c.z-from.z)*follow;h.y=from.y+(c.y-65-from.y)*follow;
+   h.yaw=Math.atan2(c.z-from.z,portalX-from.x);h.vx=(portalX-from.x)*.2;h.vz=(c.z-from.z)*.2;
+  }}
+  if(t>=17){s.cutscene=null;s.cinematicText='';campaignStage(5)}
  }
  function stepVoid(p,dt){
   const q=nearestHero(p);p.yaw=Math.atan2(q.z-p.z,q.x-p.x);p.phase=p.hp<p.maxHp*.5?2:1;p.attackClock-=dt;
@@ -593,28 +604,91 @@ export function createGame(settings,loadouts,mode){
  }
  function stepKing(p,dt){
   const q=nearestHero(p),dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);
-  p.yaw=Math.atan2(dz,dx);p.phase=p.hp<p.maxHp*.45?2:1;
-  const speed=p.phase===2?65:45;
-  if(d>100)move(p,dx/Math.max(1,d)*speed*dt,0,dz/Math.max(1,d)*speed*dt);
+  p.phase=p.hp<p.maxHp*.45?2:1;
+  if(p.phase===2&&!p.enraged){
+   p.enraged=true;p.attackClock=Math.max(p.attackClock,2.4);
+   fx(p.x,p.y-30,85,'#ffc161','king-volley',p.z,0,0,1.4);
+  }
+  const busy=s.time<(p.attackEndsAt||0);
+  p.attackProgress=busy?clamp((s.time-p.attackAt)/p.attackDuration,0,1):0;
+  p.walkSpeed=0;
+  if(!busy){
+   p.attackLabel='';p.yaw=Math.atan2(dz,dx);
+   if(d>100){const speed=p.phase===2?65:45;p.walkSpeed=speed;move(p,dx/Math.max(1,d)*speed*dt,0,dz/Math.max(1,d)*speed*dt)}
+  }
   p.attackClock-=dt;
-  if(p.attackClock>0)return;
-  p.attackClock=p.phase===2?2.8:4;p.attackAt=s.time;
-  const attack=p.attackCycle++%3;p.attackKind=attack;
+  if(p.attackClock>0||busy)return;
+  const attack=p.attackCycle++%6;
+  p.attackKind=attack;p.attackAt=s.time;p.attackDuration=attack===1?2.3:attack===2?2.6:attack===4?2.4:1.8;
+  p.attackEndsAt=s.time+p.attackDuration;p.attackYaw=p.yaw;
+  p.attackClock=p.attackDuration+(p.phase===2?.7:1.25);
+  const heading=p.yaw,originX=p.x,originZ=p.z;
+  const labels=['Crushing fists — leave the marked circle','Hellfire volley — dodge between the shots','Crown shockwave — jump over the ring','Royal charge — step off the red lane','Royal pyres — escape the four sigils','Bone guard — reinforcements rising'];
+  p.attackLabel=labels[attack];
   if(attack===0){
-   // Target is fixed when the warning appears, allowing a clean dodge.
-   const x=q.x,z=q.z;fx(x,430,95,'#ff4f67','king-warning',z,0,0,1.2);
-   let done=false;api.zone(p,x,430,95,1.3,1.2,(w,o)=>{if(done||o.hp<=0)return;done=true;w.area(o,x,418,95,30,'#ff4f67',z);fx(x,430,95,'#ff4f67','king-slam',z)},'#ff4f67',z,'king-warning');
+   const x=q.x,z=q.z;
+   fx(x,430,90,'#ff4f67','king-warning',z,0,0,1.2);
+   let done=false;
+   api.zone(p,x,430,90,1.25,1.2,(w,o)=>{
+    if(done||o.hp<=0)return;done=true;w.area(o,x,418,90,30,'#ff4f67',z);
+    fx(x,430,90,'#ff4f67','king-slam',z);
+   },'#ff4f67',z,'king-warning');
   }else if(attack===1){
-   fx(p.x,p.y-50,45,'#ff843a','king-volley',p.z,p.yaw,0,1);
-   let done=false;api.zone(p,p.x,p.y,1,1.1,.9,(w,o)=>{if(done||o.hp<=0)return;done=true;
-    const pitch=Math.atan2(q.y-o.y,Math.hypot(q.x-o.x,q.z-o.z));
-    for(let j=-2;j<=2;j++)w.bolt(o,pitch,{style:'furnace-arrow',speed:210,r:7,damage:16,yawOffset:j*.2,life:4,color:'#ff6548'});
+   // Lock the fan direction at the windup; alternating hands leave dodgeable gaps.
+   let volley=0;
+   const fan=api.zone(p,p.x,p.y,1,2.2,.85,(w,o)=>{
+    if(o.hp<=0||volley>=4)return;
+    const side=volley%2?1:-1;
+    for(let j=-1;j<=1;j++)w.bolt(o,0,{style:'furnace-arrow',speed:p.phase===2?255:210,r:6,damage:13,
+     yawOffset:heading-o.yaw+j*.27+side*.06,life:4,color:'#ff6548'},
+     {x:o.x-Math.sin(heading)*side*25,y:o.y-25-(volley<2?20:0),z:o.z+Math.cos(heading)*side*25});
+    volley++;fan.interval=.32;
    },'#ff843a',p.z,'king-volley');
+  }else if(attack===2){
+   const hit=new Set();let age=0;
+   api.zone(p,originX,430,240,2.65,.05,(w,o)=>{
+    if(o.hp<=0)return;age+=.05;
+    if(age<1.1)return;
+    const radius=Math.min(240,24+(age-1.1)*155);
+    fx(originX,428,radius,'#ff6583','king-shockwave',originZ,0,0,.12);
+    for(const enemy of w.enemies(o)){
+     const distance=Math.hypot(enemy.x-originX,enemy.z-originZ);
+     if(hit.has(enemy)||Math.abs(distance-radius)>18||enemy.y<402||enemy.y>440)continue;
+     hit.add(enemy);w.hurt(enemy,24);
+    }
+   },'#c83855',originZ,'king-warning');
+  }else if(attack===3){
+   const hit=new Set();let age=0;
+   fx(originX,429,1,'#ff5b65','king-charge-lane',originZ,heading,0,1.05);
+   api.zone(p,originX,430,1,1.85,.05,(w,o)=>{
+    if(o.hp<=0)return;age+=.05;if(age<1.05||age>1.65)return;
+    move(o,Math.cos(heading)*24,0,Math.sin(heading)*24);
+    for(const enemy of w.enemies(o)){
+     if(hit.has(enemy)||Math.hypot(enemy.x-o.x,enemy.z-o.z)>48||Math.abs(enemy.y-o.y)>60)continue;
+     hit.add(enemy);w.hurt(enemy,32);enemy.vy=-220;enemy.ground=false;
+    }
+   },'#ff5b65',originZ,'tentacle-timer');
+  }else if(attack===4){
+   const targetX=q.x,targetZ=q.z;
+   for(let i=0;i<4;i++){
+    const angle=heading+i*Math.PI/2,x=targetX+Math.cos(angle)*90,z=targetZ+Math.sin(angle)*90;
+    const delay=1.05+i*.23;let done=false;
+    api.zone(p,x,430,48,delay+.06,delay,(w,o)=>{
+     if(done||o.hp<=0)return;done=true;w.area(o,x,418,48,23,'#ff9a4c',z);
+     fx(x,430,48,'#ff9a4c','king-pyre',z,0,0,.8);
+    },'#ff9a4c',z,'king-warning');
+   }
   }else{
-   const x=p.x,z=p.z;fx(x,430,170,'#c83855','king-warning',z,0,0,1.1);
-   let done=false;api.zone(p,x,430,170,1.2,1,(w,o)=>{if(done||o.hp<=0)return;done=true;fx(x,430,170,'#ff6583','king-slam',z);
-    for(const enemy of w.enemies(o))if(Math.hypot(enemy.x-x,enemy.z-z)<190&&enemy.y>400)w.hurt(enemy,24);
-   },'#c83855',z,'king-warning');
+   let done=false;
+   api.zone(p,p.x,p.y,1,1.5,1.2,(w,o)=>{
+    if(done||o.hp<=0)return;done=true;
+    const alive=s.summons.filter(f=>f.kingGuard&&f.owner===o&&f.hp>0).length;
+    for(let i=0;i<Math.min(2,4-alive);i++){
+     const guard=w.summon(o,i%2?'archer':'squire',16);guard.kingGuard=true;guard.hp=guard.maxHp=55;
+     move(guard,-Math.sin(heading)*(i?65:-65),0,Math.cos(heading)*(i?65:-65));
+     fx(guard.x,guard.y-12,26,'#ffd48f','king-pyre',guard.z,0,0,.8);
+    }
+   },'#ffce77',p.z,'king-volley');
   }
  }
  if(mode==='campaign')campaignStage(1);
@@ -783,6 +857,6 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
- function snapshot(includeTiles=true){return {dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})=>({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {arrivalUntil:s.arrivalUntil||0,dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})=>({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

@@ -1,5 +1,5 @@
 import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
-import {makeSpellModels} from './wizard-spell-models.js?v=mana-value';
+import {makeSpellModels} from './wizard-spell-models.js?v=void-abduction';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
 import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=mana-value';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
@@ -578,7 +578,7 @@ function makeSpellParts(scene){
     if(!b.props.has(e.kind))b.props.set(e.kind,buildProp(b.root,e.kind));
     const prop=b.props.get(e.kind);prop.visible=true;prop.scale.setScalar(e.r*Math.min(1,life*5));
     prop.rotation.set(0,-(e.yaw||0),-(e.pitch||0),'YXZ');
-    if(models[e.kind]&&!e.kind.startsWith('vault-')&&!e.kind.startsWith('gaster-')&&e.kind!=='smoky-tentacle'&&e.kind!=='fault-tear'&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
+    if(models[e.kind]&&!e.kind.startsWith('vault-')&&!e.kind.startsWith('gaster-')&&e.kind!=='smoky-tentacle'&&e.kind!=='fault-tear'&&e.kind!=='king-charge-lane'&&!e.kind.endsWith('-cone-stream'))prop.rotation.y-=Math.PI/2; // Show the silhouette across the aim line.
     if(typeof prop.userData.pose==='function')prop.userData.pose(1-life);
     if(e.kind==='shears')prop.userData.arms.forEach((arm,k)=>arm.rotation.y=(k?1:-1)*(.02+.57*Math.max(0,(life-.38)/.62)));
     if(e.kind==='bell')prop.rotation.z=.32*Math.sin(life*9);
@@ -799,6 +799,86 @@ function costume(head,chest,outfit){
  }
  return hat;
 }
+function makeAbduction(scene){
+ const root=joint(scene,0,0,0),gate=joint(root,0,0,0),rings=[],rifts=[],tentacles=[],debris=[];
+ gate.rotation.y=-Math.PI/2;
+ part(gate,shape.ball,mat(0x090316),0,0,0,110,148,4);
+ for(let i=0;i<5;i++){
+  const ring=part(gate,shape.ring,mat(i%2?0xc47bff:0x743ad4,true),0,0,i,110+i*5,148+i*4,2);
+  rings.push(ring);
+ }
+ for(let i=0;i<24;i++){
+  const angle=i*TAU/24;
+  part(gate,shape.gem,mat(0xe0b6ff,true),Math.cos(angle)*135,Math.sin(angle)*170,3,3,9,3).rotation.z=-angle;
+ }
+ for(let i=0;i<4;i++){
+  const rift=joint(root,0,0,0);rift.rotation.y=-Math.PI/2;
+  part(rift,shape.ball,mat(0x120622),0,0,0,27,50,2);
+  part(rift,shape.ring,mat(0x9d5dff,true),0,0,1,29,53,2);
+  rifts.push(rift);
+ }
+ const eye=joint(root,0,0,0);eye.rotation.y=Math.PI;
+ const models=makeSpellModels({joint,part,shape,mat});
+ const poseEye=models['void-entity'](eye);
+ for(let arm=0;arm<5;arm++){
+  const segments=[];
+  for(let j=0;j<16;j++){
+   const radius=8-j*.32;
+   const mesh=part(root,shape.ball,mat(j%2?0x68438e:0x3b2256),0,0,0,radius,1,radius);
+   segments.push(mesh);
+  }
+  tentacles.push(segments);
+ }
+ for(let i=0;i<28;i++)debris.push(part(root,shape.gem,mat(i%3?0x5b4270:0xcc8dff,i%3===0),0,0,0,3+i%4,4+i%5,3));
+ const start=new THREE.Vector3(),point=new THREE.Vector3(),previous=new THREE.Vector3(),direction=new THREE.Vector3(),up=new THREE.Vector3(0,1,0);
+ const smooth=value=>{const n=clamp(value,0,1);return n*n*(3-2*n)};
+ root.visible=false;
+ return state=>{
+  const c=state?.cutscene;root.visible=c?.kind==='void-abduction';if(!root.visible)return;
+  const t=c.time,king=state.players.find(p=>p.boss),portalY=HEIGHT-c.y+125;
+  const opening=smooth((t-2)/2.4),retreat=1-smooth((t-10.5)/1.2);
+  gate.position.set(c.portalX,portalY,c.z);gate.scale.set(opening,opening,opening);
+  rings.forEach((ring,i)=>{ring.rotation.z=t*(i%2?-.23:.17);ring.scale.x=(110+i*5)*(1+.025*Math.sin(t*4+i))});
+  rifts.forEach((rift,i)=>{
+   const angle=i*TAU/4+t*.13;
+   rift.position.set(c.portalX+15,portalY+Math.sin(angle)*165,c.z+Math.cos(angle)*185);
+   rift.scale.setScalar(smooth((t-1.4-i*.2)/1.1)*(1-smooth((t-11)/2)));
+  });
+  eye.visible=t>4&&t<12;
+  poseEye?.(t);
+  eye.position.set(c.portalX-12,portalY-24,c.z);
+  eye.scale.setScalar(70*smooth((t-4)/1.5)*retreat);
+  tentacles.forEach((segments,i)=>{
+   const angle=i*TAU/5,extension=smooth((t-5-i*.12)/2)*retreat;
+   start.set(c.portalX-8,portalY+Math.sin(angle)*64,c.z+Math.cos(angle)*75);
+   // Ends curl around the King's shoulders and waist while the roots stay in the rift.
+   const targetX=king.x+Math.sin(t*2+i)*8;
+   const targetY=HEIGHT-king.y+25+(i%3)*14;
+   const targetZ=king.z+(i%2?1:-1)*22;
+   previous.copy(start);
+   segments.forEach((mesh,j)=>{
+    mesh.visible=extension>.001;
+    const u=(j+1)/segments.length,bend=Math.sin(u*Math.PI);
+    point.set(start.x+(targetX-start.x)*u*extension-35*bend*extension,
+     start.y+(targetY-start.y)*u*extension+Math.sin(angle+t*1.5)*28*bend*extension,
+     start.z+(targetZ-start.z)*u*extension+Math.cos(angle+t)*25*bend*extension);
+    if(u>.7){const curl=(u-.7)/.3;point.x+=Math.sin(curl*Math.PI*2)*14*extension;point.z+=Math.cos(curl*Math.PI*2)*14*extension}
+    direction.subVectors(point,previous);const length=direction.length();
+    mesh.position.copy(point).add(previous).multiplyScalar(.5);
+    mesh.scale.set((8-j*.32)*extension,length*.65+2,(8-j*.32)*extension);
+    if(length>.001)mesh.quaternion.setFromUnitVectors(up,direction.normalize());
+    previous.copy(point);
+   });
+  });
+  debris.forEach((mesh,i)=>{
+   const a=t*(.5+i%4*.15)+i*2.4,radius=100+((i*31-t*32)%100+100)%100;
+   mesh.visible=opening>0;
+   mesh.position.set(c.portalX-30-Math.sin(a*.7)*40,portalY+Math.sin(a)*radius*.7,c.z+Math.cos(a)*radius);
+   mesh.rotation.set(t+i,t*.7+i,0);mesh.scale.setScalar(opening*(2+i%3));
+  });
+ };
+}
+
 export function makeRenderer(canvas){
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance',alpha:false});
  renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -824,6 +904,7 @@ export function makeRenderer(canvas){
  }
  throne.visible=false;
  const paintCasting=makeCastPainter(THREE,scene,SPELLS,HEIGHT);
+ const paintAbduction=makeAbduction(scene);
  const updateTerrain=makeTerrain(groundGroup),rigs=[],paintSpells=makeSpellParts(scene),paintFamiliars=makeFamiliars(scene);
  let pixelScale=1,frames=0,frameSeconds=0,lastDraw=0;
  let palette=null,logicalW=0,logicalH=0,oldDPR=0;
@@ -895,6 +976,13 @@ export function makeRenderer(canvas){
    camera.position.set(c.x-190-progress*60,210-progress*20,c.z+180-progress*40);
    camera.lookAt(c.x-40*progress,185,c.z);camera.updateMatrixWorld();
   }
+  if(!demo&&state.cutscene?.kind==='void-abduction'){
+   const c=state.cutscene,follow=clamp((c.time-12)/5,0,1),opening=clamp(c.time/6,0,1);
+   camera.position.set(c.x-270+(c.portalX-c.x+215)*follow,HEIGHT-c.y+175-follow*50,c.z+340*(1-follow));
+   camera.lookAt(c.x+(c.portalX-c.x)*(.35+.5*opening),HEIGHT-c.y+100,c.z);
+   camera.updateMatrixWorld();
+  }
+  paintAbduction(demo?null:state);
   const creatures=demo?[]:[...(state.summons||[])];
   if(demo&&titleScene===3){
    for(let i=0;i<6;i++)creatures.push({id:i,kind:i<4?'squire':'wraith',side:0,hp:28,maxHp:28,

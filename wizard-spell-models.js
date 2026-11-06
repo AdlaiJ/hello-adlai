@@ -474,15 +474,39 @@ export function makeSpellModels({joint,part,shape,mat}){
    for(let i=-1;i<=1;i++)piece(fore,'cone',bone,i*.1,-.86,.1,.06,.3,.06,Math.PI);
    arms.push(arm);
   }
-  return (t,actor={})=>{const seated=actor.entranceSeat||0,walking=actor.entranceWalk||0;
-   g.position.y=28-14*seated;g.rotation.x=-.12*seated;
+  return (t,actor={})=>{const seated=actor.entranceSeat||0,walking=actor.entranceWalk||Math.min(1,(actor.walkSpeed||0)/70)||(actor.attackKind===3&&actor.attackProgress>.58?1:0);
+   const kneel=actor.cinematicKneel||0,struggle=actor.cinematicStruggle||0;
+   const attack=actor.attackProgress||0,swing=Math.sin(attack*Math.PI);
+   g.position.y=28-14*seated-13*kneel;g.rotation.x=-.12*seated+.38*kneel+struggle*.16;
    legs.forEach((leg,i)=>leg.rotation.x=-1.2*seated+Math.sin(t*6+i*Math.PI)*.55*walking);
-   arms.forEach((arm,i)=>{arm.rotation.z=Math.sin(t*2+i*.9)*.35*(1-seated);arm.rotation.x=-.55*seated+Math.sin(t*1.5+i)*.45*(1-seated)});
+   arms.forEach((arm,i)=>{
+    arm.rotation.z=Math.sin(t*2+i*.9)*.35*(1-seated)+struggle*(i%2?-.5:.5);
+    arm.rotation.x=-.55*seated+Math.sin(t*1.5+i)*.45*(1-seated)-kneel*.65;
+    if(attack){
+     if(actor.attackKind===0)arm.rotation.x=-2.1*Math.sin(Math.min(1,attack/.65)*Math.PI);
+     else if(actor.attackKind===1)arm.rotation.x=-1.5+Math.sin(attack*24-i*Math.PI)*.3;
+     else if(actor.attackKind===2){arm.rotation.z+=(i<2?1:-1)*swing;arm.rotation.x=-swing*1.4}
+     else if(actor.attackKind===3){arm.rotation.x=-1.2;arm.rotation.z+=(i<2?1:-1)*swing*.8;g.rotation.x=.24*swing}
+     else arm.rotation.x=-1.8*swing;
+    }
+   });
   };
  };
  models['king-warning']=g=>{for(let i=0;i<3;i++){const r=rim(g,0xff3758,0,.02,1-i*.14,1-i*.14);r.rotation.x=Math.PI/2}};
  models['king-slam']=g=>{for(let i=0;i<12;i++){const a=i*Math.PI/6;piece(g,'cone',0xff5874,Math.cos(a)*.8,.2,Math.sin(a)*.8,.13,.7,.13,0,true)}};
  models['king-volley']=g=>{for(let i=0;i<4;i++)fire(g,(i-1.5)*.3,0)};
+ models['king-shockwave']=g=>{
+  for(const scale of [.94,1]){const ring=rim(g,0xff8b65,0,.02,scale,scale);ring.rotation.x=Math.PI/2}
+ };
+ models['king-charge-lane']=g=>{
+  for(const side of [-1,1])piece(g,'box',0xff765a,140,1,side*40,280,2,2,0,true);
+  for(let i=1;i<=7;i++)piece(g,'gem',0xffb55e,i*36,2,0,12,2,12,0,true);
+ };
+ models['king-pyre']=g=>{
+  const flames=[];
+  for(let i=0;i<7;i++){const a=i*2.4;flames.push(piece(g,'cone',i%2?0xffc85d:0xf13e51,.5*Math.cos(a),.8,.5*Math.sin(a),.2,1.6,.2,0,true))}
+  return t=>flames.forEach((flame,i)=>flame.scale.y=1+Math.sin(t*15+i)*.3);
+ };
  models['campaign-rift']=g=>{
   piece(g,'ball',0x170c2f,0,0,0,.82,1.1,.05);
   const rings=[];for(let i=0;i<4;i++){const r=rim(g,i%2?0xbc7aff:0x7436db,0,0,.85+i*.07,1.1+i*.07);rings.push(r)}
