@@ -30,7 +30,7 @@ $('coop').onclick=()=>{setup('multi');$('format').value='Co-op 2';$('count').val
 $('format').onchange=()=>{$('map').parentElement.hidden=$('format').value.startsWith('Co-op')};
 document.querySelectorAll('.back').forEach(b=>b.onclick=home);$('leave').onclick=home;
 function readSettings(){const count=$('count').valueAsNumber,mana=$('mana').valueAsNumber;if(!Number.isInteger(count)||count<1||count>10||!Number.isInteger(mana)||mana<10||mana>5000){$('setupStatus').textContent='Choose 1–10 spells and 10–5000 mana.';return null}return {count,mana,format:$('format').value,map:$('map').value}}
-function book(){selected=[];locked=false;$('school').value='All';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?settings.format+' room · '+code:mode==='waves'?'Singleplayer · Waves':mode==='campaign'?'Campaign · The Crimson King':'Sandbox';
+function book(){selected=[];locked=false;$('school').value='All';$('spellSearch').value='';show('book');$('copy').hidden=!(host&&mode==='multi');$('roomLabel').textContent=mode==='multi'?settings.format+' room · '+code:mode==='waves'?'Singleplayer · Waves':mode==='campaign'?'Campaign · The Crimson King':'Sandbox';
  $('rules').textContent=settings.map+' · '+settings.mana+' mana · Choose '+settings.count+' spells. Selection order sets your number keys.';$('bookStatus').textContent='Regain 0.5% of your maximum mana every second, plus 10% every 10 seconds. F then a spell banks 5% of your pool per second. Storing half the cost halves both the mana due and the cast time. Fully stored spells cast instantly for free.';drawBook()}
 const starterKits={
  'All-rounder':{tip:'Use Witchspark for quick shots.',order:'witchspark pocket-poultice thimble-ward fold-step glass-fan rampart foxstep north-star iron-choir crater-bell'},
@@ -60,19 +60,25 @@ $('unlockForm').onsubmit=e=>{e.preventDefault();if($('spellPassword').value!=='G
  if(page==='book'&&!locked&&requestedSecret&&!selected.includes(requestedSecret)&&selected.length<settings.count)selected.push(requestedSecret);
  $('spellUnlock').close();requestedSecret=null;$('spellPassword').value='';drawBook();
 };
+const searchText=value=>value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 function drawBook(){const focused=document.activeElement?.dataset?.spell;previewStarter();const list=$('cards');list.replaceChildren();
+ const terms=searchText($('spellSearch').value).split(' ').filter(Boolean);let matches=0;
+ $('clearSpellSearch').disabled=!$('spellSearch').value;
  $('grandToggle').setAttribute('aria-pressed',String($('school').value==='grand'));
  for(const school of schools){
   const filter=$('school').value;
   if(filter!=='All'&&filter!=='grand'&&filter!==school)continue;
-  const entries=SPELLS.filter(spell=>spell.category===school&&(filter!=='grand'||spell.grand)),heading=document.createElement('h3');
-  if(!entries.length)continue;heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
+  const entries=SPELLS.filter(spell=>spell.category===school&&(filter!=='grand'||spell.grand)&&terms.every(term=>searchText(spell.name+' '+spell.id+' '+spell.category+' '+spell.description).includes(term))),heading=document.createElement('h3');
+  matches+=entries.length;if(!entries.length)continue;heading.className='schoolHeading';heading.textContent=school+' · '+entries.length;list.append(heading);
   for(const s of entries){
  const i=selected.indexOf(s.id),b=document.createElement('button');b.dataset.spell=s.id;b.setAttribute('aria-pressed',String(i>=0));b.disabled=locked||(i<0&&selected.length>=settings.count);
  const title=document.createElement('strong'),stats=document.createElement('small'),desc=document.createElement('span');title.textContent=(i>=0?'['+slotLabel(i)+'] ':'')+(s.passwordProtected?'🔒 ':'')+s.symbol+' '+s.name;stats.textContent=s.category+' · '+(s.channel?s.channel.mana+' mana/second · Hold to cast':s.cost+' mana · '+(s.time?s.time+'s':'Instant'));desc.textContent=s.description;b.append(title,stats,desc);b.onclick=()=>{if(i<0&&s.passwordProtected){requestSecretSpell(s.id);return}if(i<0)selected.push(s.id);else selected.splice(i,1);drawBook()};list.append(b)}
  }
+ $('spellSearchResults').textContent=matches?matches+' spells shown': 'No spells match. Try another search or choose All schools.';
  $('selection').textContent=selected.length+' / '+settings.count+' bound';$('ready').disabled=locked||selected.length!==settings.count;
  if(focused){if(!$('ready').disabled)$('ready').focus();else [...list.querySelectorAll('button')].find(b=>b.dataset.spell===focused)?.focus()}}
+$('spellSearch').oninput=()=>{drawBook();$('cards').scrollTop=0};
+$('clearSpellSearch').onclick=()=>{$('spellSearch').value='';drawBook();$('spellSearch').focus()};
 $('school').onchange=drawBook;
 $('grandToggle').onclick=()=>{$('school').value=$('school').value==='grand'?'All':'grand';drawBook();$('cards').scrollTop=0};
 function validIds(ids){return Array.isArray(ids)&&ids.length===settings.count&&new Set(ids).size===ids.length&&ids.every(id=>spells.has(id))}
