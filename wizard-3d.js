@@ -1,7 +1,7 @@
 import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
-import {makeSpellModels} from './wizard-spell-models.js?v=labyrinth-keepers';
+import {makeSpellModels} from './wizard-spell-models.js?v=wizbee-wizzone';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=labyrinth-keepers';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=wizbee-wizzone';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';

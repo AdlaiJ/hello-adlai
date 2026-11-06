@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=labyrinth-keepers';
+import {extraSpells} from './wizard-extra-spells.js?v=wizbee-wizzone';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
 export const spellRadius = radius => radius * 1.12;
 
