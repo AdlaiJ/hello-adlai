@@ -1,11 +1,11 @@
 import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
-import {makeSpellModels} from './wizard-spell-models.js?v=void-abduction';
+import {makeSpellModels} from './wizard-spell-models.js?v=water-valve';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=mana-value';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=water-valve';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import {crosshairRange,W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=labyrinth-keepers';
+import {crosshairRange,W as X,H as Y,D as Z,T as TILE} from './wizard-world.js?v=compact-maps';
 
 const HEIGHT=Y*TILE,TAU=Math.PI*2;
 const clamp=THREE.MathUtils.clamp;

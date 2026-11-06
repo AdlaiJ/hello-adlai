@@ -227,6 +227,20 @@ export function makeSpellModels({joint,part,shape,mat}){
    layer.scale.set(1,pulse,pulse);
   });
  }
+ models['water-cone-stream']=g=>{
+  const drops=[];
+  for(let i=0;i<32;i++){
+   const angle=i*2.39996,edge=Math.sqrt((i%7+1)/7);
+   const drop=piece(g,'ball',i%4===0?0xedfcff:0x52c9f5,0,0,0,.085,.018,.018,0,i%4===0);
+   drops.push({drop,angle,edge,offset:i/32});
+  }
+  return u=>{for(const {drop,angle,edge,offset} of drops){
+   const depth=(offset+u*2.8)%1,radius=depth*.52*edge;
+   drop.position.set(depth,Math.sin(angle)*radius,Math.cos(angle)*radius);
+   drop.rotation.z=Math.sin(angle)*.4;drop.rotation.y=-Math.cos(angle)*.4;
+   const size=.6+depth*.8;drop.scale.set(size,size,size);
+  }};
+ };
  models['cold-cone-stream']=g=>swirlingCone(g,true);
  models['fire-cone-stream']=g=>swirlingCone(g,false);
  models['tornado']=g=>{

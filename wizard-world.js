@@ -1,4 +1,4 @@
-export const W=240, H=45, D=128, T=12;
+export const W=160, H=45, D=84, T=12;
 export const MAPS=['Bellfall Keep','Ember Quarry','Frostglass Bridge','Thornroot Ruins','Sunken Oasis','Void Cathedral'];
 
 export function markChangedChunk(revisions,index){
@@ -13,6 +13,15 @@ export function markChangedChunk(revisions,index){
 }
 
 export function makeTiles(map){
+ const source=makeFullTiles(map),tiles=new Uint8Array(W*H*D);
+ for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+  const sx=Math.min(239,Math.floor((x+.5)*240/W)),sz=Math.min(127,Math.floor((z+.5)*128/D));
+  for(let y=0;y<H;y++)tiles[x+W*(y+H*z)]=source[sx+240*(y+H*sz)];
+ }
+ return tiles;
+}
+function makeFullTiles(map){
+ const W=240,D=128;
  const tiles=new Uint8Array(W*H*D);
  function column(x,z,top,bottom,hp){
   for(let y=top;y<bottom;y++)tiles[x+W*(y+H*z)]=hp;

@@ -353,14 +353,16 @@ const evocationArts = [
       },color.Evocation,p.z);
     }),
   spell('Evocation', 'pressure-valve', 'Pressure Valve', '↗', 16, .32,
-    'A steam blast strikes in front of you. Enemies caught in it are shoved away and tossed into the air.',
+    'Spray a widening cone of water up to 100 units ahead. Enemies caught in the spray take 9 damage and are blasted backward. Solid cover blocks the water.',
     (api,p,a) => {
-      const at=aimPoint(p,a,33);
-      api.fx(at.x,at.y,16,'#bdedf1','valve',at.z,p.yaw,a);
-      api.area(p,at.x,at.y,29,9,color.Evocation,at.z);
-      for(const q of nearby(api,p,at.x,at.y,at.z,38)){
-        const dx=q.x-p.x,dz=q.z-p.z,len=Math.hypot(dx,dz)||1;
-        api.blink(q,26*dx/len,-5,26*dz/len);q.vy=-225;
+      const reach=100,spread=.5,dx=Math.cos(a)*Math.cos(p.yaw),dy=Math.sin(a),dz=Math.cos(a)*Math.sin(p.yaw);
+      api.fx(p.x,p.y-12,reach/1.12,'#73d9ff','water-cone-stream',p.z,p.yaw,a,.65);
+      for(const q of api.enemies(p)){
+        const x=q.x-p.x,y=q.y-p.y,z=q.z-p.z,d=Math.hypot(x,y,z);
+        if(d>reach||(d>0&&(x*dx+y*dy+z*dz)/d<Math.cos(spread))||!api.clearLine(p,q))continue;
+        api.hurt(q,9);
+        q.vx=(q.vx||0)+dx*420;q.vz=(q.vz||0)+dz*420;
+        q.vy=dy*420-95;q.ground=false;
       }
     })
 ];

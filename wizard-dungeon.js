@@ -1,5 +1,5 @@
-import {W,H,D} from './wizard-world.js?v=keyboard-play';
-export const FLOOR=36,COLS=12,ROWS=8,CW=W/COLS,CD=D/ROWS;
+import {W,H,D} from './wizard-world.js?v=compact-maps';
+export const FLOOR=36,COLS=8,ROWS=6,CW=W/COLS,CD=D/ROWS;
 // Start with solid rock. Only carved rooms and their connecting passages are open.
 export function dungeonTiles(seed){
  const tiles=new Uint8Array(W*H*D).fill(85),visited=new Uint8Array(COLS*ROWS),openings=new Uint8Array(COLS*ROWS);

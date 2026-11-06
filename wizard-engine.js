@@ -1,8 +1,8 @@
-import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=labyrinth-keepers';
+import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=compact-maps';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=mana-value';
-import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=labyrinth-keepers';
-export {MAPS,makeTiles} from './wizard-world.js?v=labyrinth-keepers';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=water-valve';
+import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=compact-maps';
+export {MAPS,makeTiles} from './wizard-world.js?v=compact-maps';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const midX=W*T/2,midZ=D*T/2;
