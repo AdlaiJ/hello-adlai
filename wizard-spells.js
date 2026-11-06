@@ -1,6 +1,6 @@
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=wizbee-wizzone';
+import {extraSpells} from './wizard-extra-spells.js?v=mana-value';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp']);
 export const spellRadius = radius => radius * 1.12;
 
@@ -53,18 +53,18 @@ const damage = [
     'Summon six orbiting blood weapons. Press G or click the arena to launch a dagger (14 damage), piercing spear (19 damage), then bursting axe (14 damage). Each recast adds six more weapons, stacking up to 30, for the normal mana cost and casting time.',
     (api,p)=>{if(!p.bloodAmmo)p.bloodFired=0;p.bloodAmmo=Math.min(30,(p.bloodAmmo||0)+6);}),
   spell('Evocation','shrine-of-cleavers','Shrine of Cleavers','⛩',600,4,
-    'Unfold an open shrine for eight seconds. Every half second it slashes every enemy inside the marked circle for 8 damage and cuts a trench through the terrain. Escape the circle to avoid the next cut.',
+    'Unfold an open shrine for ten seconds. Every half second it slashes every enemy inside the marked circle for 11 damage and cuts a trench through the terrain. Escape the circle to avoid the next cut.',
     (api,p)=>{
       const ground=api.surface(p.x,p.z,p.y-24)??p.y;
       let beat=0;
-      api.zone(p,p.x,ground,127,8,.5,(w,owner,x,y,z)=>{
+      api.zone(p,p.x,ground,160,10,.5,(w,owner,x,y,z)=>{
         const angle=beat++*2.4,dx=Math.cos(angle),dz=Math.sin(angle);
         for(const q of w.enemies(owner)){
-          if(Math.hypot(q.x-x,q.z-z)>spellRadius(127)||Math.abs(q.y-12-y)>spellRadius(127))continue;
-          w.hurt(q,8);w.fx(q.x,q.y-12,17,'#ff3155','cleave',q.z,angle,.45*(beat%2?1:-1));
+          if(Math.hypot(q.x-x,q.z-z)>spellRadius(160)||Math.abs(q.y-12-y)>spellRadius(160))continue;
+          w.hurt(q,11);w.fx(q.x,q.y-12,17,'#ff3155','cleave',q.z,angle,.45*(beat%2?1:-1));
         }
-        w.fx(x,y-2,120,'#ff3155','cleave',z,angle);
-        for(let d=-124;d<=124;d+=12)w.cutTerrain(x+d*dx,y+4,6,40,z+d*dz);
+        w.fx(x,y-2,150,'#ff3155','cleave',z,angle);
+        for(let d=-156;d<=156;d+=12)w.cutTerrain(x+d*dx,y+4,6,40,z+d*dz);
       },'#bc173a',p.z,'cleaver-shrine');
     }),
   spell('Summoning','skull-throne','Skull Throne','☠',320,2.8,
@@ -152,7 +152,7 @@ const ranged = [
     bolt('Evocation', { style: 'north-star', speed: 180, damage: 19, r: 6, homing: 3, life: 4 })),
   spell('Evocation', 'silver-skewer', 'Silver Skewer', '➳', 23, .75,
     'Fire a fast, narrow lance with piercing power for a line of enemies.',
-    bolt('Evocation', { style: 'silver-skewer', speed: 660, damage: 17, r: 3, pierce: 3, life: 1.75 })),
+    bolt('Evocation', { style: 'silver-skewer', speed: 660, damage: 23, r: 3, pierce: 3, life: 1.75 })),
   spell('Evocation', 'moon-mortar', 'Moon Mortar', '☾', 18, .5,
     'Lob a heavy moon shell in a falling arc. Aim above a barricade to blast the far side.',
     bolt('Evocation', { style: 'moon-mortar', speed: 300, gravity: 300, damage: 21, r: 6, blast: 31, life: 4 })),
@@ -197,11 +197,11 @@ const boost = [
     'Boost upward once, from the ground or midair. Land to recharge. The backblast deals 12 damage to the ground and opponents below you.',
     (api, p) => { api.area(p, p.x, p.y + 3, 23, 12, color.Movement, p.z); p.vy = -410; p.ground=false; p.rocketSpent=true; }),
   spell('Movement', 'comet-train', 'Comet Train', '⌁', 32, .5,
-    'Sprint for three seconds while sparks burst at your current position every half second.',
+    'Sprint for five seconds while sparks burst at your current position every half second.',
     (api, p) => {
-      api.status(p, 'haste', 3);
-      api.zone(p, p.x, p.y - 8, 10, 3, .5, (world, owner) =>
-        world.area(owner, owner.x, owner.y - 5, 22, 6, color.Movement, owner.z), color.Movement, p.z);
+      api.status(p, 'haste', 5);
+      api.zone(p, p.x, p.y - 8, 10, 5, .5, (world, owner) =>
+        world.area(owner, owner.x, owner.y - 5, 30, 9, color.Movement, owner.z), color.Movement, p.z);
     }),
   spell('Movement', 'switchback', 'Switchback', '⇄', 30, .55,
     'Trade positions with the nearest enemy within about twelve blocks, as far as the terrain allows.',
@@ -215,13 +215,13 @@ const boost = [
       mark(api, other, 'Movement'); mark(api, p, 'Movement');
     }),
   spell('Movement', 'return-ticket', 'Return Ticket', '↶', 24, .2,
-    'Mark your position. After three seconds the mark pulls you back toward it, stopping at solid terrain.',
+    'Mark your position. After three seconds the mark pulls you back toward it, stopping at solid terrain. Gain 20 shield when recalled.',
     (api, p) => {
       let recalled = false;
       api.zone(p, p.x, p.y, 18, 3.15, 3, (world, owner, x, y, z) => {
         if (recalled) return;
         recalled = true;
-        world.blink(owner, x - owner.x, y - owner.y, z - owner.z); mark(world, owner, 'Movement');
+        world.blink(owner, x - owner.x, y - owner.y, z - owner.z); ward(owner,20); mark(world, owner, 'Movement');
       }, color.Movement, p.z);
     }),
   spell('Movement', 'pilgrim-step', 'Pilgrim Step', '▰', 10, .22,
@@ -237,9 +237,9 @@ const healing = [
     'Wrap yourself in a thread that regenerates health for six seconds while you move.',
     (api, p) => { api.status(p, 'regen', 6); mark(api, p, 'Restoration'); }),
   spell('Restoration', 'lantern-well', 'Lantern Well', '⚘', 28, .75,
-    'Plant a healing lantern. Stay within its circle to recover 5 health every second for six seconds.',
-    (api, p) => api.zone(p, p.x, p.y - 12, 41, 6.1, 1, (world, owner, x, y, z) => {
-      if (distanceFrom(owner, x, y, z) <= spellRadius(41)) world.heal(owner, 5);
+    'Plant a healing lantern. Stay within its circle to recover 7 health every second for eight seconds.',
+    (api, p) => api.zone(p, p.x, p.y - 12, 55, 8.1, 1, (world, owner, x, y, z) => {
+      if (distanceFrom(owner, x, y, z) <= spellRadius(55)) world.heal(owner, 7);
     }, color.Restoration, p.z,'lantern')),
   spell('Restoration', 'vampire-moth', 'Vampire Moth', 'ʚ', 19, .45,
     'Send out a seeking moth. A hit deals 9 damage and restores 12 health to its caster.',
@@ -255,16 +255,16 @@ const healing = [
       p.shield -= amount; api.heal(p, amount); mark(api, p, 'Restoration', 22);
     }),
   spell('Restoration', 'overbloom', 'Overbloom', '✿', 22, .65,
-    'Bloom for 18 health. Any healing beyond full health becomes a shield instead, up to 100 shielding.',
+    'Bloom for 28 health. Any healing beyond full health becomes a shield instead, up to 100 shielding.',
     (api, p) => {
       const missing = p.maxHp - p.hp;
-      api.heal(p, 18); ward(p, Math.max(0, 18 - missing)); mark(api, p, 'Restoration');
+      api.heal(p, 28); ward(p, Math.max(0, 28 - missing)); mark(api, p, 'Restoration');
     }),
   spell('Restoration', 'hedge-hospice', 'Hedge Hospice', '⌂', 36, 1,
-    'Raise short destructible hedges to either side of yourself and recover 16 health in their shelter.',
+    'Raise short destructible hedges to either side of yourself and recover 30 health in their shelter.',
     (api, p) => {
       for (const side of [-1, 1]) buildAhead(api, p, 34, -16, 12, 36, side * Math.PI / 2);
-      api.heal(p, 16); mark(api, p, 'Restoration');
+      api.heal(p, 30); mark(api, p, 'Restoration');
     })
 ];
 
@@ -285,15 +285,15 @@ const shields = [
     'Raise a destructible wall six blocks high in front of you.',
     (api, p) => buildAhead(api, p, 40, -36, 24, 72)),
   spell('Warding', 'winter-ring', 'Winter Ring', '❄', 21, .35,
-    'Surround yourself with frost. Every nearby enemy is slowed for three seconds as you gain 8 shielding.',
+    'Surround yourself with frost. Every nearby enemy is slowed for three seconds as you gain 20 shielding.',
     (api, p) => {
       for (const target of api.enemies(p)) if (distanceFrom(target, p.x, p.y - 12, p.z) <= spellRadius(74)) api.status(target, 'slow', 3);
-      ward(p, 8); mark(api, p, 'Warding', 74);
+      ward(p, 20); mark(api, p, 'Warding', 74);
     }),
   spell('Warding', 'tithe-dome', 'Tithe Dome', '⌒', 30, .75,
-    'Raise a ward circle. Every second you remain inside grants 6 shielding, for up to five seconds.',
-    (api, p) => api.zone(p, p.x, p.y - 12, 35, 5.1, 1, (world, owner, x, y, z) => {
-      if (distanceFrom(owner, x, y, z) <= spellRadius(35)) { ward(owner, 6); mark(world, owner, 'Warding', 22); }
+    'Raise a ward circle. Every second you remain inside grants 10 shielding, for up to six seconds.',
+    (api, p) => api.zone(p, p.x, p.y - 12, 55, 6.1, 1, (world, owner, x, y, z) => {
+      if (distanceFrom(owner, x, y, z) <= spellRadius(55)) { ward(owner, 10); mark(world, owner, 'Warding', 22); }
     }, color.Warding, p.z)),
   spell('Warding', 'aegis-break', 'Aegis Break', '✷', 18, .3,
     'Shatter up to 35 of your shield points. Each point increases the damage and reach of the outward blast.',
@@ -408,8 +408,8 @@ const familiars = [
   ['quarry-mole','Quarry Mole','⛰',31,.7,'burrow','Chases enemies, chewing through blocks and hurting enemies with close-range pulses.']
 ].map(([id,name,symbol,cost,time,kind,behavior])=>
   spell('Summoning',id,name,symbol,cost,time,
-    behavior+' This creature has 28 health and lasts '+(cost>=50?14:12)+' seconds.',
-    (api,p)=>api.summon(p,kind,cost>=50?14:12)));
+    behavior+' This creature has '+(id==='soul-wraith'?90:id==='crypt-bow'?50:28)+' health and lasts '+(id==='soul-wraith'?24:id==='crypt-bow'?20:12)+' seconds.',
+    (api,p)=>{const creature=api.summon(p,kind,id==='soul-wraith'?24:id==='crypt-bow'?20:12);creature.hp=creature.maxHp=id==='soul-wraith'?90:id==='crypt-bow'?50:28;}));
 
 const hexArts = [
   spell('Hexes','peel-gilt','Peel Gilt','♤',11,.24,
@@ -506,11 +506,11 @@ const restorationArts = [
       api.heal(p,5*cleared);mark(api,p,'Restoration');
     }),
   spell('Restoration','second-draft','Second Draft','⏳',31,.48,
-    'Remember your current health. Three seconds later, restore up to 32 health lost since casting, if you survive.',
+    'Remember your current health. Three seconds later, restore up to 55 health lost since casting, if you survive.',
     (api,p)=>{
       const recorded=p.hp;
       api.zone(p,p.x,p.y-12,15,3.04,3,(world,owner)=>{
-        if(owner.hp>0){world.heal(owner,Math.min(32,Math.max(0,recorded-owner.hp)));mark(world,owner,'Restoration');}
+        if(owner.hp>0){world.heal(owner,Math.min(55,Math.max(0,recorded-owner.hp)));mark(world,owner,'Restoration');}
       },color.Restoration,p.z);
     }),
   spell('Restoration','root-tea','Root Tea','☕',18,.42,
@@ -527,18 +527,18 @@ const restorationArts = [
       p.hp-=spent;p.mana+=2*spent;mark(api,p,'Restoration');
     }),
   spell('Restoration','heartwood','Heartwood','♥',19,.58,
-    'Restore 8 health immediately, plus 5 for every nearby enemy within six blocks, up to 28 total.',
+    'Restore 16 health immediately, plus 6 for every nearby enemy within six blocks, up to 40 total.',
     (api,p)=>{
       const crowd=nearby(api,p,p.x,p.y-12,p.z,72).length;
-      api.heal(p,8+Math.min(4,crowd)*5);mark(api,p,'Restoration',72);
+      api.heal(p,16+Math.min(4,crowd)*6);mark(api,p,'Restoration',72);
     }),
   spell('Restoration','pilgrim-salve','Pilgrim Salve','✣',24,.36,
-    'Lay a salve on your route. Travel at least six blocks from the mark within three seconds to earn a 20-health heal.',
+    'Lay a salve on your route. Travel at least six blocks from the mark within three seconds to earn a 36-health heal.',
     (api,p)=>{
       let spent=false;
       api.zone(p,p.x,p.y-12,12,3,.15,(world,owner,x,y,z)=>{
         if(spent||owner.hp<=0||distanceFrom(owner,x,y,z)<72)return;
-        spent=true;world.heal(owner,20);mark(world,owner,'Restoration');
+        spent=true;world.heal(owner,36);mark(world,owner,'Restoration');
       },color.Restoration,p.z);
     }),
   spell('Restoration','midnight-harvest','Midnight Harvest','☘',21,.38,
@@ -555,26 +555,26 @@ const wardingArts = [
       buildAhead(api,p,0,-56,48,12);buildAhead(api,p,31,-56,48,12);mark(api,p,'Warding',18);
     }),
   spell('Warding','tripwire','Tripwire','⌖',17,.3,
-    'Set a ward at your feet for five seconds. An enemy stepping within three blocks grants you 20 shield.',
+    'Set a ward at your feet for ten seconds. An enemy stepping within three blocks grants you 32 shield.',
     (api,p)=>{
       let spent=false;
-      api.zone(p,p.x,p.y-12,36,5,.2,(world,owner,x,y,z)=>{
+      api.zone(p,p.x,p.y-12,36,10,.2,(world,owner,x,y,z)=>{
         if(spent||!nearby(world,owner,x,y,z,36).length)return;
-        spent=true;ward(owner,20);mark(world,owner,'Warding');
+        spent=true;ward(owner,32);mark(world,owner,'Warding');
       },color.Warding,p.z);
     }),
   spell('Warding','glass-receipt','Glass Receipt','▧',17,.1,
-    'Gain 10 shield. After two seconds, recover half the shielding lost since this cast as health, up to 18.',
+    'Gain 20 shield. After two seconds, recover half the shielding lost since this cast as health, up to 18.',
     (api,p)=>{
-      ward(p,10);const shield=p.shield;
+      ward(p,20);const shield=p.shield;
       api.zone(p,p.x,p.y-12,12,2.04,2,(world,owner)=>{
         if(owner.hp>0)world.heal(owner,Math.min(18,Math.max(0,shield-owner.shield)/2));
       },color.Warding,p.z);
       mark(api,p,'Warding');
     }),
   spell('Warding','snail-citadel','Snail Citadel','⛊',20,.28,
-    'Plant your feet for 1.5 seconds. In exchange, gain 18 shield and armor for three seconds.',
-    (api,p)=>{api.status(p,'root',1.5);api.status(p,'armor',3);ward(p,18);mark(api,p,'Warding');}),
+    'Plant your feet for 1.5 seconds. In exchange, gain 32 shield and armor for five seconds.',
+    (api,p)=>{api.status(p,'root',1.5);api.status(p,'armor',5);ward(p,32);mark(api,p,'Warding');}),
   spell('Warding','mirror-post','Mirror Post','♙',27,.57,
     'Plant a mirror post. Every second for four seconds, standing within two blocks grants a short reflection window.',
     (api,p)=>api.zone(p,p.x,p.y-12,24,4.05,1,(world,owner,x,y,z)=>{
@@ -593,24 +593,24 @@ const wardingArts = [
 
 const grandSpells = [
   spell('Warding','bone-wall','Bone Wall','🦴',240,3,
-    'Raise a barricade of ivory ribs five blocks ahead. Each block absorbs 58 damage. After three seconds the ribs regrow once, sealing breaches.',
+    'Raise a barricade of ivory ribs five blocks ahead. Each block absorbs 58 damage. The ribs regrow at three and six seconds, sealing breaches.',
     (api,p)=>{const at=aimPoint(p,0,60),ribs=[];
       for(let i=-7;i<=7;i++){const x=at.x-Math.sin(p.yaw)*i*10,z=at.z+Math.cos(p.yaw)*i*10,y=api.surface(x,z,p.y-120);
         if(y!==null)for(let j=0;j<(i%2===0?7:4);j++){const rib=[x,y-6-j*12,z,p.yaw];api.bone(...rib);ribs.push(rib)}}
-      api.zone(p,at.x,p.y-12,18,3.05,3,w=>{for(const rib of ribs)w.bone(...rib)},color.Warding,at.z,'bone-regrowth');
+      api.zone(p,at.x,p.y-12,18,6.05,3,w=>{for(const rib of ribs)w.bone(...rib)},color.Warding,at.z,'bone-regrowth');
     }),
   spell('Hexes','bone-spikes','Bone Floor Spikes','🩻',380,4,
-    'Plant seven single-use traps for 14 seconds. Step on one to vault upward. Enemies take 26 damage and are pinned for 1.7 seconds. Shoot a cluster for 18 damage or break the floor to disarm it.',
+    'Plant fourteen single-use traps in two staggered rows for 14 seconds. Step on one to vault upward. Enemies take 26 damage and are pinned for 1.7 seconds. Shoot a cluster for 18 damage or break the floor to disarm it.',
     (api,p)=>{for(let i=1;i<=7;i++){const at=aimPoint(p,0,i*42),y=api.surface(at.x,at.z,p.y-120);
-      if(y!==null)api.spike(p,at.x,y,at.z)}
+      if(y!==null){api.spike(p,at.x,y,at.z);const side=aimPoint(p,0,i*42+21);side.x-=Math.sin(p.yaw)*48;side.z+=Math.cos(p.yaw)*48;const floor=api.surface(side.x,side.z,p.y-120);if(floor!==null)api.spike(p,side.x,floor,side.z)}}
     }),
   spell('Evocation','fire-skull','Fire Skull','☠',650,5.5,
-    'Launch a flaming skull that curves toward an enemy. It explodes for 46 damage; a direct hit deals 46 more and burns for three seconds.',
-    bolt('Evocation',{style:'fire-skull',speed:245,r:9,homing:1.4,life:7,damage:46,blast:78,color:'#ff6630',onHit:(a,p,q)=>{if(q)a.status(q,'burn',3)}})),
+    'Launch a flaming skull that curves toward an enemy. It explodes for 62 damage; a direct hit deals 62 more and burns for three seconds.',
+    bolt('Evocation',{style:'fire-skull',speed:285,r:12,homing:1.8,life:7,damage:62,blast:110,color:'#ff6630',onHit:(a,p,q)=>{if(q)a.status(q,'burn',3)}})),
   spell('Restoration','phoenix-vigil','Phoenix Vigil','☀',900,7.5,
-    'For ten seconds, the first time your health falls below half while alive, recover 65 health and blast nearby enemies for 45 damage.',
-    (api,p)=>{let spent=false;api.zone(p,p.x,p.y-12,20,10,.1,(a,o)=>{if(!spent&&o.hp>0&&o.hp<o.maxHp/2){
-      spent=true;a.heal(o,65);a.area(o,o.x,o.y-12,104,45,'#ffac48',o.z)}},'#ffac48',p.z)}),
+    'Gain 60 shield and armor for 20 seconds. For 20 seconds, the first time your health falls below half while alive, recover 90 health and blast nearby enemies for 75 damage.',
+    (api,p)=>{ward(p,60);api.status(p,'armor',20);let spent=false;api.zone(p,p.x,p.y-12,20,20,.1,(a,o)=>{if(!spent&&o.hp>0&&o.hp<o.maxHp/2){
+      spent=true;a.heal(o,90);a.area(o,o.x,o.y-12,145,75,'#ffac48',o.z)}},'#ffac48',p.z)}),
   spell('Movement','thunder-road','Thunder Road','⟿',50,1.8,
     'Teleport toward your crosshair, up to 40 blocks, stopping at solid terrain. The route shocks enemies for 12 damage on arrival, then 6 every 0.4 seconds for four seconds.',
     (api,p,pitch)=>api.thunderRoad(p,pitch)),
@@ -621,55 +621,56 @@ const grandSpells = [
       ward(p,75);api.status(p,'reflect',3);mark(api,p,'Warding',65);
     }),
   spell('Summoning','wild-hunt','Call the Wild Hunt','🐾',180,3.2,
-    'Call an Ember Newt, a Rime Owl and a Storm Finch at once. They fill your three familiar slots for 14 seconds.',
+    'Call an Ember Newt, a Rime Owl and a Storm Finch at once. They fill your three familiar slots for 22 seconds, each with 56 health.',
     (api,p)=>{
       const yaw=p.yaw;
       for(const [i,kind] of ['ember','frost','storm'].entries()){
-        p.yaw=yaw+(i-1)*1.6;api.summon(p,kind,14);
+        p.yaw=yaw+(i-1)*1.6;const pet=api.summon(p,kind,22);pet.hp=pet.maxHp=56;
       }
       p.yaw=yaw;mark(api,p,'Summoning',68);
     }),
   spell('Restoration','second-sun','Second Sun','🌅',300,4,
-    'Restore 70 health and kindle a sanctuary for eight seconds. Each second inside restores 10 health and grants 4 shielding.',
+    'Restore 70 health and kindle a sanctuary for twelve seconds. Each second inside restores 10 health and grants 8 shielding.',
     (api,p)=>{
       api.heal(p,70);
-      api.zone(p,p.x,p.y-12,110,8.05,1,(world,owner,x,y,z)=>{
-        if(owner.hp>0&&distanceFrom(owner,x,y,z)<=spellRadius(110)){world.heal(owner,10);ward(owner,4);mark(world,owner,'Restoration',36)}
+      api.zone(p,p.x,p.y-12,140,12.05,1,(world,owner,x,y,z)=>{
+        if(owner.hp>0&&distanceFrom(owner,x,y,z)<=spellRadius(140)){world.heal(owner,10);ward(owner,8);mark(world,owner,'Restoration',36)}
       },color.Restoration,p.z);
     }),
   spell('Hexes','gravity-well','Gravity Well','◍',450,5,
-    'Open a well ten blocks straight ahead. Six pulses drag enemies with a stronger pull toward its center, then reverse gravity and fling trapped enemies upward.',
+    'Open a well ten blocks straight ahead. Six pulses drag enemies inward for 8 damage each, then a 50-damage collapse flings trapped enemies upward.',
     (api,p)=>{
       const at=aimPoint(p,0,120);let pulses=0;
-      api.zone(p,at.x,at.y,138,3.55,.5,(world,owner,x,y,z)=>{
-        if(++pulses===7){for(const q of nearby(world,owner,x,y,z,90))q.vy=-480;
+      api.zone(p,at.x,at.y,170,3.55,.5,(world,owner,x,y,z)=>{
+        if(++pulses===7){world.area(owner,x,y,140,50,color.Hexes,z);for(const q of nearby(world,owner,x,y,z,140))q.vy=-480;
           world.fx(x,y,90,color.Hexes,'ring',z);return}
-        for(const target of nearby(world,owner,x,y,z,138)){
-          const pull=Math.min(1,27/Math.max(1,distanceFrom(target,x,y,z)));
+        for(const target of nearby(world,owner,x,y,z,170)){
+          world.hurt(target,8);const pull=Math.min(1,27/Math.max(1,distanceFrom(target,x,y,z)));
           world.blink(target,(x-target.x)*pull,(y+12-target.y)*pull,(z-target.z)*pull);
         }
         world.fx(x,y,81,color.Hexes,'ring',z);
       },color.Hexes,at.z);
     }),
   spell('Evocation','worldbreaker','Worldbreaker','✺',700,7,
-    'Cut a deep shaft ten blocks ahead. An updraft rises from the shaft for ten seconds. Enter it to launch above the rim.',
+    'Detonate a 90-damage rupture ten blocks ahead, then bore a wide shaft with six 48-damage blasts. A fifteen-second updraft lifts anyone inside the crater.',
     (api,p,pitch)=>{
-      const at=aimPoint(p,0,120),surface=api.surface(at.x,at.z,0);if(surface===null)return;
-      api.zone(p,at.x,surface,53,10,.1,(w,o,x,y,z)=>{
-        for(const q of w.occupants())if(Math.hypot(q.x-x,q.z-z)<spellRadius(48)&&q.y>y-spellRadius(62)&&q.y<y+spellRadius(152))q.vy=-360;
+      const at=aimPoint(p,0,120),surface=api.surface(at.x,at.z,0);if(surface===null)return;api.area(p,at.x,surface-12,110,90,color.Evocation,at.z);
+      api.zone(p,at.x,surface,80,15,.1,(w,o,x,y,z)=>{
+        for(const q of w.occupants())if(Math.hypot(q.x-x,q.z-z)<spellRadius(75)&&q.y>y-spellRadius(62)&&q.y<y+spellRadius(152))q.vy=-360;
       },color.Movement,at.z,'wind');
       let step=0;
-      api.zone(p,p.x,p.y-12,16,1.31,.25,(world,owner)=>{
-        world.area(owner,at.x,surface+step*24,48,48,'#ffcd65',at.z);
+      api.zone(p,p.x,p.y-12,16,1.56,.25,(world,owner)=>{
+        world.area(owner,at.x,surface+step*24,75,48,'#ffcd65',at.z);
         step++;
       },color.Evocation,p.z);
     })
 ];
 
 function armament(id,name,symbol,cost,time,form,tint,strikes,reach,arc,damage,delay,trait,extra){
+  const duration=cost>=200?24:cost>=80?18:12;
   const entry=spell('Summoning',id,name,symbol,cost,time,
-    'Summon for 12 seconds. Press G, click the arena or press this slot again to swing for free. Hits land during the swing; press shortly before recovery ends to queue the next attack. '+strikes+' swings, '+damage+' damage each. '+extra,
-    (api,p)=>{p.weapon={id,until:api.now()+12,strikes,ready:api.now(),swing:-1}});
+    'Summon for '+duration+' seconds. Press G, click the arena or press this slot again to swing for free. Hits land during the swing; press shortly before recovery ends to queue the next attack. '+strikes+' swings, '+damage+' damage each. '+extra,
+    (api,p)=>{p.weapon={id,until:api.now()+duration,strikes,ready:api.now(),swing:-1}});
   entry.melee={form,tint,reach,arc,damage,delay,trait};
   return entry;
 }
@@ -679,17 +680,17 @@ function localTargets(api,p,r){
 const arsenal=[
   armament('glass-knife','Glass Knife','†',8,.35,'knife',0x95fff1,4,25,1.8,9,.22,'backstab','Backstabs deal triple damage.'),
   armament('wisp-rapier','Wisp Rapier','⚔',32,.8,'rapier',0x9bccff,4,47,.8,17,.38,'lunge','Each thrust lunges two blocks along your aim.'),
-  armament('rime-axe','Rime Axe','🪓',85,1.5,'axe',0x78dfff,3,37,2.5,28,.8,'slow','Each sweep chills its targets for two seconds.'),
-  armament('ember-maul','Ember Maul','🔨',210,2.4,'hammer',0xff864b,3,38,2.1,35,1,'burn','Heavy overhead blows ignite targets for two seconds.'),
-  armament('harvest-scythe','Harvest Scythe','🌾',520,4,'scythe',0xcaa0ff,4,49,3.5,38,.85,'drain','Wide sweeps heal you for 8 per enemy struck.'),
+  armament('rime-axe','Rime Axe','🪓',85,1.5,'axe',0x78dfff,5,43,2.5,32,.7,'slow','Each sweep chills its targets for two seconds.'),
+  armament('ember-maul','Ember Maul','🔨',210,2.4,'hammer',0xff864b,6,46,2.1,46,.85,'burn','Heavy overhead blows ignite targets for two seconds.'),
+  armament('harvest-scythe','Harvest Scythe','🌾',520,4,'scythe',0xcaa0ff,9,60,3.5,48,.7,'drain','Wide sweeps heal you for 8 per enemy struck.'),
   spell('Warding','spark-film','Spark Film','🫧',6,.25,'Gain 9 energy shield instantly after casting and extinguish burning.',
     (a,p)=>{ward(p,9);p.statuses.burn=0;mark(a,p,'Warding')}),
-  spell('Warding','capacitor-shell','Capacitor Shell','🔋',48,1,'Gain 24 shield. For six seconds each point your shield absorbs restores one mana.',
-    (a,p)=>{ward(p,24);a.status(p,'capacitor',6)}),
-  spell('Warding','prism-parry','Prism Parry','🔷',115,.45,'Catch the first incoming projectile within 2.5 seconds. Cancel its impact and convert its damage into up to 45 shield.',
-    (a,p)=>{a.status(p,'prism',2.5);mark(a,p,'Warding')}),
-  spell('Warding','polar-aegis','Polar Aegis','🧊',410,3.5,'Gain 75 shield. For eight seconds, enemies within six blocks are chilled whenever your shield absorbs damage.',
-    (a,p)=>{ward(p,75);a.status(p,'polar',8)}),
+  spell('Warding','capacitor-shell','Capacitor Shell','🔋',48,1,'Gain 40 shield. For ten seconds each point your shield absorbs restores one mana.',
+    (a,p)=>{ward(p,40);a.status(p,'capacitor',10)}),
+  spell('Warding','prism-parry','Prism Parry','🔷',115,.45,'Gain 35 shield, then catch the first incoming projectile within five seconds. Cancel its impact and convert its damage into up to 45 shield.',
+    (a,p)=>{ward(p,35);a.status(p,'prism',5);mark(a,p,'Warding')}),
+  spell('Warding','polar-aegis','Polar Aegis','🧊',410,3.5,'Gain 100 shield and armor for 14 seconds. For 14 seconds, enemies within six blocks are chilled whenever your shield absorbs damage.',
+    (a,p)=>{ward(p,100);a.status(p,'armor',14);a.status(p,'polar',14)}),
   spell('Movement','vault-kick','Vault Kick','↟',12,.2,'Spring upward. Kick an enemy within three blocks for 10 damage to vault nearly twice as high.',
     (a,p)=>{const targets=localTargets(a,p,36);p.vy=targets.length?-520:-270;for(const q of targets)a.hurt(q,10);mark(a,p,'Movement')}),
   spell('Movement','cross-step','Cross Step','⤨',24,.35,'Sidestep right. For three seconds, enemies crossing the midpoint of your step are rooted for one second.',
@@ -700,39 +701,39 @@ const arsenal=[
   spell('Restoration','field-dressing','Field Dressing','🩹',14,.7,'Bandage three times over three seconds for 9 health each. Taking an unshielded hit tears off the remaining bandages.',(a,p)=>{const injury=p.lastInjury||0;a.zone(p,p.x,p.y-12,12,3.05,1,(w,o)=>{
         if(o.hp>0&&(o.lastInjury||0)===injury){w.heal(o,9);mark(w,o,'Restoration')}
       },color.Restoration,p.z)}),
-  spell('Hexes','lead-bell','Lead Bell','🔔',38,.85,'Ground enemies within five blocks by rooting them for 1.4 seconds.',(a,p)=>{for(const q of localTargets(a,p,60))a.status(q,'root',1.4);mark(a,p,'Hexes',60)}),
+  spell('Hexes','lead-bell','Lead Bell','🔔',38,.85,'Ground enemies within seven blocks by rooting them for two seconds.',(a,p)=>{for(const q of localTargets(a,p,84))a.status(q,'root',2);mark(a,p,'Hexes',84)}),
   spell('Evocation','fault-cross','Fault Cross','╋',75,1.4,'Four blasts strike six blocks away in a cross around you, each dealing 32 damage.',
     (a,p)=>{for(let i=0;i<4;i++){const at=aimPoint(p,0,72,i*Math.PI/2);a.fx(at.x,at.y,35,'#ffbe72','fissure',at.z,p.yaw+i*Math.PI/2);a.area(p,at.x,at.y,41,32,'#ffbe72',at.z)}}),
-  spell('Restoration','familiar-feast','Familiar Feast','🍖',95,1.6,'Heal yourself for 20 and restore 24 health to each of your living familiars.',
-    (a,p)=>{a.heal(p,20);for(const f of a.allies(p))a.heal(f,24);mark(a,p,'Restoration')}),
-  spell('Hexes','ward-tax','Ward Tax','⚖',145,2,'Overload enemy shields within 9.2 blocks. Up to 36 shield per target discharges as a blast around that target, damaging its nearby allies.',
-    (a,p)=>{for(const q of localTargets(a,p,110)){const n=Math.min(36,q.shield);q.shield-=n;if(n){a.fx(q.x,q.y-12,69,color.Hexes,'burst',q.z);for(const other of nearby(a,p,q.x,q.y-12,q.z,69))if(other!==q)a.hurt(other,n)}}mark(a,p,'Hexes',110)}),
-  spell('Movement','comet-retreat','Comet Retreat','🌠',185,1.8,'Blast your starting point for 42 damage and blink ten blocks backwards.',
-    (a,p)=>{a.area(p,p.x,p.y-12,62,42,'#ff985b',p.z);a.blink(p,-120*Math.cos(p.yaw),0,-120*Math.sin(p.yaw))}),
-  spell('Summoning','winter-court','Winter Court','♛',295,3,'Summon two frost owls. For ten seconds their shards freeze already-chilled enemies in place for one second.',
-    (a,p)=>{for(const turn of [-1,1]){const owl=a.summon(p,'frost');a.blink(owl,-turn*24*Math.sin(p.yaw),0,turn*24*Math.cos(p.yaw));a.status(owl,'court',10)}mark(a,p,'Summoning',96)}),
-  spell('Evocation','siege-clock','Siege Clock','◷',640,5,'Mark a point sixteen blocks along your aim. Three blasts hit one second apart, each wider than the last, dealing 23, 46, then 69 damage.',
+  spell('Restoration','familiar-feast','Familiar Feast','🍖',95,1.6,'Heal yourself for 45 and restore 60 health to each of your living familiars.',
+    (a,p)=>{a.heal(p,45);for(const f of a.allies(p))a.heal(f,60);mark(a,p,'Restoration')}),
+  spell('Hexes','ward-tax','Ward Tax','⚖',145,2,'Overload enemy shields within 9.2 blocks. Up to 70 shield per target discharges as a blast around that target, damaging its nearby allies.',
+    (a,p)=>{for(const q of localTargets(a,p,110)){const n=Math.min(70,q.shield);q.shield-=n;if(n){a.fx(q.x,q.y-12,69,color.Hexes,'burst',q.z);for(const other of nearby(a,p,q.x,q.y-12,q.z,69))if(other!==q)a.hurt(other,n)}}mark(a,p,'Hexes',110)}),
+  spell('Movement','comet-retreat','Comet Retreat','🌠',185,1.8,'Blast your starting point for 60 damage and blink fourteen blocks backwards.',
+    (a,p)=>{a.area(p,p.x,p.y-12,85,60,'#ff985b',p.z);a.blink(p,-168*Math.cos(p.yaw),0,-168*Math.sin(p.yaw))}),
+  spell('Summoning','winter-court','Winter Court','♛',295,3,'Summon two frost owls with 65 health for 24 seconds. For 20 seconds their shards freeze already-chilled enemies in place for one second.',
+    (a,p)=>{for(const turn of [-1,1]){const owl=a.summon(p,'frost',24);owl.hp=owl.maxHp=65;a.blink(owl,-turn*24*Math.sin(p.yaw),0,turn*24*Math.cos(p.yaw));a.status(owl,'court',20)}mark(a,p,'Summoning',96)}),
+  spell('Evocation','siege-clock','Siege Clock','◷',640,5,'Mark a point sixteen blocks along your aim. Three blasts hit one second apart, each wider than the last, dealing 32, 64, then 96 damage.',
     (a,p,pitch)=>{const at=aimPoint(p,pitch,192);let beat=0;
-      a.zone(p,at.x,at.y,110,3.05,1,(w,o,x,y,z)=>{
-        beat++;w.area(o,x,y,beat*37,beat*23,'#ffc563',z);
+      a.zone(p,at.x,at.y,150,3.05,1,(w,o,x,y,z)=>{
+        beat++;w.area(o,x,y,beat*50,beat*32,'#ffc563',z);
       },'#ffc563',at.z,'clock')}),
   spell('Evocation','meteor-storm','Meteor Storm','🌋',560,4.5,
-    'Call nine burning meteors over the ground ahead. They fall in a spiral toward the center. Each impact blasts cover and deals 30 splash damage.',
+    'Call nine burning meteors over the ground ahead. They fall in a spiral toward the center. Each impact blasts cover and deals 40 splash damage.',
     (api,p,pitch)=>{
       const at=aimPoint(p,pitch,210),ground=api.surface(at.x,at.z,0);
       if(ground===null)return;
       let count=0;
-      api.zone(p,at.x,ground,94,2.92,.32,(world,owner)=>{
-        const angle=count*2.4,spread=68*(1-count/8);
+      api.zone(p,at.x,ground,120,2.92,.32,(world,owner)=>{
+        const angle=count*2.4,spread=90*(1-count/8);
         const x=at.x+Math.cos(angle)*spread,z=at.z+Math.sin(angle)*spread;
         count++;
         const floor=world.surface(x,z,0)??ground;
 
-        world.bolt(owner,Math.PI/2,{style:'meteor-storm',impactY:floor,speed:215,gravity:160,r:6,damage:30,blast:39,color:'#ff8235'}, {x,y:Math.max(-140,floor-160),z});
+        world.bolt(owner,Math.PI/2,{style:'meteor-storm',impactY:floor,speed:215,gravity:160,r:6,damage:40,blast:50,color:'#ff8235'}, {x,y:Math.max(-140,floor-160),z});
       },'#ff8338',at.z,'embers');
     }),
-  spell('Restoration','dawn-coronation','Dawn Coronation','♕',850,6,'Crown yourself for ten seconds. The first lethal hit leaves you at 1 health and turns you into mist for one second.',
-    (a,p)=>{a.status(p,'crowned',10);mark(a,p,'Restoration',72)})
+  spell('Restoration','dawn-coronation','Dawn Coronation','♕',850,6,'Crown yourself for 25 seconds and gain 70 shield. The first lethal hit leaves you at 1 health and turns you into mist for one second.',
+    (a,p)=>{ward(p,70);a.status(p,'crowned',25);mark(a,p,'Restoration',72)})
 ];
 
 const creatureSpells = new Map([

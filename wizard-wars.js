@@ -1,14 +1,14 @@
 import {setupControls} from './wizard-controls.js?v=controls';
-import {SPELLS} from './wizard-spells.js?v=wizbee-wizzone';
-import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=wizbee-wizzone';
+import {SPELLS} from './wizard-spells.js?v=mana-value';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=mana-value';
 
 import {markChangedChunk,T} from './wizard-world.js?v=labyrinth-keepers';
-import {openRoom} from './wizard-room.js?v=keyboard-play';
+import {openRoom} from './wizard-room.js?v=mana-value';
 const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),canvas=$('stage');
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=wizbee-wizzone');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=mana-value');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -101,6 +101,7 @@ $('ready').onclick=()=>{if(locked||!validIds(selected))return;locked=true;drawBo
 function network(isHost,word=''){
  host=isHost;me=host?0:1;code=word;$('join').disabled=$('proceed').disabled=true;$('setupStatus').textContent='Contacting the room service…';
  room=openRoom(host,word,{code(c){code=c;book();lobby()},started:()=>!!game,
+ status(message){if(page==='setup')$('setupStatus').textContent=message},
  connected(seat){if(host){seats.set(seat,null);room.send({t:'rules',settings,seat},seat);lobby()}},
  left(seat){if(!seats.delete(seat))return;if(game){game.state.players[seat].hp=0;game.state.players[seat].disconnected=true}else lobby()},
  error(msg){if(page==='end')return;setup('multi');$('setupStatus').textContent=msg},

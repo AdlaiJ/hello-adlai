@@ -1,6 +1,6 @@
 import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=labyrinth-keepers';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=wizbee-wizzone';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=mana-value';
 import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=labyrinth-keepers';
 export {MAPS,makeTiles} from './wizard-world.js?v=labyrinth-keepers';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
