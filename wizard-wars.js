@@ -1,6 +1,6 @@
 import {setupControls} from './wizard-controls.js?v=controls';
-import {SPELLS} from './wizard-spells.js?v=disaster-curses';
-import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=disaster-curses';
+import {SPELLS} from './wizard-spells.js?v=grounded-braces';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=grounded-braces';
 
 import {markChangedChunk,T} from './wizard-world.js?v=compact-maps';
 import {openRoom} from './wizard-room.js?v=mana-value';
@@ -150,7 +150,7 @@ function toggleStoring(){
  if(p.store>=0){armed=false;if(game)game.stopStoring(me);else{p.store=-1;room.send({t:'stop-store'})}notify('Storing stopped · Stored mana kept');hud();return}
  armed=!armed;hud();
 }
-function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).channel){holdSpell(i);return}heldSpell=-1;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
+function act(i){if(page!=='hud'||!selected[i])return;if(spells.get(selected[i]).channel){holdSpell(i);return}heldSpell=-1;const store=armed;armed=false;const p=state.players[me],spell=spells.get(selected[i]);if(!store&&spell.id==="rocket-braces"&&p.bracesSpent){notify("Land to recharge Rocket Braces");return}if(!store&&spell.id==="bottle-rocket"&&p.rocketSpent){notify("Land to recharge Bottle Rocket");return}if(!store&&!(spell.id==="skull-throne"&&p.onThrone)&&!(p.weapon?.id===spell.id&&p.weapon.strikes>0)&&p.mana+.0001<spell.cost-p.bank[i])notify('Need more mana for '+spell.name);
  if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);game.command(me,i,store)}else{room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell});room.send({t:'cast',slot:i,store})}}
 
 let feedbackPrevious=null,hurtUntil=0,hitUntil=0,hitTotal=0,hurtTotal=0,lastHurt=0,lastHit=0;

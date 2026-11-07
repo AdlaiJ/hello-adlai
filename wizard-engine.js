@@ -1,6 +1,6 @@
 import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=compact-maps';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=disaster-curses';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=grounded-braces';
 import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=compact-maps';
 export {MAPS,makeTiles} from './wizard-world.js?v=compact-maps';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -462,6 +462,7 @@ export function createGame(settings,loadouts,mode){
   if(!store&&spell.id==='blood-arsenal'&&p.bloodAmmo>=30)return false;
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
   if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
+  if(spell.id==='rocket-braces'&&p.bracesSpent)return false;
   if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
   const held=p.weapon;
   if(held?.id===spell.id&&held.until>s.time&&held.strikes>0){
@@ -759,6 +760,7 @@ export function createGame(settings,loadouts,mode){
    }
    if(p.y>580){damage(p,22);p.x=midX+(p.side?300:-300);p.z=midZ;p.y=40;p.vy=0}
    if(p.rocketSpent&&p.ground)p.rocketSpent=false;
+   if(p.bracesSpent&&!p.bracesPending&&p.ground)p.bracesSpent=false;
    p.channel=-1;
    const stream=byId.get(p.ids[p.channelRequested]);
    if(stream?.channel&&p.channelUntil>s.time&&!p.channelBlocked&&p.hp>0&&p.cast<=0&&!(st.silence>0)){

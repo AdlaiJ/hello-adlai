@@ -1,7 +1,7 @@
 import {curseSpells} from './wizard-curse-spells.js?v=disaster-curses';
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
-import {extraSpells} from './wizard-extra-spells.js?v=mana-value';
+import {extraSpells} from './wizard-extra-spells.js?v=grounded-braces';
 export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp','curse-fish','curse-puppet','curse-isomer','curse-double']);
 export const spellRadius = radius => radius * 1.12;
 
