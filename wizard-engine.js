@@ -43,10 +43,19 @@ export function createGame(settings,loadouts,mode){
  function blocked(x,y,z){for(const dx of [-5,5])for(const dz of [-5,5])for(const dy of [-1,-12,-24])if(solid(x+dx,y+dy,z+dz))return true;return false}
  function move(p,dx,dy,dz=0){
   const n=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))/4));
+  // Resolve to the contact surface, rather than leaving a frame-sized gap.
+  function advance(axis,value){
+   const before=p[axis],test={x:p.x,y:p.y,z:p.z};test[axis]=value;
+   if((axis!=='y'&&p.statuses.wallwalk>0)||!blocked(test.x,test.y,test.z)){p[axis]=value;return}
+   let clear=before,hit=value;
+   for(let j=0;j<12;j++){const middle=(clear+hit)/2;test[axis]=middle;if(blocked(test.x,test.y,test.z))hit=middle;else clear=middle}
+   p[axis]=clear;
+   if(axis==='y'){if(value>before)p.ground=true;p.vy=0}else p[axis==='x'?'vx':'vz']=0;
+  }
   for(let i=0;i<n;i++){
-   const x=clamp(p.x+dx/n,8,W*T-8);if(p.statuses.wallwalk>0||!blocked(x,p.y,p.z))p.x=x;else p.vx=0;
-   const z=clamp(p.z+dz/n,8,D*T-8);if(p.statuses.wallwalk>0||!blocked(p.x,p.y,z))p.z=z;else p.vz=0;
-   const y=Math.max(24,p.y+dy/n);if(!blocked(p.x,y,p.z))p.y=y;else{if(dy>0)p.ground=true;p.vy=0}
+   advance('x',clamp(p.x+dx/n,8,W*T-8));
+   advance('z',clamp(p.z+dz/n,8,D*T-8));
+   advance('y',Math.max(24,p.y+dy/n));
   }
  }
  function damage(p,n,source=activeSource){
@@ -737,7 +746,8 @@ export function createGame(settings,loadouts,mode){
     p.brain-=dt;if(mode!=='sandbox'&&p.brain<=0){p.brain=1.2+Math.random()*1.2;const options=p.ids.map((id,k)=>byId.get(id).cost<=p.mana?k:-1).filter(k=>k>=0);if(options.length)command(i,options[Math.floor(Math.random()*options.length)])}
    }
    const drive=inputs[i],speed=140*(st.haste>0?1.65:1)*(st.slow>0?.45:1);
-   p.vx+=(drive.move*speed-p.vx)*(1-Math.exp(-7*dt));p.vz+=(drive.strafe*speed-p.vz)*(1-Math.exp(-7*dt));if(st.root>0)p.vx=p.vz=0;
+   const response=p.ground?(drive.move||drive.strafe?12:16):7;
+   p.vx+=(drive.move*speed-p.vx)*(1-Math.exp(-response*dt));p.vz+=(drive.strafe*speed-p.vz)*(1-Math.exp(-response*dt));if(st.root>0)p.vx=p.vz=0;
    if(p.ground&&drive.jump&&!(st.root>0)){p.vy=st.leap>0?-440:-300;p.ground=false}
    const previousY=p.y;
    p.ground=false;p.vy=Math.min(st.astral>0?100:560,p.vy+(st.astral>0?150:720)*dt);move(p,p.vx*dt,p.vy*dt,p.vz*dt);

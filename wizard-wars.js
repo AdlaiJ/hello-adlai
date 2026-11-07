@@ -1,6 +1,6 @@
 import {setupControls} from './wizard-controls.js?v=controls';
 import {SPELLS} from './wizard-spells.js?v=grounded-braces';
-import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=grounded-braces';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=smooth-wizard';
 
 import {markChangedChunk,T} from './wizard-world.js?v=compact-maps';
 import {openRoom} from './wizard-room.js?v=mana-value';
@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=disaster-curses');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=smooth-wizard');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -83,7 +83,7 @@ $('school').onchange=drawBook;
 $('grandToggle').onclick=()=>{$('school').value=$('school').value==='grand'?'All':'grand';drawBook();$('cards').scrollTop=0};
 function validIds(ids){return Array.isArray(ids)&&ids.length===settings.count&&new Set(ids).size===ids.length&&ids.every(id=>spells.has(id))}
 function notify(text){message=text;messageUntil=performance.now()+1600}
-function start(){heldSpell=-1;show('hud');keys.clear();armed=false;yaw=state.players[me].yaw;angle=0;netClock=0;
+function start(){pendingLookX=pendingLookY=0;previousActors=[];visualActors=[];acc=0;heldSpell=-1;show('hud');keys.clear();armed=false;yaw=state.players[me].yaw;angle=0;netClock=0;
  canvas.tabIndex=-1;canvas.focus();
  $('practice').hidden=mode!=='sandbox';$('slots').replaceChildren();
  selected.forEach((id,i)=>{const b=document.createElement('button');if(spells.get(id).channel){
@@ -203,6 +203,9 @@ $('refill').onclick=()=>{const p=state.players[0];p.hp=p.maxHp;p.mana=p.maxMana}
 function movement(){return Number(keys.has('w'))-Number(keys.has('s'))}
 function strafe(){return Number(keys.has('d'))-Number(keys.has('a'))}
 function jumping(){return keys.has(' ')}
+let pendingLookX=0,pendingLookY=0;
+function queueLook(dx,dy){if(Number.isFinite(dx)&&Number.isFinite(dy)){pendingLookX+=Math.max(-.65,Math.min(.65,dx))*controls.mouse;pendingLookY+=Math.max(-.65,Math.min(.65,dy))*controls.mouse}}
+function smoothLook(dt){const blend=1-Math.exp(-65*dt),x=pendingLookX*blend,y=pendingLookY*blend;pendingLookX-=x;pendingLookY-=y;turn(x,y,1)}
 function turn(dx,dy,gain=controls.mouse){yaw+=dx*gain;angle=Math.max(-1.35,Math.min(1.35,angle+dy*gain))}
 function fireHeld(){
  if(page!=='hud'||!state)return;const p=state.players[me];
@@ -222,7 +225,7 @@ addEventListener('keydown',e=>{if(page!=='hud'||e.ctrlKey||e.metaKey||e.altKey||
  if(k==='shift'){toggleShiftLock();return}
  if(k==='f')toggleStoring();else if(/^\d$/.test(k))act((Number(k)+9)%10);
 });addEventListener('keyup',e=>{const k=pressedActions.get(e.code);pressedActions.delete(e.code);if(!k)return;keys.delete(k);if(/^\d$/.test(k))releaseSpell((Number(k)+9)%10)});
-function clearHeld(){pressedActions.clear();keys.clear();releaseSpell(heldSpell)}
+function clearHeld(){pendingLookX=pendingLookY=0;pressedActions.clear();keys.clear();releaseSpell(heldSpell)}
 addEventListener('blur',clearHeld);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearHeld()});
 document.querySelectorAll('[data-control]').forEach(b=>{b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);keys.add(b.dataset.control)};b.onlostpointercapture=()=>keys.delete(b.dataset.control)});$('touchStore').onclick=toggleStoring;
@@ -271,27 +274,38 @@ document.addEventListener('pointerlockchange',()=>{
  lockButton.textContent=locked?'Shift Lock: On':'Shift Lock: Off';
 });
 document.addEventListener('mousemove',e=>{
- if(page==='hud'&&!controls.open&&(document.pointerLockElement===canvas||(windowAim&&e.target===canvas)))turn(e.movementX*.004,e.movementY*.004);
+ if(page==='hud'&&!controls.open&&(document.pointerLockElement===canvas||(windowAim&&e.target===canvas)))queueLook(e.movementX*.0045,e.movementY*.0045);
 });
 canvas.onpointerdown=e=>{
  if(page==='hud'&&e.button===0){canvas.focus();if(state.players[me]?.weapon?.strikes>0||state.players[me]?.bloodAmmo||state.players[me]?.onThrone||state.players[me]?.blocks?.length)fireHeld()}
  if(page!=='hud'||windowAim||document.pointerLockElement===canvas)return;canvas.setPointerCapture(e.pointerId);drag=[e.clientX,e.clientY]};
-canvas.onpointermove=e=>{if(!drag||page!=='hud'||windowAim||document.pointerLockElement===canvas)return;turn((e.clientX-drag[0])*.007,(e.clientY-drag[1])*.006);drag=[e.clientX,e.clientY]};
+canvas.onpointermove=e=>{if(!drag||page!=='hud'||windowAim||document.pointerLockElement===canvas)return;queueLook((e.clientX-drag[0])*.007,(e.clientY-drag[1])*.006);drag=[e.clientX,e.clientY]};
 canvas.onlostpointercapture=()=>drag=null;
-let prev=performance.now(),acc=0,uiClock=0;
+let prev=performance.now(),acc=0,uiClock=0,previousActors=[],visualActors=[];
+function movementView(dt){
+ if(state.cutscene){previousActors=[];visualActors=[];return state}
+ const blend=1-Math.exp(-22*dt);
+ const players=state.players.map((p,i)=>{
+  const from=game?previousActors[i]:visualActors[i];
+  if(!from||from.hp<=0||Math.hypot(p.x-from.x,p.y-from.y,p.z-from.z)>90)return {...p};
+  const t=game?Math.max(0,Math.min(1,acc*60)):blend;
+  return {...p,x:from.x+(p.x-from.x)*t,y:from.y+(p.y-from.y)*t,z:from.z+(p.z-from.z)*t};
+ });visualActors=players;return {...state,players};
+}
 function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-prev)/1000);prev=now;
  if(document.hidden&&(mode!=='multi'||page!=='hud'))return;
  if(controls.open&&page==='hud'&&mode!=='multi')return;
  if(page!=='hud'){draw(null,0,0,0,now/1000);return}
- turn((Number(keys.has('arrowright'))-Number(keys.has('arrowleft')))*dt*2.1,(Number(keys.has('arrowdown'))-Number(keys.has('arrowup')))*dt*1.4,controls.keyboard);
- if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);acc+=dt;while(acc>=1/60){game.tick(1/60);acc-=1/60}}
+ smoothLook(dt);
+ turn((Number(keys.has('arrowright'))-Number(keys.has('arrowleft')))*dt*2.5,(Number(keys.has('arrowdown'))-Number(keys.has('arrowup')))*dt*1.4,controls.keyboard);
+ if(game){game.input(me,movement(),jumping(),angle,strafe(),yaw,heldSpell);acc+=dt;while(acc>=1/60){previousActors=state.players.map(p=>({x:p.x,y:p.y,z:p.z,hp:p.hp}));game.tick(1/60);acc-=1/60}}
  netClock+=dt;if(mode==='multi'&&(netClock>=.05||state.over)){netClock=0;
   if(host){const tiles=[];for(const k of game.dirty){tiles.push(state.tiles.boneWalls?.has(k)?[k,state.tiles[k],state.tiles.boneWalls.get(k)]:[k,state.tiles[k]]);game.dirty.delete(k);if(tiles.length===160)break}room.send({t:'frame',state:game.snapshot(false),tiles})}
   else room.send({t:'input',move:movement(),jump:jumping(),angle,strafe:strafe(),yaw,channel:heldSpell})}
  if(!state||page!=='hud'||document.hidden)return;
  combatFeedback(now);
  cameraDistance+=(distances[zoomLevel]-cameraDistance)*(1-Math.exp(-14*dt));
- draw(state,me,state.cutscene?Math.atan2(state.cutscene.z-state.players[me].z,state.cutscene.x+95-state.players[me].x):yaw,state.cutscene?-.15:angle,now/1000,state.cutscene?140:cameraDistance);uiClock+=dt;if(uiClock>.1){hud();uiClock=0}if(state.over)finish();
+ draw(movementView(dt),me,state.cutscene?Math.atan2(state.cutscene.z-state.players[me].z,state.cutscene.x+95-state.players[me].x):yaw,state.cutscene?-.15:angle,now/1000,state.cutscene?140:cameraDistance);uiClock+=dt;if(uiClock>.1){hud();uiClock=0}if(state.over)finish();
 }
 window.addEventListener('pagehide',()=>room?.stop());
 function slotLabel(i){return controls.label(String((i+1)%10))}

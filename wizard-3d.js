@@ -923,7 +923,8 @@ export function makeRenderer(canvas){
   const i=Math.floor(x/12),j=Math.floor((HEIGHT-y)/12),k=Math.floor(z/12);
   return i>=0&&i<X&&j>=0&&j<Y&&k>=0&&k<Z&&tiles[i+X*(j+Y*k)]>0;
  }
- function moveCamera(state,p,yaw,pitch,distance){
+ let boomDistance=null;const previousEye=new THREE.Vector3();
+ function moveCamera(state,p,yaw,pitch,distance,dt){
   const tiles=state.tiles;look.set(Math.cos(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.sin(yaw)*Math.cos(pitch));
   eye.set(p.x,HEIGHT-p.y+14,p.z);sideVec.set(-Math.sin(yaw),0,Math.cos(yaw));
   // Converge the crosshair on the first surface intersected by the actual cast ray.
@@ -936,6 +937,11 @@ export function makeRenderer(canvas){
    pos.copy(eye).addScaledVector(offset,d);
    if(blocked(tiles,pos.x,pos.y,pos.z)){desired.copy(eye).addScaledVector(offset,Math.max(0,d-3));break}
   }
+  const available=desired.distanceTo(eye);
+  if(boomDistance===null||previousEye.distanceToSquared(eye)>8100)boomDistance=available;
+  // Pull in immediately to avoid clipping; ease back out when space opens up.
+  boomDistance=available<boomDistance?available:boomDistance+(available-boomDistance)*(1-Math.exp(-12*Math.max(0,Math.min(.1,dt))));
+  previousEye.copy(eye);desired.copy(eye).addScaledVector(offset,boomDistance);
   camera.position.copy(desired);camera.lookAt(target);return camera.position.distanceTo(eye)<12;
  }
  function draw(state,me=0,yaw=0,pitch=0,time=0,distance=65){
@@ -959,7 +965,7 @@ export function makeRenderer(canvas){
   if(demo&&!wasDemo){titleScene=Math.floor(Math.random()*4);titleEpoch=time;titleOutfits=[Math.floor(Math.random()*16),Math.floor(Math.random()*16)]}
   wasDemo=demo;
   const players=demo?[{x:395,y:420,z:192,side:0,outfit:titleOutfits[0],hp:100,yaw:.27,aim:-.1},{x:565,y:420,z:192,side:1,outfit:titleOutfits[1],hp:100,yaw:Math.PI-.27,aim:-.1}]:state.players;
-  const clock=demo?(time-titleEpoch)*.52:time,cycle=clock%4,hideLocal=demo?false:moveCamera(state,players[me]||players[0],yaw,pitch,distance);
+  const clock=demo?(time-titleEpoch)*.52:time,cycle=clock%4,hideLocal=demo?false:moveCamera(state,players[me]||players[0],yaw,pitch,distance,elapsed);
   const demoScale=1.74;
   if(demo&&titleScene===1){
    players[1].z+=Math.sin(cycle*Math.PI/2)*32;
