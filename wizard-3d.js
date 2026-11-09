@@ -1,7 +1,7 @@
 import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
-import {makeSpellModels} from './wizard-spell-models.js?v=domain-barriers';
+import {makeSpellModels} from './wizard-spell-models.js?v=salvage25';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=domain-barriers';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=salvage25';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -499,7 +499,7 @@ function makeSpellParts(scene){
    if(!model){if(models[style]){
      const root=new THREE.Group(),body=joint(root,0,0,0);const pose=models[style](body);
      body.rotation.z=Math.PI/2;body.scale.setScalar(style==='furnace-arrow'?2.8:2);
-     model={root,animate(time){if(style==='furnace-arrow'||style==='ultimate-wizbee'||style.startsWith('curse-')||style.startsWith('divine-')||style.startsWith('hakari-'))pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
+     model={root,animate(time){if(style==='furnace-arrow'||style==='ultimate-wizbee'||style.startsWith('curse-')||style.startsWith('divine-')||style.startsWith('hakari-')||style.startsWith('salvage-'))pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
     }else model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
    pool.used++;
    model.root.visible=true;

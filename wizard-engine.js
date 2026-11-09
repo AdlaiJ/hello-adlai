@@ -1,7 +1,7 @@
-import {DOMAIN_STYLES,crossesDomain} from './wizard-domains.js?v=domain-barriers';
+import {DOMAIN_STYLES,crossesDomain} from './wizard-domains.js?v=salvage25';
 import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=compact-maps';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=domain-barriers';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=salvage25';
 import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=compact-maps';
 export {MAPS,makeTiles} from './wizard-world.js?v=compact-maps';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
