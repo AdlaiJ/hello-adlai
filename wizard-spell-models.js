@@ -1,3 +1,5 @@
+import {installHakariModels} from './wizard-hakari-models.js?v=hakari';
+import {installDivineModels} from './wizard-divine-models.js?v=divine-light';
 import {installCurseModels} from './wizard-curse-models.js?v=disaster-curses';
 /* Small reusable pieces keep the spell silhouettes inexpensive to draw. Models face +X. */
 export function makeSpellModels({joint,part,shape,mat}){
@@ -688,5 +690,7 @@ export function makeSpellModels({joint,part,shape,mat}){
   for(let i=-9;i<=9;i++)piece(g,'box',0xd5ffc1,i*.07,.105,0,.003,.21,.003);
  };
  installCurseModels(models,{joint,part,shape,mat});
+ installDivineModels(models,{joint,part,shape,mat});
+ installHakariModels(models,{joint,part,shape,mat});
  return models;
 }

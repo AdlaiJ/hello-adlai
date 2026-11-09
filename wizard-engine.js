@@ -1,6 +1,6 @@
 import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=compact-maps';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=grounded-braces';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=hakari';
 import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=compact-maps';
 export {MAPS,makeTiles} from './wizard-world.js?v=compact-maps';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -350,10 +350,10 @@ export function createGame(settings,loadouts,mode){
     if(f.y>550)f.hp=0;
     continue;
    }
-   const support=f.kind==='medic'||f.kind==='bastion';
+   const support=f.kind==='medic'||f.kind==='bastion'||f.kind==='divine-cherub';
    const chasing=!support&&foe&&dist(foe)<400;
    const target=chasing&&!f.familiar?foe:(f.dungeonPost||f.owner),dx=target.x-f.x,dz=target.z-f.z,d=Math.hypot(dx,dz);
-   const contact=f.kind==='squire'||f.kind==='wraith'||f.kind.startsWith('curse-');
+   const contact=f.kind==='squire'||f.kind==='wraith'||f.kind.startsWith('curse-')||f.kind==='divine-guardian';
    const hold=chasing&&!f.familiar?(contact?14:f.kind==='archer'?165:105):22;
    const grounded=f.kind==='squire'||f.kind==='archer'||['curse-puppet','curse-isomer','curse-double'].includes(f.kind);
    const speed=f.statuses.root>0?0:f.statuses.slow>0?65:125;
@@ -393,7 +393,7 @@ export function createGame(settings,loadouts,mode){
    if(f.pulse>0||f.statuses.silence>0)continue;
    f.pulse=1.5;
    if(support&&dist(f.owner)<spellRadius(110)){
-    if(f.kind==='medic')api.heal(f.owner,5);else f.owner.shield=Math.min(100,f.owner.shield+5);
+    if(f.kind==='medic'||f.kind==='divine-cherub')api.heal(f.owner,5);else f.owner.shield=Math.min(100,f.owner.shield+5);
     fx(f.x,f.y-10,16,f.kind==='medic'?'#79ff99':'#dab1ff','ring',f.z);
    }else if(chasing){
     const pitch=Math.atan2(foe.y-f.y,Math.max(1,Math.hypot(foe.x-f.x,foe.z-f.z)));
@@ -430,10 +430,11 @@ export function createGame(settings,loadouts,mode){
      const blockedStrike=[.25,.5,.75].some(t=>solid(f.x+dx*t,f.y-12+(foe.y-f.y)*t,f.z+dz*t));
      if(blockedStrike)continue;
      const before=foe.hp;
-     damage(foe,f.giant||f.kind==='curse-isomer'?20:f.kind==='squire'?11:8,f);
+     damage(foe,f.giant||f.kind==='curse-isomer'?20:f.kind==='divine-guardian'?15:f.kind==='squire'?11:8,f);
      if(f.kind==='wraith')api.heal(f.owner,Math.max(0,before-foe.hp));else f.pulse=.85;
      fx(foe.x,foe.y-12,12,f.kind==='wraith'?'#8fffe1':'#d3e4a8','ring',foe.z);
-    }else if(f.kind==='archer')api.bolt(f,pitch,{speed:365,damage:f.giant?21:13,pierce:1,r:f.giant?5:3,color:'#cfadff'});
+    }else if(f.kind==='divine-ophanim'){for(const yawOffset of [-.18,0,.18])api.bolt(f,pitch,{style:'divine-sun-lance',speed:280,damage:7,homing:1.2,r:4,yawOffset,color:'#ffe6a0'})}
+    else if(f.kind==='archer')api.bolt(f,pitch,{speed:365,damage:f.giant?21:13,pierce:1,r:f.giant?5:3,color:'#cfadff'});
     else if(f.kind==='burrow'&&dist(foe)<40)api.area(f,f.x+Math.cos(f.yaw)*15,f.y-7,23,12,'#e3a669',f.z+Math.sin(f.yaw)*15);
     else if(f.kind==='storm'){for(const yawOffset of [-.09,0,.09])api.bolt(f,pitch,{speed:310,damage:4,r:2,yawOffset,color:'#ffe784'})}
     else if(f.kind==='frost')api.bolt(f,pitch,{speed:265,damage:6,r:3,color:'#86e9ff',onHit:(a,c,q)=>{if(q){if(c.statuses.court>0&&q.statuses.slow>0)a.status(q,'root',1);a.status(q,'slow',2)}}});
@@ -472,6 +473,8 @@ export function createGame(settings,loadouts,mode){
   if(store){p.store=p.store===slot||p.bank[slot]>=spell.cost?-1:slot;return true}
   if(spell.id==='bottle-rocket'&&p.rocketSpent)return false;
   if(spell.id==='rocket-braces'&&p.bracesSpent)return false;
+  if(spell.id==='divine-wings'&&p.divineFlightSpent)return false;
+  if(spell.id==='hakari-idle-death-gamble'&&p.statuses.hakariJackpot>0)return false;
   if(spell.id==='skull-throne'&&p.onThrone)return fireSword(index);
   const held=p.weapon;
   if(held?.id===spell.id&&held.until>s.time&&held.strikes>0){
@@ -769,6 +772,7 @@ export function createGame(settings,loadouts,mode){
     }
    }
    if(p.y>580){damage(p,22);p.x=midX+(p.side?300:-300);p.z=midZ;p.y=40;p.vy=0}
+   if(p.divineFlightSpent&&p.ground)p.divineFlightSpent=false;
    if(p.rocketSpent&&p.ground)p.rocketSpent=false;
    if(p.bracesSpent&&!p.bracesPending&&p.ground)p.bracesSpent=false;
    p.channel=-1;

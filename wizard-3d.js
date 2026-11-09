@@ -1,7 +1,7 @@
 import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
-import {makeSpellModels} from './wizard-spell-models.js?v=disaster-curses';
+import {makeSpellModels} from './wizard-spell-models.js?v=hakari';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=disaster-curses';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=hakari';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -350,11 +350,12 @@ function makeTerrain(scene){
 }
 function makeFamiliars(scene){
  const creatureModels=makeSpellModels({joint,part,shape,mat});
- const pools=new Map(),palette={'curse-fish':0x69ddf5,'curse-puppet':0xc5a4df,'curse-isomer':0xc5a4df,'curse-double':0xa4b1ce,'crimson-king':0xff365e,'imp-furnace':0xff9634,'fire-imp':0xff7b22,'purple-wurm':0xb983ef,'void-entity':0x9a8bff,squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
+ const pools=new Map(),palette={'divine-guardian':0xffdf95,'divine-cherub':0xffedcb,'divine-ophanim':0xffcf72,'curse-fish':0x69ddf5,'curse-puppet':0xc5a4df,'curse-isomer':0xc5a4df,'curse-double':0xa4b1ce,'crimson-king':0xff365e,'imp-furnace':0xff9634,'fire-imp':0xff7b22,'purple-wurm':0xb983ef,'void-entity':0x9a8bff,squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
  function create(kind){
   const root=joint(scene,0,0,0),body=joint(root,0,0,0),glow=mat(palette[kind],true),fins=[];
   const badge=part(body,shape.ring,mat(0x8febff,true),0,-3.7,0,2.05);badge.rotation.x=Math.PI/2;
   switch(kind){
+   case 'divine-guardian':case 'divine-cherub':case 'divine-ophanim':{const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='divine-cherub'?10:15);creature.rotation.y=Math.PI/2;body.userData.pose=creatureModels[kind](creature);break;}
    case 'curse-fish':case 'curse-puppet':case 'curse-isomer':case 'curse-double':{const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='curse-isomer'?17:12);creature.rotation.y=Math.PI/2;body.userData.pose=creatureModels[kind](creature);break;}
    case 'crimson-king':{ const creature=joint(body,0,28,0);creature.scale.setScalar(30);creature.rotation.y=Math.PI/2;body.userData.pose=creatureModels[kind](creature);break; }
    case 'imp-furnace':case 'fire-imp':{
@@ -498,7 +499,7 @@ function makeSpellParts(scene){
    if(!model){if(models[style]){
      const root=new THREE.Group(),body=joint(root,0,0,0);const pose=models[style](body);
      body.rotation.z=Math.PI/2;body.scale.setScalar(style==='furnace-arrow'?2.8:2);
-     model={root,animate(time){if(style==='furnace-arrow'||style==='ultimate-wizbee'||style.startsWith('curse-'))pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
+     model={root,animate(time){if(style==='furnace-arrow'||style==='ultimate-wizbee'||style.startsWith('curse-')||style.startsWith('divine-')||style.startsWith('hakari-'))pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
     }else model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
    pool.used++;
    model.root.visible=true;
