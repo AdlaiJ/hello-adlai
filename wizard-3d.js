@@ -1,7 +1,7 @@
 import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
-import {makeSpellModels} from './wizard-spell-models.js?v=salvage25';
+import {makeSpellModels} from './wizard-spell-models.js?v=echo-kits';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=salvage25';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=echo-kits';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -190,8 +190,8 @@ function animateWizard(r,p,time,index,cast,matchTime){
  updateArmament(r,p,matchTime);
  r.crystal.rotation.y=time*2;r.light.material.opacity=.4+cast*.45;
  const st=p.statuses||{};
- r.light.scale.setScalar(7+cast*7+Math.sin(time*6)*.6);r.shield.visible=p.shield>0||st.prism>0||st.reflect>0||st.phased>0;
- r.shield.material.color.set(st.polar>0?0x80edff:st.capacitor>0?0xffe85a:(st.prism>0||st.reflect>0)?0xd6a2ff:r.p.point);
+ r.light.scale.setScalar(7+cast*7+Math.sin(time*6)*.6);r.shield.visible=st.echoMarked>0||p.shield>0||st.prism>0||st.reflect>0||st.phased>0;
+ r.shield.material.color.set(st.echoMarked>0?0xff596d:st.polar>0?0x80edff:st.capacitor>0?0xffe85a:(st.prism>0||st.reflect>0)?0xd6a2ff:r.p.point);
  r.shield.material.opacity=.14+.04*Math.sin(time*6);
  r.wisps.visible=p.store>=0||st.burn>0||st.regen>0;
  if(r.wisps.visible){
@@ -352,9 +352,10 @@ function makeFamiliars(scene){
  const creatureModels=makeSpellModels({joint,part,shape,mat});
  const pools=new Map(),palette={'divine-guardian':0xffdf95,'divine-cherub':0xffedcb,'divine-ophanim':0xffcf72,'curse-fish':0x69ddf5,'curse-puppet':0xc5a4df,'curse-isomer':0xc5a4df,'curse-double':0xa4b1ce,'crimson-king':0xff365e,'imp-furnace':0xff9634,'fire-imp':0xff7b22,'purple-wurm':0xb983ef,'void-entity':0x9a8bff,squire:0xc5f399,archer:0xba8eff,wraith:0x78ffdc,ember:0xff914f,frost:0xa3edff,medic:0x9bffad,bastion:0xbeb0ff,storm:0xffdc66,burrow:0xf1c497};
  function create(kind){
-  const root=joint(scene,0,0,0),body=joint(root,0,0,0),glow=mat(palette[kind],true),fins=[];
+  const root=joint(scene,0,0,0),body=joint(root,0,0,0),glow=mat(palette[kind]||0xb7a5e9,true),fins=[];
   const badge=part(body,shape.ring,mat(0x8febff,true),0,-3.7,0,2.05);badge.rotation.x=Math.PI/2;
   switch(kind){
+   case 'echo-clone':case 'echo-sentry':case 'echo-dispenser':case 'echo-delivery':case 'echo-rotten':case 'echo-bulb':case 'echo-vine':case 'echo-golem':{const creature=joint(body,0,8,0);creature.scale.setScalar(kind==='echo-golem'?26:16);body.userData.pose=creatureModels[kind](creature);break;}
    case 'divine-guardian':case 'divine-cherub':case 'divine-ophanim':{const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='divine-cherub'?10:15);creature.rotation.y=Math.PI/2;body.userData.pose=creatureModels[kind](creature);break;}
    case 'curse-fish':case 'curse-puppet':case 'curse-isomer':case 'curse-double':{const creature=joint(body,0,0,0);creature.scale.setScalar(kind==='curse-isomer'?17:12);creature.rotation.y=Math.PI/2;body.userData.pose=creatureModels[kind](creature);break;}
    case 'crimson-king':{ const creature=joint(body,0,28,0);creature.scale.setScalar(30);creature.rotation.y=Math.PI/2;body.userData.pose=creatureModels[kind](creature);break; }
@@ -499,7 +500,7 @@ function makeSpellParts(scene){
    if(!model){if(models[style]){
      const root=new THREE.Group(),body=joint(root,0,0,0);const pose=models[style](body);
      body.rotation.z=Math.PI/2;body.scale.setScalar(style==='furnace-arrow'?2.8:2);
-     model={root,animate(time){if(style==='furnace-arrow'||style==='ultimate-wizbee'||style.startsWith('curse-')||style.startsWith('divine-')||style.startsWith('hakari-')||style.startsWith('salvage-'))pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
+     model={root,animate(time){if(style==='furnace-arrow'||style==='ultimate-wizbee'||style.startsWith('curse-')||style.startsWith('divine-')||style.startsWith('hakari-')||style.startsWith('salvage-')||style.startsWith('echo-'))pose?.(time);body.rotation.y=style==='pinball-furnace'?time*6:0}};
     }else model=buildProjectile(style);pool.models.push(model);scene.add(model.root)}
    pool.used++;
    model.root.visible=true;
@@ -1008,7 +1009,7 @@ export function makeRenderer(canvas){
   for(let i=0;i<players.length;i++){
    const a=players[i];
    if(a.monster){if(rigs[i]){rigs[i].root.visible=false;rigs[i].grounding.visible=false;rigs[i].gauge.visible=false}continue}
-   const r=getRig(i,a.side||0,a.outfit??(a.side?4:0));r.root.visible=a.hp>0&&!(hideLocal&&i===me);r.grounding.visible=r.root.visible;
+   const r=getRig(i,a.side||0,a.outfit??(a.side?4:0));r.root.visible=a.hp>0&&!(hideLocal&&i===me)&&(!(a.statuses?.echoHidden>0)||i===me);r.grounding.visible=r.root.visible;
    r.gauge.visible=r.root.visible&&!demo&&i!==me&&a.hp<a.maxHp;
    if(!r.root.visible)continue;
    const cast=demo?(Math.cos((cycle-i*2)*Math.PI/2)*.5+.5):(a.cast>0||a.channel>=0?1:a.store>=0?.45:0);

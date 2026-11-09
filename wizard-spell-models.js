@@ -1,4 +1,5 @@
-import {installSalvageModels} from './wizard-salvage-models.js?v=salvage25';
+import {installEchoModels} from './wizard-echo-models.js?v=echo-kits';
+import {installSalvageModels} from './wizard-salvage-models.js?v=echo-kits';
 import {installHakariModels} from './wizard-hakari-models.js?v=hakari';
 import {installDivineModels} from './wizard-divine-models.js?v=divine-light';
 import {installCurseModels} from './wizard-curse-models.js?v=disaster-curses';
@@ -694,5 +695,6 @@ export function makeSpellModels({joint,part,shape,mat}){
  installDivineModels(models,{joint,part,shape,mat});
  installHakariModels(models,{joint,part,shape,mat});
  installSalvageModels(models,{joint,part,shape,mat});
+ installEchoModels(models,{joint,part,shape,mat});
  return models;
 }

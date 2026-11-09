@@ -1,6 +1,6 @@
 import {setupControls} from './wizard-controls.js?v=controls';
-import {SPELLS} from './wizard-spells.js?v=salvage25';
-import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=salvage25';
+import {SPELLS} from './wizard-spells.js?v=echo-kits';
+import {MAPS,makeTiles,createGame,campaignTiles,dungeonTiles} from './wizard-engine.js?v=echo-kits';
 
 import {markChangedChunk,T} from './wizard-world.js?v=compact-maps';
 import {openRoom} from './wizard-room.js?v=mana-value';
@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id),spells=new Map(SPELLS.map(s=>[s.id,s])),
 let draw;
 const modeButtons=document.querySelectorAll('#home .modes button');
 modeButtons.forEach(button=>button.disabled=true);
-try{const {makeRenderer}=await import('./wizard-3d.js?v=salvage25');draw=makeRenderer(canvas).draw}
+try{const {makeRenderer}=await import('./wizard-3d.js?v=echo-kits');draw=makeRenderer(canvas).draw}
 catch(error){document.querySelector('#home p').textContent='The 3D arena could not load. Check your connection and enable WebGL, then refresh.';throw error}
 
 let mode='waves',page='',settings,room=null,host=false,code='',selected=[],locked=false,game=null,state=null,me=0,armed=false,yaw=0,angle=0,netClock=0,message='',messageUntil=0;
@@ -38,6 +38,7 @@ const starterKits={
  'Close combat':{tip:'Summon Glass Knife, then press its slot again to swing. Aim for the back.',order:'glass-knife foxstep thimble-ward pocket-poultice vault-kick undertow rime-axe iron-choir winter-ring smoke-skin'},
  'Keep your distance':{tip:'Pin an enemy with Root Needle to give yourself room to aim.',order:'root-needle witchspark north-star rampart fold-step glass-fan rime-owl lantern-well silver-skewer corner-pocket'}
 };
+for(const kit of new Set(SPELLS.filter(s=>s.kit).map(s=>s.kit))){starterKits[kit]={tip:'Arena-adapted abilities. Read each description for mana costs and combos.',order:SPELLS.filter(s=>s.kit===kit).map(s=>s.id).join(' ')};const option=document.createElement('option');option.value=kit;option.textContent=kit;$('starterStyle').append(option)}
 function starterIds(kit){
  const affordable=spell=>spell.cost<=settings.mana;
  const fallback=SPELLS.filter(s=>!s.passwordProtected).filter(affordable).sort((a,b)=>a.cost-b.cost).map(s=>s.id);

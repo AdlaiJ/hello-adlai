@@ -1,11 +1,12 @@
-import {salvageSpells} from './wizard-salvage-spells.js?v=salvage25';
-import {hakariSpells} from './wizard-hakari-spells.js?v=salvage25';
+import {echoSpells,ECHO_KINDS} from './wizard-echo-spells.js?v=echo-kits';
+import {salvageSpells} from './wizard-salvage-spells.js?v=echo-kits';
+import {hakariSpells} from './wizard-hakari-spells.js?v=echo-kits';
 import {divineSpells} from './wizard-divine-spells.js?v=divine-light';
-import {curseSpells} from './wizard-curse-spells.js?v=salvage25';
+import {curseSpells} from './wizard-curse-spells.js?v=echo-kits';
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
 import {extraSpells} from './wizard-extra-spells.js?v=grounded-braces';
-export const SUMMON_KINDS = new Set(['squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp','curse-fish','curse-puppet','curse-isomer','curse-double','divine-guardian','divine-ophanim']);
+export const SUMMON_KINDS = new Set([...ECHO_KINDS,'squire','archer','wraith','purple-wurm','void-entity','imp-furnace','fire-imp','curse-fish','curse-puppet','curse-isomer','curse-double','divine-guardian','divine-ophanim']);
 export const spellRadius = radius => radius * 1.12;
 
 const color = {
@@ -749,7 +750,7 @@ const creatureSpells = new Map([
  ...['ember-newt','rime-owl','balm-beetle','bastion-crab','storm-finch','quarry-mole','wild-hunt','winter-court','frost-kennel','traveling-infirmary','ember-courier','mole-survey','thunder-brood'].map(id=>[id,'familiar'])
 ]);
 export const SPELLS = [...damage, ...ranged, ...boost, ...healing, ...shields, ...evocationArts,
-  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal, ...extraSpells(), ...curseSpells(), ...divineSpells(), ...hakariSpells(),...salvageSpells()]
+  ...movementArts, ...familiars, ...hexArts, ...restorationArts, ...wardingArts, ...grandSpells, ...arsenal, ...extraSpells(), ...curseSpells(), ...divineSpells(), ...hakariSpells(),...salvageSpells(),...echoSpells()]
   .map(entry => {
    const type=creatureSpells.get(entry.id);
    const cost=type&&type!=='familiar'?Math.ceil(entry.cost*1.25):entry.cost;

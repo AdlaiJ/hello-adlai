@@ -1,7 +1,8 @@
-import {DOMAIN_STYLES,crossesDomain} from './wizard-domains.js?v=salvage25';
+import {stepEchoSummon} from './wizard-echo-spells.js?v=echo-kits';
+import {DOMAIN_STYLES,crossesDomain} from './wizard-domains.js?v=echo-kits';
 import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=compact-maps';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=salvage25';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=echo-kits';
 import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=compact-maps';
 export {MAPS,makeTiles} from './wizard-world.js?v=compact-maps';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -87,7 +88,7 @@ export function createGame(settings,loadouts,mode){
     if(dx*dx+dy*dy+dz*dz<=radiusSquared){const hp=Math.max(0,(value&127)-n);setBlock(k,hp>0?(value&128)+hp:0)}
    }
  }
- const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds,source=activeSource)=>{if(key==='burn'&&source)burnSources.set(p,source);p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
+ const api={now:()=>s.time,allies:p=>s.summons.filter(f=>f.owner===p&&f.hp>0),enemies,fx:(x,y,r,...args)=>fx(x,y,spellRadius(r),...args),summon,heal:(p,n)=>{p.hp=Math.min(p.maxHp,p.hp+n)},status:(p,key,seconds,source=activeSource)=>{if((key==='burn'||key==='echoBleed'||key==='echoPoison')&&source)burnSources.set(p,source);p.statuses[key]=Math.max(seconds,p.statuses[key]||0)},
   blink:move,hurt:damage,cutTerrain:tileDamage,
   sightPoint(p){
    const range=crosshairRange(s,p,p.yaw,p.aim),horizontal=range*Math.cos(p.aim);
@@ -313,6 +314,7 @@ export function createGame(settings,loadouts,mode){
    f.time+=dt;f.pulse-=dt;
    for(const k of Object.keys(f.statuses))f.statuses[k]=Math.max(0,f.statuses[k]-dt);
    if(f.statuses.burn>0)damage(f,dt*6,burnSources.get(f));
+   if(f.statuses.echoBleed>0)damage(f,dt*3,burnSources.get(f));if(f.statuses.echoPoison>0)damage(f,dt*4,burnSources.get(f));
    if(f.hp<=0)continue;
    const dist=q=>Math.hypot(q.x-f.x,q.y-f.y,q.z-f.z);
    if(f.familiar&&dist(f.owner)>120){
@@ -320,10 +322,11 @@ export function createGame(settings,loadouts,mode){
    }
    let foe=null,nearest=Infinity;
    for(const group of [s.players,s.summons])for(const q of group){
-    if(q.side===f.side||q.hp<=0)continue;
+    if(q.side===f.side||q.hp<=0||q.statuses.echoHidden>0)continue;
     const dx=q.x-f.x,dy=q.y-f.y,dz=q.z-f.z,d2=dx*dx+dy*dy+dz*dz;
     if(d2<nearest){nearest=d2;foe=q}
    }
+   if(stepEchoSummon(f,foe,dt,api))continue;
    if(f.kind==='purple-wurm'){stepWurm(f,foe,dt);continue}
    if(f.kind==='imp-furnace'){
     f.vy=Math.min(440,f.vy+900*dt);move(f,0,f.vy*dt,0);
@@ -467,7 +470,7 @@ export function createGame(settings,loadouts,mode){
  }
  function castSpell(spell,p){
   const previous=activeSpell,previousSource=activeSource;activeSpell=spell.id;activeSource=p;
-  try{spell.cast(api,p,p.aim)}finally{activeSpell=previous;activeSource=previousSource}
+  try{p.statuses.echoHidden=0;spell.cast(api,p,p.aim)}finally{activeSpell=previous;activeSource=previousSource}
  }
  function stopStoring(index){const p=s.players[index];if(!p)return false;p.store=-1;return true}
  function command(index,slot,store=false){
@@ -741,6 +744,7 @@ export function createGame(settings,loadouts,mode){
     }
     if(safe){Object.assign(p,safe);p.vx=p.vy=p.vz=0;wallSafe.delete(p)}else st.wallwalk=.2;
    }
+   if(st.echoBleed>0)damage(p,3*dt,burnSources.get(p));if(st.echoPoison>0)damage(p,4*dt,burnSources.get(p));
    if(st.regen>0)api.heal(p,5*dt);if(st.burn>0)damage(p,6*dt,burnSources.get(p));
    if(manaFraction)p.mana=Math.min(p.maxMana,p.mana+p.maxMana*manaFraction);
    if(p.boss){if(p.voidBoss)stepVoid(p,dt);else stepKing(p,dt);continue}
