@@ -1,6 +1,7 @@
+import {DOMAIN_STYLES,crossesDomain} from './wizard-domains.js?v=domain-barriers';
 import {dungeonTiles,FLOOR,COLS,ROWS,CW,CD} from './wizard-dungeon.js?v=compact-maps';
 export {dungeonTiles};
-import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=hakari';
+import {throneSwordOrigin,bloodWeapons,SPELLS,spellRadius,SUMMON_KINDS} from './wizard-spells.js?v=domain-barriers';
 import {crosshairRange,W,H,D,T,makeTiles,markChangedChunk} from './wizard-world.js?v=compact-maps';
 export {MAPS,makeTiles} from './wizard-world.js?v=compact-maps';
 const byId=new Map(SPELLS.map(s=>[s.id,s]));
@@ -46,6 +47,7 @@ export function createGame(settings,loadouts,mode){
   // Resolve to the contact surface, rather than leaving a frame-sized gap.
   function advance(axis,value){
    const before=p[axis],test={x:p.x,y:p.y,z:p.z};test[axis]=value;
+   if(crossesDomain(s.zones,{x:p.x,y:p.y-12,z:p.z},{...test,y:test.y-12})){if(axis==='y')p.vy=0;else p[axis==='x'?'vx':'vz']=0;return}
    if((axis!=='y'&&p.statuses.wallwalk>0)||!blocked(test.x,test.y,test.z)){p[axis]=value;return}
    let clear=before,hit=value;
    for(let j=0;j<12;j++){const middle=(clear+hit)/2;test[axis]=middle;if(blocked(test.x,test.y,test.z))hit=middle;else clear=middle}
@@ -60,6 +62,7 @@ export function createGame(settings,loadouts,mode){
  }
  function damage(p,n,source=activeSource){
   if(p.hp<=0||p.statuses.phased>0||n<=0||(arriving()&&p.side===0))return;
+  if(source&&source!==p&&crossesDomain(s.zones,{x:source.x,y:source.y-12,z:source.z},{x:p.x,y:p.y-12,z:p.z}))return;
   const oldHp=p.hp,oldShield=p.shield;
   n*=p.statuses.armor>0?.5:1;
   const spent=Math.min(n,p.shield);p.shield-=spent;p.hp=Math.max(0,p.hp-n+spent);
@@ -96,7 +99,7 @@ export function createGame(settings,loadouts,mode){
    let distance=0;
    for(let d=1;d<=range;d++){
     const x=start.x+dx*d,y=start.y+14+dy*d,z=start.z+dz*d;
-    if(x<8||x>W*T-8||z<8||z>D*T-8||y<24||y>H*T||blocked(x,y,z))break;
+    if(x<8||x>W*T-8||z<8||z>D*T-8||y<24||y>H*T||blocked(x,y,z)||crossesDomain(s.zones,start,{x,y:y-14,z}))break;
     distance=d;
    }
    if(distance<2)return;
@@ -158,6 +161,7 @@ export function createGame(settings,loadouts,mode){
    }
   },
   clearLine(p,q){
+   if(crossesDomain(s.zones,{x:p.x,y:p.y-12,z:p.z},{x:q.x,y:q.y-12,z:q.z}))return false;
    const dx=q.x-p.x,dy=q.y-p.y,dz=q.z-p.z,steps=Math.ceil(Math.hypot(dx,dy,dz)/5);
    for(let i=1;i<steps;i++)if(solid(p.x+dx*i/steps,p.y-12+dy*i/steps,p.z+dz*i/steps))return false;
    return true;
@@ -212,6 +216,7 @@ export function createGame(settings,loadouts,mode){
     if(!s.players.some(q=>q.hp>0&&Math.abs(q.x-i*T-6)<14&&Math.abs(q.y-12-j*T-6)<22&&Math.abs(q.z-d*T-6)<14))setBlock((d*H+j)*W+i,26)}},
   zone:(p,x,y,r,duration,interval,cb,color,z=p.z,style)=>{
    const zone={p,x,y,z,r:spellRadius(r),life:duration,interval,tick:interval,cb,color,style:style||activeSpell,spellId:activeSpell};
+   zone.barrier=DOMAIN_STYLES.has(zone.style);
    s.zones.push(zone);return zone;
   },
   area:(p,x,y,r,n,color,z=p.z)=>{r=spellRadius(r);fx(x,y,r,color,'burst',z);tileDamage(x,y,r,n,z);for(const trap of s.zones){
@@ -807,6 +812,7 @@ export function createGame(settings,loadouts,mode){
    const n=Math.max(1,Math.ceil(Math.hypot(b.vx,b.vy,b.vz)*dt/4));
    for(let i=0;i<n&&!b.dead;i++){
     const ox=b.x,oy=b.y,oz=b.z;b.z+=b.vz*dt/n;b.x+=b.vx*dt/n;b.y+=b.vy*dt/n;
+    if(crossesDomain(s.zones,{x:ox,y:oy,z:oz},b)){b.x=ox;b.y=oy;b.z=oz;b.dead=true;fx(ox,oy,10,b.color,'burst',oz);break}
     const target=candidates.find(q=>{
      const size=q.voidBoss?76:q.boss?48:q.kind==='purple-wurm'?30:q.giant?20:8,reach=size+b.r;
      return q.hp>0&&Math.abs(q.y-(q.giant?22:13)-b.y)<size+6+b.r&&(q.x-b.x)**2+(q.z-b.z)**2<reach*reach&&!b.hit.has(q);
@@ -839,7 +845,7 @@ export function createGame(settings,loadouts,mode){
    }
    if(!b.dead&&(b.life<=0||b.x<0||b.x>W*T||b.y>550||b.y< -150||b.z<0||b.z>D*T)){b.onExpire?.(api,b.p,b.x,b.y,b.z);b.dead=true}
   }
-  s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){if(frozen(z.p))continue;if(!z.permanent)z.life-=dt;
+  s.shots=s.shots.filter(v=>!v.dead);for(const z of s.zones){if(z.barrier&&z.p.hp<=0){z.life=0;continue}if(frozen(z.p))continue;if(!z.permanent)z.life-=dt;
    if(z.style==='spikes'){
     if(z.hp<=0||!solid(z.x,z.y+1,z.z)){z.life=0;fx(z.x,z.y-9,16,z.color,'burst',z.z);continue}
     if(z.armedAt>s.time)continue;
@@ -874,6 +880,6 @@ export function createGame(settings,loadouts,mode){
    }
   }
  }
- function snapshot(includeTiles=true){return {arrivalUntil:s.arrivalUntil||0,dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})=>({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life})),...(includeTiles?{tiles:s.tiles}:{})}}
+ function snapshot(includeTiles=true){return {arrivalUntil:s.arrivalUntil||0,dungeonSeed:s.dungeonSeed||0,timeStop:s.timeStop,mode:s.mode,stage:s.stage,stageName:s.stageName,cutscene:s.cutscene,cinematicText:s.cinematicText,time:s.time,map:s.map,wave:s.wave,over:s.over,summons:s.summons.map(({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})=>({id,kind,familiar,giant,side,x,y,z,time,hp,maxHp,yaw,walkSpeed,attackAt})),players:s.players.map(({brain,...p})=>p),shots:s.shots.map(({style,x,y,z,r,color,vx,vy,vz})=>({style,x,y,z,r,color,vx,vy,vz})),effects:s.effects,zones:s.zones.map(({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life,barrier})=>({x,y,z,r,color,style,hp,yaw,rivers,road,grip,permanent,trapPose,life,barrier})),...(includeTiles?{tiles:s.tiles}:{})}}
  return {dirty,state:s,command,stopStoring,fireBlood,fireSword,fireBlock,input,tick,snapshot,spawn};
 }

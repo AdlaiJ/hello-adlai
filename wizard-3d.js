@@ -1,7 +1,7 @@
 import {boneWallChunk} from './wizard-bone-wall.js?v=labyrinth-keepers';
-import {makeSpellModels} from './wizard-spell-models.js?v=hakari';
+import {makeSpellModels} from './wizard-spell-models.js?v=domain-barriers';
 import {makeCastPainter} from './wizard-casting.js?v=blood-arsenal';
-import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=hakari';
+import {throneSwordOrigin,bloodWeapons,SPELLS} from './wizard-spells.js?v=domain-barriers';
 const meleeModels=new Map(SPELLS.filter(s=>s.melee).map(s=>[s.id,s.melee]));
 import {makeProjectileArt} from './wizard-projectile-art.js?v=blood-arsenal';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -487,7 +487,7 @@ function makeFamiliars(scene){
 }
 function makeSpellParts(scene){
  const models=makeSpellModels({joint,part,shape,mat});
- const effects=[],zones=[];
+ const effects=[],zones=[],barriers=[];
  const buildProjectile=makeProjectileArt(THREE),projectiles=new Map();
  function paintShots(shots,time){
   for(const pool of projectiles.values())pool.used=0;
@@ -570,6 +570,12 @@ function makeSpellParts(scene){
  function color(s){return sColor.set(s.color||'#f7c779')}
  return (shots,bursts,fields,t,camera)=>{
   paintShots(shots,t);
+  each(fields.filter(z=>z.barrier&&z.life>0),barriers,field,(z,b)=>{
+   b.root.position.set(z.x,HEIGHT-z.y,z.z);b.root.scale.setScalar(z.r);
+   b.m.color.set(z.color||'#b9a0ff');b.edge.color.copy(b.m.color);
+   b.m.opacity=.16+.035*Math.sin(t*3);b.edge.opacity=.85;
+   b.ring.rotation.y=t*.2;
+  });
   each(bursts,effects,burst,(e,b,i)=>{
    const life=clamp(e.life/(e.maxLife||.45),0,1),r=Math.max(1,e.r||10)*(1-life*.75);b.root.position.set(e.x,HEIGHT-e.y,e.z);
    b.props??=new Map();

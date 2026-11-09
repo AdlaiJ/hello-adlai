@@ -1,6 +1,6 @@
-import {hakariSpells} from './wizard-hakari-spells.js?v=hakari';
+import {hakariSpells} from './wizard-hakari-spells.js?v=domain-barriers';
 import {divineSpells} from './wizard-divine-spells.js?v=divine-light';
-import {curseSpells} from './wizard-curse-spells.js?v=disaster-curses';
+import {curseSpells} from './wizard-curse-spells.js?v=domain-barriers';
 // Coordinates are measured from each wizard's feet. All persistent effects are
 // scheduled by the match simulation so pausing also pauses their timers.
 import {extraSpells} from './wizard-extra-spells.js?v=grounded-braces';
@@ -755,5 +755,7 @@ export const SPELLS = [...damage, ...ranged, ...boost, ...healing, ...shields, .
    const rules=type==='summon'?' Summon: hunts enemies, can be killed, and has no number limit.'
      :type==='familiar'?' Familiar: stays near you, with at most three familiars at once.'
      :type==='mixed'?' The squire and archer are uncapped summons. The medic stays near you and uses one of your three familiar slots.':'';
-   return {...entry,passwordProtected:['timestop','asteroid-strike','dungeon-master','cataclysm'].includes(entry.id),cost,grand:cost>=50,description:entry.description+rules};
+   const domain=/^(shrine-of-cleavers|unlimited-void|wizzone|curse-growing-branches|curse-iron-mountain|curse-captivating-skandha|curse-self-embodiment|curse-flash-domain|hakari-idle-death-gamble|demiplane-of-sanctuary|demiplane-of-stars|demiplane-of-cinders)$/.test(entry.id);
+   const description=domain?entry.description.replace('Escape the circle to avoid the next cut.','').replace('Escape the field to recover.','').replace('Leave its boundary to lose the benefit.','')+' A sealed barrier blocks crossing and incoming or outgoing shots until this domain ends.':entry.description;
+   return {...entry,passwordProtected:['timestop','asteroid-strike','dungeon-master','cataclysm'].includes(entry.id),cost,grand:cost>=50,description:description+rules};
  });
